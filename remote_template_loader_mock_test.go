@@ -3,7 +3,7 @@ package gowrap
 /*
 DO NOT EDIT!
 This code was generated automatically using github.com/gojuno/minimock v1.9
-The original interface "remoteTemplateLoader" can be found in github.com/hexdigest/gowrap
+The original interface "remoteTemplateLoader" can be found in github.com/fitan/gowrap
 */
 import (
 	"sync/atomic"
@@ -13,7 +13,7 @@ import (
 	testify_assert "github.com/stretchr/testify/assert"
 )
 
-//remoteTemplateLoaderMock implements github.com/hexdigest/gowrap.remoteTemplateLoader
+//remoteTemplateLoaderMock implements github.com/fitan/gowrap.remoteTemplateLoader
 type remoteTemplateLoaderMock struct {
 	t minimock.Tester
 
@@ -28,7 +28,7 @@ type remoteTemplateLoaderMock struct {
 	LoadMock       mremoteTemplateLoaderMockLoad
 }
 
-//newRemoteTemplateLoaderMock returns a mock for github.com/hexdigest/gowrap.remoteTemplateLoader
+//newRemoteTemplateLoaderMock returns a mock for github.com/fitan/gowrap.remoteTemplateLoader
 func newRemoteTemplateLoaderMock(t minimock.Tester) *remoteTemplateLoaderMock {
 	m := &remoteTemplateLoaderMock{t: t}
 
@@ -61,7 +61,7 @@ func (m *mremoteTemplateLoaderMockList) Set(f func() (r []string, r1 error)) *re
 	return m.mock
 }
 
-//List implements github.com/hexdigest/gowrap.remoteTemplateLoader interface
+//List implements github.com/fitan/gowrap.remoteTemplateLoader interface
 func (m *remoteTemplateLoaderMock) List() (r []string, r1 error) {
 	atomic.AddUint64(&m.ListPreCounter, 1)
 	defer atomic.AddUint64(&m.ListCounter, 1)
@@ -121,7 +121,7 @@ func (m *mremoteTemplateLoaderMockLoad) Set(f func(p string) (r []byte, r1 strin
 	return m.mock
 }
 
-//Load implements github.com/hexdigest/gowrap.remoteTemplateLoader interface
+//Load implements github.com/fitan/gowrap.remoteTemplateLoader interface
 func (m *remoteTemplateLoaderMock) Load(p string) (r []byte, r1 string, r2 error) {
 	atomic.AddUint64(&m.LoadPreCounter, 1)
 	defer atomic.AddUint64(&m.LoadCounter, 1)

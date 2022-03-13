@@ -15,7 +15,7 @@ builds:
     - windows
 
   ldflags:
-    - -X github.com/hexdigest/gowrap.version={{.Version}}
+    - -X github.com/fitan/gowrap.version={{.Version}}
 checksum:
   name_template: 'checksums.txt'
 snapshot:

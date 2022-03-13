@@ -3,7 +3,7 @@ package loader
 /*
 DO NOT EDIT!
 This code was generated automatically using github.com/gojuno/minimock v1.9
-The original interface "httpClient" can be found in github.com/hexdigest/gowrap/loader
+The original interface "httpClient" can be found in github.com/fitan/gowrap/loader
 */
 import (
 	http "net/http"
@@ -15,7 +15,7 @@ import (
 	testify_assert "github.com/stretchr/testify/assert"
 )
 
-//httpClientMock implements github.com/hexdigest/gowrap/loader.httpClient
+//httpClientMock implements github.com/fitan/gowrap/loader.httpClient
 type httpClientMock struct {
 	t minimock.Tester
 
@@ -25,7 +25,7 @@ type httpClientMock struct {
 	DoMock       mhttpClientMockDo
 }
 
-//newHTTPClientMock returns a mock for github.com/hexdigest/gowrap/loader.httpClient
+//newHTTPClientMock returns a mock for github.com/fitan/gowrap/loader.httpClient
 func newHTTPClientMock(t minimock.Tester) *httpClientMock {
 	m := &httpClientMock{t: t}
 
@@ -69,7 +69,7 @@ func (m *mhttpClientMockDo) Set(f func(p *http.Request) (r *http.Response, r1 er
 	return m.mock
 }
 
-//Do implements github.com/hexdigest/gowrap/loader.httpClient interface
+//Do implements github.com/fitan/gowrap/loader.httpClient interface
 func (m *httpClientMock) Do(p *http.Request) (r *http.Response, r1 error) {
 	atomic.AddUint64(&m.DoPreCounter, 1)
 	defer atomic.AddUint64(&m.DoCounter, 1)

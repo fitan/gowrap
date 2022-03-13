@@ -1,4 +1,4 @@
-module github.com/hexdigest/gowrap
+module github.com/fitan/gowrap
 
 require (
 	github.com/gojuno/minimock/v3 v3.0.10

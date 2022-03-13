@@ -20,6 +20,20 @@ type Method struct {
 
 	ReturnsError   bool
 	AcceptsContext bool
+
+	// my extra
+	Gin GinParams
+}
+
+type GinParams struct {
+	GinUrl    string
+	GinMethod string
+	GinResult string
+	HasUri    bool
+	HasQuery  bool
+	HasBody   bool
+	HasHeader bool
+	HasKey    bool
 }
 
 // Param represents fuction argument or result
@@ -254,6 +268,22 @@ func (m Method) ParamsNames() string {
 	return strings.Join(ss, ", ")
 }
 
+func (m Method) ParamsNamesExcludeCtx() string {
+	ss := []string{}
+	tmp := make(ParamsSlice, 0, 0)
+	for _, p := range m.Params {
+		if p.Type == "context.Context" {
+			continue
+		}
+
+		tmp = append(tmp, p)
+	}
+	for _, p := range tmp {
+		ss = append(ss, p.Name)
+	}
+	return strings.Join(ss, ", ")
+}
+
 // ResultsNames returns a list of method results names
 func (m Method) ResultsNames() string {
 	ss := []string{}
@@ -268,6 +298,26 @@ func (m Method) ResultsNames() string {
 func (m Method) ParamsStruct() string {
 	ss := []string{}
 	for _, p := range m.Params {
+		if p.Variadic {
+			ss = append(ss, p.Name+" "+strings.Replace(p.Type, "...", "[]", 1))
+		} else {
+			ss = append(ss, p.Name+" "+p.Type)
+		}
+	}
+	return "struct{\n" + strings.Join(ss, "\n ") + "}"
+}
+
+func (m Method) ParamsStructExcludeCtx() string {
+	ss := []string{}
+	tmp := make(ParamsSlice, 0, 0)
+	for _, p := range m.Params {
+		if p.Type == "context.Context" {
+			continue
+		}
+
+		tmp = append(tmp, p)
+	}
+	for _, p := range tmp {
 		if p.Variadic {
 			ss = append(ss, p.Name+" "+strings.Replace(p.Type, "...", "[]", 1))
 		} else {
@@ -292,6 +342,22 @@ func (m Method) ResultsStruct() string {
 func (m Method) ParamsMap() string {
 	ss := []string{}
 	for _, p := range m.Params {
+		ss = append(ss, `"`+p.Name+`": `+p.Name)
+	}
+	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"
+}
+
+func (m Method) ParamsMapExcludeCtx() string {
+	ss := []string{}
+	tmp := make(ParamsSlice, 0, 0)
+	for _, p := range m.Params {
+		if p.Type == "context.Context" {
+			continue
+		}
+
+		tmp = append(tmp, p)
+	}
+	for _, p := range tmp {
 		ss = append(ss, `"`+p.Name+`": `+p.Name)
 	}
 	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"

@@ -22,18 +22,25 @@ type Method struct {
 	AcceptsContext bool
 
 	// my extra
-	Gin GinParams
+	HasGin bool
+	Gin    GinParams
 }
 
 type GinParams struct {
-	GinUrl    string
-	GinMethod string
-	GinResult string
-	HasUri    bool
-	HasQuery  bool
-	HasBody   bool
-	HasHeader bool
-	HasKey    bool
+	Url    string
+	Method string
+	Result string
+
+	HasUri     bool
+	UriTagMsgs []TagMsg
+
+	HasQuery bool
+	HasBody  bool
+
+	HasHeader     bool
+	HeaderTagMsgs []TagMsg
+
+	HasKey bool
 }
 
 // Param represents fuction argument or result

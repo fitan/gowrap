@@ -296,6 +296,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 	var found bool
 	var types []*ast.TypeSpec
 	var it *ast.InterfaceType
+	var currentFile *ast.File
 
 	//looking for the source interface declaration in all files in the dir
 	//while doing this we also store all found type declarations to check if some of the
@@ -307,6 +308,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 			if i, ok := ts.Type.(*ast.InterfaceType); ok {
 				if ts.Name.Name == interfaceName && !found {
 					imports = f.Imports
+					currentFile = f
 					it = i
 					found = true
 				}
@@ -318,7 +320,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 		return nil, nil, errors.Wrap(errInterfaceNotFound, interfaceName)
 	}
 
-	methods, err = processInterface(fs, currentPackage, it, types, p.Name, imports)
+	methods, err = processInterface(fs, currentPackage, currentFile, it, types, p.Name, imports)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -342,7 +344,7 @@ func typeSpecs(f *ast.File) []*ast.TypeSpec {
 	return result
 }
 
-func processInterface(fs *token.FileSet, currentPackage *packages.Package, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
+func processInterface(fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
 	if it.Methods == nil {
 		return nil, nil
 	}
@@ -359,12 +361,24 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, it *a
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
 			if err == nil {
 				methods[field.Names[0].Name] = *method
+
+				httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
+				has, err := httpMethod.Parse()
+				if err != nil {
+					return nil, err
+				}
+
+				if has {
+					method.Gin = httpMethod.GinParams
+					method.HasGin = true
+				}
+
 				continue
 			}
 		case *ast.SelectorExpr:
 			embeddedMethods, err = processSelector(fs, currentPackage, v, imports)
 		case *ast.Ident:
-			embeddedMethods, err = processIdent(fs, currentPackage, v, types, typesPrefix, imports)
+			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, types, typesPrefix, imports)
 		}
 
 		if err != nil {
@@ -432,7 +446,7 @@ func mergeMethods(ml1, ml2 methodsList) (methodsList, error) {
 var errEmbeddedInterfaceNotFound = errors.New("embedded interface not found")
 var errNotAnInterface = errors.New("embedded type is not an interface")
 
-func processIdent(fs *token.FileSet, currentPackage *packages.Package, i *ast.Ident, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methodsList, error) {
+func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, i *ast.Ident, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methodsList, error) {
 	var embeddedInterface *ast.InterfaceType
 	for _, t := range types {
 		if t.Name.Name == i.Name {
@@ -449,7 +463,7 @@ func processIdent(fs *token.FileSet, currentPackage *packages.Package, i *ast.Id
 		return nil, errors.Wrap(errEmbeddedInterfaceNotFound, i.Name)
 	}
 
-	return processInterface(fs, currentPackage, embeddedInterface, types, typesPrefix, imports)
+	return processInterface(fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports)
 }
 
 var errUnknownSelector = errors.New("unknown selector")

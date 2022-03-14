@@ -37,9 +37,9 @@ func Load(path string) (*packages.Package, error) {
 		return nil, errPackageNotFound
 	}
 
-	if len(pkgs[0].Errors) > 0 {
-		return nil, pkgs[0].Errors[0]
-	}
+	//if len(pkgs[0].Errors) > 0 {
+	//	return nil, pkgs[0].Errors[0]
+	//}
 
 	return pkgs[0], nil
 }

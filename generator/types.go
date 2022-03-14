@@ -404,6 +404,18 @@ func (m Method) ReturnStruct(structName string) string {
 	return "return " + strings.Join(ss, ", ")
 }
 
+func (m Method) DocContains(s ...string) bool {
+	for _, v := range m.Doc {
+		vl := strings.Split(v, " ")
+		sLen := len(s)
+		if len(vl) >= sLen+1 && strings.Join(vl[1:sLen+1], " ") == strings.Join(s, " ") {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // Signature returns comma separated method's params followed by the comma separated
 // method's results
 func (m Method) Signature() string {

@@ -23,6 +23,7 @@ func HasGinHttpMark(fi *ast.Field) (has bool, url string, method string) {
 	}
 	for _, v := range fi.Doc.List {
 		vl := strings.Split(v.Text, " ")
+		fmt.Println(vl)
 		if len(vl) == 4 && vl[1] == HttpGinMark {
 			return true, vl[2], vl[3]
 		}
@@ -86,15 +87,15 @@ func (h *HttpMethod) gin() (gp GinParams) {
 		for _, ident := range field.Names {
 			switch ident.Name {
 			case "Query":
-				gp.HasQuery = true
+				h.GinParams.HasQuery = true
 			case "Body":
-				gp.HasBody = true
+				h.GinParams.HasBody = true
 			case "Uri":
-				gp.HasUri = true
+				h.GinParams.HasUri = true
 			case "Header":
-				gp.HasHeader = true
+				h.GinParams.HasHeader = true
 			case "CtxKey":
-				gp.HasKey = true
+				h.GinParams.HasKey = true
 			}
 		}
 	}

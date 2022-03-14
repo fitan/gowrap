@@ -360,8 +360,6 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 			var method *Method
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
 			if err == nil {
-				methods[field.Names[0].Name] = *method
-
 				httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
 				has, err := httpMethod.Parse()
 				if err != nil {
@@ -372,6 +370,8 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 					method.Gin = httpMethod.GinParams
 					method.HasGin = true
 				}
+
+				methods[field.Names[0].Name] = *method
 
 				continue
 			}

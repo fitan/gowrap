@@ -1,7 +1,6 @@
 package gowrap
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -27,11 +26,13 @@ type GenerateCommand struct {
 	outputFile    string
 	sourcePkg     string
 	noGenerate    bool
+	pkgNeedSyntax bool
 	vars          vars
 	localPrefix   string
 
-	loader   templateLoader
-	filepath fs
+	loader        templateLoader
+	filepath      fs
+	batchTemplate string
 }
 
 //NewGenerateCommand creates GenerateCommand
@@ -48,8 +49,11 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 
 	//this flagset loads flags values to the command fields
 	fs := &flag.FlagSet{}
+	// load pkg needsyntax slow。
+	fs.BoolVar(&gc.pkgNeedSyntax, "ps", false, "load pkg needsyntax")
 	fs.BoolVar(&gc.noGenerate, "g", false, "don't put //go:generate instruction to the generated code")
 	fs.StringVar(&gc.interfaceName, "i", "", `the source interface name, i.e. "Reader"`)
+	fs.StringVar(&gc.batchTemplate, "bt", "", `the source interface name, i.e. "Reader"`)
 	fs.StringVar(&gc.sourcePkg, "p", "", "the source package import path, i.e. \"io\", \"github.com/fitan/gowrap\" or\na relative import path like \"./generator\"")
 	fs.StringVar(&gc.outputFile, "o", "", "the output file name")
 	fs.StringVar(&gc.template, "t", "", "the template to use, it can be an HTTPS URL, local file or a\nreference to a template in gowrap repository,\n"+
@@ -76,23 +80,30 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	generatorOptions, err := gc.getOptions()
+	ops, err := gc.getOptions()
 	if err != nil {
 		return err
 	}
 
-	gen, err := generator.NewGenerator(*generatorOptions)
+	gens, err := generator.NewGenerator(ops)
 	if err != nil {
 		return err
 	}
 
-	buf := bytes.NewBuffer([]byte{})
-
-	if err := gen.Generate(buf); err != nil {
-		return err
+	for _, gen := range gens {
+		err := gen.Generate()
+		if err != nil {
+			return err
+		}
 	}
 
-	return gc.filepath.WriteFile(gc.outputFile, buf.Bytes(), 0664)
+	//buf := bytes.NewBuffer([]byte{})
+	//
+	//if err := gen.Generate(buf); err != nil {
+	//	return err
+	//}
+	return nil
+
 }
 
 var (
@@ -102,54 +113,69 @@ var (
 )
 
 func (gc *GenerateCommand) checkFlags() error {
-	if gc.outputFile == "" {
-		return errNoOutputFile
-	}
-
-	if gc.interfaceName == "" {
-		return errNoInterfaceName
-	}
-
-	if gc.template == "" {
-		return errNoTemplate
-	}
+	//if gc.outputFile == "" {
+	//	return errNoOutputFile
+	//}
+	//
+	//if gc.interfaceName == "" {
+	//	return errNoInterfaceName
+	//}
+	//
+	//if gc.template == "" {
+	//	return errNoTemplate
+	//}
 
 	return nil
 }
 
-func (gc *GenerateCommand) getOptions() (*generator.Options, error) {
-	options := generator.Options{
-		InterfaceName:  gc.interfaceName,
-		OutputFile:     gc.outputFile,
-		Funcs:          helperFuncs,
-		HeaderTemplate: headerTemplate,
-		HeaderVars: map[string]interface{}{
-			"DisableGoGenerate": gc.noGenerate,
-			"OutputFileName":    filepath.Base(gc.outputFile),
-			"VarsArgs":          varsToArgs(gc.vars),
-		},
-		Vars:        gc.vars.toMap(),
-		LocalPrefix: gc.localPrefix,
-	}
+func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
+	ops := make([]generator.Options, 0, 0)
 
-	outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(gc.outputFile))
-	if err != nil {
-		return nil, err
-	}
-
-	if gc.sourcePkg == "" {
-		gc.sourcePkg = "./"
-	}
-
-	sourcePackage, err := pkg.Load(gc.sourcePkg)
+	sourcePackage, err := pkg.Load(gc.sourcePkg, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load source package")
 	}
 
-	options.SourcePackage = sourcePackage.PkgPath
-	options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(outputFileDir)
+	btl := strings.Split(gc.batchTemplate, " ")
+	for _, v := range btl {
+		vl := strings.Split(v, ":")
+		if len(vl) != 2 {
+			return nil, fmt.Errorf("format is wrong: %s", v)
+		}
+		bodyTemplate := vl[0]
+		outputFile := vl[1]
 
-	return &options, err
+		options := generator.Options{
+			InterfaceName:  gc.interfaceName,
+			OutputFile:     outputFile,
+			Funcs:          helperFuncs,
+			HeaderTemplate: headerTemplate,
+			HeaderVars: map[string]interface{}{
+				"DisableGoGenerate": gc.noGenerate,
+				"OutputFileName":    filepath.Base(outputFile),
+				"VarsArgs":          varsToArgs(gc.vars),
+			},
+			Vars:          gc.vars.toMap(),
+			LocalPrefix:   gc.localPrefix,
+			PkgNeedSyntax: gc.pkgNeedSyntax,
+		}
+
+		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
+		if err != nil {
+			return nil, err
+		}
+
+		if gc.sourcePkg == "" {
+			gc.sourcePkg = "./"
+		}
+
+		options.SourcePackage = sourcePackage.PkgPath
+		options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)
+		ops = append(ops, options)
+
+	}
+
+	return ops, err
 }
 
 type readerFunc func(path string) ([]byte, error)
@@ -159,8 +185,8 @@ type loader struct {
 	remoteLoader templateLoader
 }
 
-func (gc *GenerateCommand) loadTemplate(outputFileDir string) (contents, url string, err error) {
-	body, url, err := gc.loader.Load(gc.template)
+func (gc *GenerateCommand) loadTemplate(template string, outputFileDir string) (contents, url string, err error) {
+	body, url, err := gc.loader.Load(template)
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to load template")
 	}

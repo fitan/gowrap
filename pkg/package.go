@@ -25,9 +25,12 @@ const mode packages.LoadMode = packages.NeedName |
 	packages.NeedCompiledGoFiles
 
 // Load loads package by its import path
-func Load(path string) (*packages.Package, error) {
-	//cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedDeps}
-	cfg := &packages.Config{Mode: mode}
+func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {
+	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedDeps}
+	if pkgNeedSyntax {
+		cfg = &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedDeps | packages.NeedSyntax}
+	}
+	//cfg := &packages.Config{Mode: mode}
 	pkgs, err := packages.Load(cfg, path)
 	if err != nil {
 		return nil, err

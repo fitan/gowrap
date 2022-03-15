@@ -3,13 +3,13 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"go/ast"
 	"go/token"
-	"io"
 	"text/template"
 
 	"github.com/pkg/errors"
@@ -28,9 +28,15 @@ type Generator struct {
 	bodyTemplate   *template.Template
 	srcPackage     *packages.Package
 	dstPackage     *packages.Package
+	genTemplates   []genTemplate
 	methods        methodsList
 	interfaceType  string
 	localPrefix    string
+}
+
+type genTemplate struct {
+	bodyTemplate *template.Template
+	dstPackage   *packages.Package
 }
 
 // TemplateInputs information passed to template for generation
@@ -126,92 +132,117 @@ type Options struct {
 	//LocalPrefix is a comma-separated string of import path prefixes, which, if set, instructs Process to sort the import
 	//paths with the given prefixes into another group after 3rd-party packages.
 	LocalPrefix string
+
+	PkgNeedSyntax bool
+
+	BatchTemplate []BatchTemplate
+}
+
+type BatchTemplate struct {
+	OutputFile   string
+	BodyTemplate string
 }
 
 var errEmptyInterface = errors.New("interface has no methods")
 var errUnexportedMethod = errors.New("unexported method")
 
+var methods methodsList
+var importSpecs []*ast.ImportSpec
+
 //NewGenerator returns Generator initialized with options
-func NewGenerator(options Options) (*Generator, error) {
-	if options.Funcs == nil {
-		options.Funcs = make(template.FuncMap)
+func NewGenerator(ops []Options) ([]*Generator, error) {
+	if len(ops) == 0 {
+		return nil, nil
 	}
 
-	headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse(options.HeaderTemplate)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse header template")
-	}
-
-	bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse body template")
-	}
-
-	if options.Vars == nil {
-		options.Vars = make(map[string]interface{})
-	}
-
-	fs := token.NewFileSet()
-
-	srcPackage, err := pkg.Load(options.SourcePackage)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load source package")
-	}
-
-	dstPackagePath := filepath.Dir(options.OutputFile)
-	if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
-		dstPackagePath = "./" + dstPackagePath
-	}
-
-	dstPackage, err := loadDestinationPackage(dstPackagePath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
-	}
-
-	srcPackageAST, err := pkg.AST(fs, srcPackage)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse source package")
-	}
-
-	interfaceType := srcPackage.Name + "." + options.InterfaceName
-	if srcPackage.PkgPath == dstPackage.PkgPath {
-		interfaceType = options.InterfaceName
-		srcPackageAST.Name = ""
-	} else {
-		if options.SourcePackageAlias != "" {
-			srcPackageAST.Name = options.SourcePackageAlias
+	gs := make([]*Generator, 0, 0)
+	for _, options := range ops {
+		if options.Funcs == nil {
+			options.Funcs = make(template.FuncMap)
 		}
 
-		options.Imports = append(options.Imports, `"`+srcPackage.PkgPath+`"`)
-	}
-
-	methods, imports, err := findInterface(fs, srcPackage, srcPackageAST, options.InterfaceName)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse interface declaration")
-	}
-
-	if len(methods) == 0 {
-		return nil, errEmptyInterface
-	}
-
-	for _, m := range methods {
-		if srcPackageAST.Name != "" && []rune(m.Name)[0] == []rune(strings.ToLower(m.Name))[0] {
-			return nil, errors.Wrap(errUnexportedMethod, m.Name)
+		headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse(options.HeaderTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse header template")
 		}
+
+		bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse body template")
+		}
+
+		if options.Vars == nil {
+			options.Vars = make(map[string]interface{})
+		}
+
+		fs := token.NewFileSet()
+
+		srcPackage, err := pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load source package")
+		}
+
+		dstPackagePath := filepath.Dir(options.OutputFile)
+		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
+			dstPackagePath = "./" + dstPackagePath
+		}
+
+		dstPackage, err := loadDestinationPackage(dstPackagePath)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+		}
+
+		srcPackageAST, err := pkg.AST(fs, srcPackage)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse source package")
+		}
+
+		interfaceType := srcPackage.Name + "." + options.InterfaceName
+		if srcPackage.PkgPath == dstPackage.PkgPath {
+			interfaceType = options.InterfaceName
+			srcPackageAST.Name = ""
+		} else {
+			if options.SourcePackageAlias != "" {
+				srcPackageAST.Name = options.SourcePackageAlias
+			}
+
+			options.Imports = append(options.Imports, `"`+srcPackage.PkgPath+`"`)
+		}
+
+		if methods == nil && importSpecs == nil {
+
+			methods, importSpecs, err = findInterface(fs, srcPackage, srcPackageAST, options.InterfaceName)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse interface declaration")
+			}
+
+			if len(methods) == 0 {
+				return nil, errEmptyInterface
+			}
+		}
+
+		for _, m := range methods {
+			if srcPackageAST.Name != "" && []rune(m.Name)[0] == []rune(strings.ToLower(m.Name))[0] {
+				return nil, errors.Wrap(errUnexportedMethod, m.Name)
+			}
+		}
+
+		options.Imports = append(options.Imports, makeImports(importSpecs)...)
+
+		gs = append(gs, &Generator{
+			Options:        options,
+			headerTemplate: headerTemplate,
+			bodyTemplate:   bodyTemplate,
+			srcPackage:     srcPackage,
+			dstPackage:     dstPackage,
+			interfaceType:  interfaceType,
+			methods:        methods,
+			localPrefix:    options.LocalPrefix,
+			genTemplates:   make([]genTemplate, 0, 0),
+		})
+
 	}
-
-	options.Imports = append(options.Imports, makeImports(imports)...)
-
-	return &Generator{
-		Options:        options,
-		headerTemplate: headerTemplate,
-		bodyTemplate:   bodyTemplate,
-		srcPackage:     srcPackage,
-		dstPackage:     dstPackage,
-		interfaceType:  interfaceType,
-		methods:        methods,
-		localPrefix:    options.LocalPrefix,
-	}, nil
+	return gs, nil
 }
 
 func makeImports(imports []*ast.ImportSpec) []string {
@@ -228,7 +259,7 @@ func makeImports(imports []*ast.ImportSpec) []string {
 }
 
 func loadDestinationPackage(path string) (*packages.Package, error) {
-	dstPackage, err := pkg.Load(path)
+	dstPackage, err := pkg.Load(path, false)
 	if err != nil {
 		//using directory name as a package name
 		dstPackage, err = makePackage(path)
@@ -251,7 +282,7 @@ func makePackage(path string) (*packages.Package, error) {
 }
 
 //Generate generates code using header and body templates
-func (g Generator) Generate(w io.Writer) error {
+func (g Generator) Generate() error {
 	buf := bytes.NewBuffer([]byte{})
 
 	err := g.headerTemplate.Execute(buf, map[string]interface{}{
@@ -283,8 +314,16 @@ func (g Generator) Generate(w io.Writer) error {
 		return errors.Wrapf(err, "failed to format generated code:\n%s", buf)
 	}
 
-	_, err = w.Write(processedSource)
+	buf = bytes.NewBuffer([]byte{})
+	_, err = buf.Write(processedSource)
+	if err != nil {
+		return nil
+	}
+	err = ioutil.WriteFile(g.Options.OutputFile, buf.Bytes(), 0664)
 	return err
+
+	//_, err = w.Write(processedSource)
+	//return err
 }
 
 var errInterfaceNotFound = errors.New("interface type declaration not found")

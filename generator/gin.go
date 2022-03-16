@@ -106,32 +106,24 @@ func FindByExpr(pkg *packages.Package, file *ast.File, expr ast.Expr) (*packages
 	switch t := expr.(type) {
 	// struct 在同一个pkg里面
 	case *ast.Ident:
-		findFile, findTypeSpec, err := FindTypeSpecByName(pkg, t.Name)
+		findFile, findStruct, err := FindStructTypeByName(pkg, t.Name)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-
-		if structType, ok := findTypeSpec.Type.(*ast.StructType); !ok {
-			return nil, nil, nil, fmt.Errorf("type not is structType. %s", Node2String(pkg.Fset, findTypeSpec.Type))
-		} else {
-			return pkg, findFile, structType, nil
-		}
+		return pkg, findFile, findStruct, nil
 	// struct 是selector类型， 在另外的pkg里面
 	case *ast.SelectorExpr:
 		findPkg, err := FindSelectPkg(pkg, file, t)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		findFile, findTypeSpec, err := FindTypeSpecByName(findPkg, t.Sel.Name)
+
+		findFile, findStruct, err := FindStructTypeByName(findPkg, t.Sel.Name)
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		return findPkg, findFile, findStruct, nil
 
-		if structType, ok := findTypeSpec.Type.(*ast.StructType); !ok {
-			return nil, nil, nil, fmt.Errorf("type not is structType %s", Node2String(pkg.Fset, findTypeSpec.Type))
-		} else {
-			return pkg, findFile, structType, nil
-		}
 	// 本身就是struct类型
 	case *ast.StructType:
 		return pkg, file, t, nil
@@ -150,6 +142,7 @@ func Node2String(fset *token.FileSet, node interface{}) string {
 	return buf.String()
 }
 
+// FindSelectPkg a.x  找到 a的pkg
 func FindSelectPkg(pkg *packages.Package, file *ast.File, selector *ast.SelectorExpr) (*packages.Package, error) {
 	selectName := selector.X.(*ast.Ident).Name
 	for _, importSpec := range file.Imports {
@@ -163,12 +156,15 @@ func FindSelectPkg(pkg *packages.Package, file *ast.File, selector *ast.Selector
 	}
 	return nil, fmt.Errorf("not find select pkg. pkgName: %s, pkgPath: %s, selectName: %s", pkg.Name, pkg.PkgPath, selectName)
 }
+
+// TrimImport 去掉 import "a"  还原为 “a”  否则为 “”a“”
 func TrimImport(s string) string {
 	s = strings.TrimSuffix(s, `"`)
 	s = strings.TrimPrefix(s, `"`)
 	return s
 }
 
+// FindStructTypeByName 在pkg中找到名字为typeName的struct 类型
 func FindStructTypeByName(pkg *packages.Package, typeName string) (*ast.File, *ast.StructType, error) {
 	findFile, findTypeSpec, err := FindTypeSpecByName(pkg, typeName)
 	if err != nil {
@@ -180,6 +176,7 @@ func FindStructTypeByName(pkg *packages.Package, typeName string) (*ast.File, *a
 	return nil, nil, fmt.Errorf("typeName: %s not structType", typeName)
 }
 
+// FindTypeSpecByName 在pkg中找到名字为typeName的type
 func FindTypeSpecByName(pkg *packages.Package, typeName string) (*ast.File, *ast.TypeSpec, error) {
 	for _, file := range pkg.Syntax {
 		for _, decl := range file.Decls {

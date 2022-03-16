@@ -50,7 +50,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 	//this flagset loads flags values to the command fields
 	fs := &flag.FlagSet{}
 	// load pkg needsyntax slow。
-	fs.BoolVar(&gc.pkgNeedSyntax, "ps", false, "load pkg needsyntax")
+	fs.BoolVar(&gc.pkgNeedSyntax, "ps", true, "load pkg needsyntax")
 	fs.BoolVar(&gc.noGenerate, "g", false, "don't put //go:generate instruction to the generated code")
 	fs.StringVar(&gc.interfaceName, "i", "", `the source interface name, i.e. "Reader"`)
 	fs.StringVar(&gc.batchTemplate, "bt", "", `the source interface name, i.e. "Reader"`)
@@ -63,7 +63,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 
 	gc.BaseCommand = BaseCommand{
 		Short: "generate decorators",
-		Usage: "-p package -i interfaceName -t template -o output_file.go",
+		Usage: "-p package -i interfaceName -bt",
 		Flags: fs,
 	}
 
@@ -113,6 +113,9 @@ var (
 )
 
 func (gc *GenerateCommand) checkFlags() error {
+	if gc.batchTemplate == "" {
+		return errNoTemplate
+	}
 	//if gc.outputFile == "" {
 	//	return errNoOutputFile
 	//}

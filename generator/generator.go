@@ -3,21 +3,18 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"github.com/fitan/gowrap/pkg"
+	"github.com/fitan/gowrap/printer"
+	"github.com/pkg/errors"
+	"go/ast"
+	"go/token"
+	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"go/ast"
-	"go/token"
 	"text/template"
-
-	"github.com/pkg/errors"
-	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/imports"
-
-	"github.com/fitan/gowrap/pkg"
-	"github.com/fitan/gowrap/printer"
 )
 
 //Generator generates decorators for the interface types

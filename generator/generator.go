@@ -146,11 +146,15 @@ var errUnexportedMethod = errors.New("unexported method")
 var methods methodsList
 var importSpecs []*ast.ImportSpec
 
+var gloabOption Options
+
 //NewGenerator returns Generator initialized with options
 func NewGenerator(ops []Options) ([]*Generator, error) {
 	if len(ops) == 0 {
 		return nil, nil
 	}
+
+	gloabOption = ops[0]
 
 	gs := make([]*Generator, 0, 0)
 	for _, options := range ops {
@@ -396,15 +400,17 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 			var method *Method
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
 			if err == nil {
-				httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
-				has, err := httpMethod.Parse()
-				if err != nil {
-					return nil, err
-				}
+				if gloabOption.PkgNeedSyntax {
+					httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
+					has, err := httpMethod.Parse()
+					if err != nil {
+						return nil, err
+					}
 
-				if has {
-					method.Gin = httpMethod.GinParams
-					method.HasGin = true
+					if has {
+						method.Gin = httpMethod.GinParams
+						method.HasGin = true
+					}
 				}
 
 				methods[field.Names[0].Name] = *method

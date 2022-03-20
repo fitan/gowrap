@@ -1,6 +1,7 @@
 package gowrap
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,9 @@ import (
 	"github.com/fitan/gowrap/pkg"
 	"github.com/pkg/errors"
 )
+
+//go:embed templates/*
+var tmp embed.FS
 
 //GenerateCommand implements Command interface
 type GenerateCommand struct {
@@ -33,6 +37,7 @@ type GenerateCommand struct {
 	loader        templateLoader
 	filepath      fs
 	batchTemplate string
+	combo         string
 }
 
 //NewGenerateCommand creates GenerateCommand
@@ -60,6 +65,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 		"run `gowrap template list` for details")
 	fs.Var(&gc.vars, "v", "a key-value pair to parametrize the template,\narguments without an equal sign are treated as a bool values,\ni.e. -v foo=bar -v disableChecks")
 	fs.StringVar(&gc.localPrefix, "l", "", "put imports beginning with this string after 3rd-party packages; comma-separated list")
+	fs.StringVar(&gc.combo, "c", "", "initialize template")
 
 	gc.BaseCommand = BaseCommand{
 		Short: "generate decorators",
@@ -72,6 +78,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 
 // Run implements Command interface
 func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
+
 	if err := gc.FlagSet().Parse(args); err != nil {
 		return CommandLineError(err.Error())
 	}

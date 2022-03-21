@@ -1,20 +1,20 @@
 package {{.Interface.Name}}
 
-// {{.Interface.Name}}Service describes the service.
-// if use kit. go:generate gowrap gen -g -p ./ -i {{.Interface.Name}}Service -bt "prometheus:{{.Interface.Name}}_with_prometheus_gen.go log:{{.Interface.Name}}_with_log_gen.go opentracing:{{.Interface.Name}}_with_trace_gen.go http-gin:{{.Interface.Name}}_http_gen.go endpoint:{{.Interface.Name}}_endpoint_gen.go"
-//go:generate gowrap gen -ps=false -g -p ./ -i {{.Interface.Name}}Service -bt "prometheus:service_with_prometheus_gen.go log:service_with_log_gen.go opentracing:service_with_trace_gen.go"
-type {{.Interface.Name}}Service interface {
+// {{upFirst .Interface.Name}}Service describes the service.
+// if use kit. go:generate gowrap gen -g -p ./ -i {{upFirst .Interface.Name}}Service -bt "prometheus:{{.Interface.Name}}_with_prometheus_gen.go log:{{.Interface.Name}}_with_log_gen.go opentracing:{{.Interface.Name}}_with_trace_gen.go http-gin:{{.Interface.Name}}_http_gen.go endpoint:{{.Interface.Name}}_endpoint_gen.go"
+//go:generate gowrap gen -ps=false -g -p ./ -i {{upFirst .Interface.Name}}Service -bt "prometheus:{{.Interface.Name}}_with_prometheus_gen.go log:{{.Interface.Name}}_with_log_gen.go opentracing:{{.Interface.Name}}_with_trace_gen.go"
+type {{upFirst .Interface.Name}}Service interface {
 }
 
-type basic{{.Interface.Name}}Service struct {
+type basic{{upFirst .Interface.Name}}Service struct {
 
 }
 
 
-type BaseService {{.Interface.Name}}Service
+type BaseService {{upFirst .Interface.Name}}Service
 
-// NewBasic{{.Interface.Name}}Service returns a naive, stateless implementation of {{.Interface.Name}}Service.
-func NewBasic{{.Interface.Name}}Service() BaseService {
-	return &basic{{.Interface.Name}}Service{
+// NewBasic{{upFirst .Interface.Name}}Service returns a naive, stateless implementation of {{upFirst .Interface.Name}}Service.
+func NewBasicService() BaseService {
+	return &basic{{upFirst .Interface.Name}}Service{
 	}
 }

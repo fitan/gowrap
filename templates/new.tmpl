@@ -1,24 +1,27 @@
 package {{.Interface.Name}}
 
-type Middleware func({{.Interface.Name}}Service) {{.Interface.Name}}Service
+import "go.uber.org/zap"
 
-func New{{.Interface.Name}}ServiceMiddleware() (mw []Middleware) {
+
+type Middleware func({{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service
+
+func NewServiceMiddleware(logger *zap.SugaredLogger,appName string) (mw []Middleware) {
 	mw = []Middleware{}
 	// Append your middleware here
-	mw = append(mw, func({{.Interface.Name}}Service {{.Interface.Name}}Service) {{.Interface.Name}}Service {
-		return New{{.Interface.Name}}ServiceWithPrometheus({{.Interface.Name}}Service, conf.App.Name)
+	mw = append(mw, func({{upFirst .Interface.Name}}Service {{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service {
+		return New{{upFirst .Interface.Name}}ServiceWithPrometheus({{upFirst .Interface.Name}}Service, appName)
 	})
-	mw = append(mw, func({{.Interface.Name}}Service {{.Interface.Name}}Service) {{.Interface.Name}}Service {
-		return New{{.Interface.Name}}ServiceWithLog({{.Interface.Name}}Service, logger)
+	mw = append(mw, func({{upFirst .Interface.Name}}Service {{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service {
+		return New{{upFirst .Interface.Name}}ServiceWithLog({{upFirst .Interface.Name}}Service, logger)
 	})
-	mw = append(mw, func({{.Interface.Name}}Service {{.Interface.Name}}Service) {{.Interface.Name}}Service {
-		return New{{.Interface.Name}}ServiceWithTracing({{.Interface.Name}}Service)
+	mw = append(mw, func({{upFirst .Interface.Name}}Service {{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service {
+		return New{{upFirst .Interface.Name}}ServiceWithTracing({{upFirst .Interface.Name}}Service)
 	})
 	return
 }
 
-// New returns a {{.Interface.Name}}Service with all of the expected middleware wired in.
-func NewService(svc BaseService, middleware []Middleware) {{.Interface.Name}}Service {
+// New returns a {{upFirst .Interface.Name}}Service with all of the expected middleware wired in.
+func NewService(svc BaseService, middleware []Middleware) {{upFirst .Interface.Name}}Service {
 
 	for _, m := range middleware {
 		svc = m(svc)

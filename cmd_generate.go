@@ -96,11 +96,24 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		if err != nil {
 			return err
 		}
-	} else {
-		ops, err = gc.getOptions()
+
+		gens, err := generator.NewGeneratorInit(ops)
 		if err != nil {
 			return err
 		}
+
+		for _, gen := range gens {
+			err := gen.Generate()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	ops, err = gc.getOptions()
+	if err != nil {
+		return err
 	}
 
 	gens, err := generator.NewGenerator(ops)
@@ -159,7 +172,7 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 
 	for _, v := range serviceCombo {
 		bodyTemplate := v
-		outputFile := fmt.Sprintf("./%s/%s_%s.go", serviceName, serviceCombo, v)
+		outputFile := fmt.Sprintf("./%s/%s_%s.go", serviceName, serviceName, v)
 
 		options := generator.Options{
 			InterfaceName:  serviceName,

@@ -148,6 +148,50 @@ var importSpecs []*ast.ImportSpec
 
 var gloabOption Options
 
+func NewGeneratorInit(ops []Options) ([]*Generator, error) {
+	if len(ops) == 0 {
+		return nil, nil
+	}
+
+	gloabOption = ops[0]
+
+	gs := make([]*Generator, 0, 0)
+
+	for _, options := range ops {
+		headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse("")
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse header template")
+		}
+
+		bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse body template")
+		}
+
+		if options.Vars == nil {
+			options.Vars = make(map[string]interface{})
+		}
+
+		dstPackagePath := filepath.Dir(options.OutputFile)
+		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
+			dstPackagePath = "./" + dstPackagePath
+		}
+		gs = append(gs, &Generator{
+			Options:        options,
+			headerTemplate: headerTemplate,
+			bodyTemplate:   bodyTemplate,
+			srcPackage:     nil,
+			dstPackage:     nil,
+			interfaceType:  "",
+			methods:        methods,
+			localPrefix:    options.LocalPrefix,
+			genTemplates:   make([]genTemplate, 0, 0),
+		})
+	}
+
+	return gs, nil
+}
+
 //NewGenerator returns Generator initialized with options
 func NewGenerator(ops []Options) ([]*Generator, error) {
 	if len(ops) == 0 {

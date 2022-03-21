@@ -1,0 +1,67 @@
+import (
+	"context"
+	"go.opentelemetry.io/otel/trace"
+
+	endpoint "github.com/go-kit/kit/endpoint"
+)
+type Endpoints struct {
+{{range $method := .Interface.Methods}}
+	{{$method.Name}}Endpoint endpoint.Endpoint
+{{end}}
+}
+
+func AddEndpointMiddlewareToAllMethods(mw map[string][]endpoint.Middleware, m endpoint.Middleware) {
+	methods := []string{
+{{range $method := .Interface.Methods}}
+		"{{$method.Name}}",
+{{end}}
+}
+	for _, v := range methods {
+		mw[v] = append(mw[v], m)
+	}
+}
+
+func AddEndpointMiddlewareToAllMethodsWithMethodName(mw map[string][]endpoint.Middleware, m func(n string) endpoint.Middleware) {
+	methods := []string{
+{{range $method := .Interface.Methods}}
+		"{{$method.Name}}",
+{{end}}
+}
+	for _, v := range methods {
+		mw[v] = append(mw[v], m(v))
+	}
+}
+
+// New returns a Endpoints struct that wraps the provided service, and wires in all of the
+// expected endpoint middlewares
+func NewEndpoints(s {{.Interface.Name}}, mdw map[string][]endpoint.Middleware) Endpoints {
+	eps := Endpoints{
+{{range $method := .Interface.Methods}}
+		{{$method.Name}}Endpoint: Make{{$method.Name}}Endpoint(s),
+{{end}}
+	}
+{{range $method := .Interface.Methods}}
+	for _, m := range mdw["{{$method.Name}}"] {
+		eps.{{$method.Name}}Endpoint = m(eps.{{$method.Name}}Endpoint)
+	}
+{{end}}
+	return eps
+}
+
+
+{{range $method := .Interface.Methods}}
+func Make{{$method.Name}}Endpoint(s {{$.Interface.Type}}) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.({{(index $method.Params 1).Type}})
+        rs, err := s.{{$method.Name}}(ctx, req)
+        result := make(map[string]interface{},0)
+		if err != nil {
+			result["err"] = err.Error()
+			return result, nil
+		}
+		result["data"] = rs
+		result["traceId"] = trace.SpanFromContext(ctx).SpanContext().TraceID().String()
+		return result, nil
+	}
+}
+{{end}}

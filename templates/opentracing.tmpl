@@ -1,0 +1,48 @@
+import (
+    "context"
+    "encoding/json"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
+)
+
+{{ $decorator := (or .Vars.DecoratorName (printf "%sWithTracing" .Interface.Name)) }}
+
+// {{$decorator}} implements {{.Interface.Type}} interface instrumented with opentracing spans
+type {{$decorator}} struct {
+  {{.Interface.Type}}
+}
+
+// New{{$decorator}} returns {{$decorator}}
+func New{{$decorator}} (base {{.Interface.Type}}) {{$.Interface.Type}} {
+  d := {{$decorator}} {
+    {{.Interface.Name}}: base,
+  }
+
+
+  return d
+}
+
+{{range $method := .Interface.Methods}}
+  {{if $method.AcceptsContext}}
+    // {{$method.Name}} implements {{$.Interface.Type}}
+    func (_d {{$decorator}}) {{$method.Declaration}} {
+      var name = "{{$.Interface.Type}}.{{$method.Name}}"
+      _, span := otel.Tracer(name).Start(ctx, name)
+      defer func() {
+        if err != nil {
+          l := map[string]interface{}{
+          	"params": {{$method.ParamsMapExcludeCtx}},
+          	"result": {{$method.ResultsMap}},
+          }
+          s, _ := json.Marshal(l)
+          span.AddEvent(semconv.ExceptionEventName, trace.WithAttributes(semconv.ExceptionTypeKey.String("context"), semconv.ExceptionMessageKey.String(string(s))))
+          span.SetStatus(codes.Error, err.Error())
+        }
+        span.End()
+      }()
+      {{$method.Pass (printf "_d.%s." $.Interface.Name) }}
+    }
+  {{end}}
+{{end}}

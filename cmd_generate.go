@@ -40,6 +40,8 @@ type GenerateCommand struct {
 	combo         string
 }
 
+var serviceCombo []string = []string{"service", "new"}
+
 //NewGenerateCommand creates GenerateCommand
 func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 	gc := &GenerateCommand{
@@ -65,7 +67,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 		"run `gowrap template list` for details")
 	fs.Var(&gc.vars, "v", "a key-value pair to parametrize the template,\narguments without an equal sign are treated as a bool values,\ni.e. -v foo=bar -v disableChecks")
 	fs.StringVar(&gc.localPrefix, "l", "", "put imports beginning with this string after 3rd-party packages; comma-separated list")
-	fs.StringVar(&gc.combo, "c", "", "initialize template")
+	fs.StringVar(&gc.combo, "init", "", "initialize template")
 
 	gc.BaseCommand = BaseCommand{
 		Short: "generate decorators",
@@ -87,9 +89,18 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		return err
 	}
 
-	ops, err := gc.getOptions()
-	if err != nil {
-		return err
+	var ops []generator.Options
+	var err error
+	if gc.combo != "" {
+		ops, err = gc.getInitOptions(gc.combo)
+		if err != nil {
+			return err
+		}
+	} else {
+		ops, err = gc.getOptions()
+		if err != nil {
+			return err
+		}
 	}
 
 	gens, err := generator.NewGenerator(ops)
@@ -138,6 +149,48 @@ func (gc *GenerateCommand) checkFlags() error {
 	return nil
 }
 
+func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Options, error) {
+	ops := make([]generator.Options, 0, 0)
+	err := os.Mkdir(serviceName, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range serviceCombo {
+		bodyTemplate := v
+		outputFile := fmt.Sprintf("./%s/%s_%s.go", serviceName, serviceCombo, v)
+
+		options := generator.Options{
+			InterfaceName:  serviceName,
+			OutputFile:     outputFile,
+			Funcs:          helperFuncs,
+			HeaderTemplate: headerTemplate,
+			HeaderVars: map[string]interface{}{
+				"DisableGoGenerate": gc.noGenerate,
+				"OutputFileName":    filepath.Base(outputFile),
+				"VarsArgs":          varsToArgs(gc.vars),
+			},
+			Vars:          gc.vars.toMap(),
+			LocalPrefix:   gc.localPrefix,
+			PkgNeedSyntax: false,
+		}
+
+		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
+		if err != nil {
+			return nil, err
+		}
+
+		gc.sourcePkg = serviceName
+
+		options.BodyTemplate, options.HeaderVars["Template"], err = gc.embedLoadTemplate(bodyTemplate, outputFileDir)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, options)
+	}
+	return ops, err
+}
+
 func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
 
@@ -180,7 +233,11 @@ func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 		}
 
 		options.SourcePackage = sourcePackage.PkgPath
-		options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)
+		//options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)
+		options.BodyTemplate, options.HeaderVars["Template"], err = gc.embedLoadTemplate(bodyTemplate, outputFileDir)
+		if err != nil {
+			return nil, err
+		}
 		ops = append(ops, options)
 
 	}
@@ -193,6 +250,15 @@ type readerFunc func(path string) ([]byte, error)
 type loader struct {
 	fileReader   readerFunc
 	remoteLoader templateLoader
+}
+
+func (gc *GenerateCommand) embedLoadTemplate(template string, outputFileDir string) (tmpl string, url string, err error) {
+	fullName := "templates/" + template + ".tmpl"
+	file, err := tmp.ReadFile(fullName)
+	if err != nil {
+		return "", "", err
+	}
+	return string(file), "", nil
 }
 
 func (gc *GenerateCommand) loadTemplate(template string, outputFileDir string) (contents, url string, err error) {

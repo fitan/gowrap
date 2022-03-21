@@ -1,0 +1,46 @@
+import (
+  "io"
+  "go.uber.org/zap"
+)
+
+
+
+{{ $decorator := (or .Vars.DecoratorName (printf "%sWithLog" .Interface.Name)) }}
+
+// {{$decorator}} implements {{.Interface.Type}} that is instrumented with logging
+type {{$decorator}} struct {
+  _log *zap.SugaredLogger
+  _base {{.Interface.Type}}
+}
+
+// New{{$decorator}} instruments an implementation of the {{.Interface.Type}} with simple logging
+func New{{$decorator}}(base {{.Interface.Type}},log *zap.SugaredLogger) {{$decorator}} {
+  return {{$decorator}}{
+    _base: base, 
+    _log: log,
+  }
+}
+
+{{range $method := .Interface.Methods}}
+  // {{$method.Name}} implements {{$.Interface.Type}}
+  func (_d {{$decorator}}) {{$method.Declaration}} {
+      {{if $method.AcceptsContext}}
+          _log := _d._log.With(log.TraceId(ctx))
+      {{else}}
+          _log := _d._log
+      {{end}}
+      defer func() {
+          _log.Debugw("{{$decorator}} calling {{$method.Name}}", "params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMap}})
+        {{- if $method.HasResults}}
+          {{- if $method.ReturnsError}}
+            if err != nil {
+              _log.Errorw("with_log","params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMap}})
+            }
+          {{end -}}
+{{/*        {{else}}*/}}
+{{/*          _d._log.Infow("with_log","{{$decorator}}: {{$method.Name}} finished")*/}}
+        {{end -}}
+      }()
+      {{ $method.Pass "_d._base." }}
+  }
+{{end}}

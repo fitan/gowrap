@@ -1,0 +1,27 @@
+package {{.Interface.Name}}
+
+type Middleware func({{.Interface.Name}}Service) {{.Interface.Name}}Service
+
+func New{{.Interface.Name}}ServiceMiddleware() (mw []Middleware) {
+	mw = []Middleware{}
+	// Append your middleware here
+	mw = append(mw, func({{.Interface.Name}}Service {{.Interface.Name}}Service) {{.Interface.Name}}Service {
+		return New{{.Interface.Name}}ServiceWithPrometheus({{.Interface.Name}}Service, conf.App.Name)
+	})
+	mw = append(mw, func({{.Interface.Name}}Service {{.Interface.Name}}Service) {{.Interface.Name}}Service {
+		return New{{.Interface.Name}}ServiceWithLog({{.Interface.Name}}Service, logger)
+	})
+	mw = append(mw, func({{.Interface.Name}}Service {{.Interface.Name}}Service) {{.Interface.Name}}Service {
+		return New{{.Interface.Name}}ServiceWithTracing({{.Interface.Name}}Service)
+	})
+	return
+}
+
+// New returns a {{.Interface.Name}}Service with all of the expected middleware wired in.
+func NewService(svc BaseService, middleware []Middleware) {{.Interface.Name}}Service {
+
+	for _, m := range middleware {
+		svc = m(svc)
+	}
+	return svc
+}

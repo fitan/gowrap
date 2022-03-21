@@ -128,10 +128,11 @@ var (
 	errNoOutputFile    = CommandLineError("output file is not specified")
 	errNoInterfaceName = CommandLineError("interface name is not specified")
 	errNoTemplate      = CommandLineError("no template specified")
+	errMustBeOrdered   = CommandLineError("Must be ordered bt or init")
 )
 
 func (gc *GenerateCommand) checkFlags() error {
-	if gc.batchTemplate == "" {
+	if gc.batchTemplate == "" && gc.combo == "" {
 		return errNoTemplate
 	}
 	//if gc.outputFile == "" {

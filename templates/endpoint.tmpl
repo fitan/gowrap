@@ -4,16 +4,23 @@ import (
 
 	endpoint "github.com/go-kit/kit/endpoint"
 )
+
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+
 type Endpoints struct {
 {{range $method := .Interface.Methods}}
+	{{if $method.HasGin}}
 	{{$method.Name}}Endpoint endpoint.Endpoint
+	{{end}}
 {{end}}
 }
 
 func AddEndpointMiddlewareToAllMethods(mw map[string][]endpoint.Middleware, m endpoint.Middleware) {
 	methods := []string{
 {{range $method := .Interface.Methods}}
+    {{if $method.HasGin}}
 		"{{$method.Name}}",
+	{{end}}
 {{end}}
 }
 	for _, v := range methods {
@@ -24,7 +31,9 @@ func AddEndpointMiddlewareToAllMethods(mw map[string][]endpoint.Middleware, m en
 func AddEndpointMiddlewareToAllMethodsWithMethodName(mw map[string][]endpoint.Middleware, m func(n string) endpoint.Middleware) {
 	methods := []string{
 {{range $method := .Interface.Methods}}
+	{{if $method.HasGin}}
 		"{{$method.Name}}",
+	{{end}}
 {{end}}
 }
 	for _, v := range methods {
@@ -37,19 +46,24 @@ func AddEndpointMiddlewareToAllMethodsWithMethodName(mw map[string][]endpoint.Mi
 func NewEndpoints(s {{.Interface.Name}}, mdw map[string][]endpoint.Middleware) Endpoints {
 	eps := Endpoints{
 {{range $method := .Interface.Methods}}
+	{{if $method.HasGin}}
 		{{$method.Name}}Endpoint: Make{{$method.Name}}Endpoint(s),
+	{{end}}
 {{end}}
 	}
 {{range $method := .Interface.Methods}}
+	{{if $method.HasGin}}
 	for _, m := range mdw["{{$method.Name}}"] {
 		eps.{{$method.Name}}Endpoint = m(eps.{{$method.Name}}Endpoint)
 	}
+	{{end}}
 {{end}}
 	return eps
 }
 
 
 {{range $method := .Interface.Methods}}
+{{if $method.HasGin}}
 func Make{{$method.Name}}Endpoint(s {{$.Interface.Type}}) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.({{(index $method.Params 1).Type}})
@@ -64,4 +78,5 @@ func Make{{$method.Name}}Endpoint(s {{$.Interface.Type}}) endpoint.Endpoint {
 		return result, nil
 	}
 }
+{{end}}
 {{end}}

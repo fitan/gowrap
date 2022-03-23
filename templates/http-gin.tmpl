@@ -17,17 +17,17 @@ func AddHttpOptionToAllMethods(options map[string][]http.ServerOption, option ht
 	}
 }
 
-type WireHttpHandler struct {
+type HttpHandler struct {
 
 }
 
-func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options map[string][]http.ServerOption) WireHttpHandler {
+func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options map[string][]http.ServerOption) HttpHandler {
 {{range $method := .Interface.Methods}}
 {{if $method.HasGin}}
 	make{{$method.Name}}Handler(r, endpoints, options["{{$method.Name}}"])
 {{end}}
 {{end}}
-    return wireHttpHandler{}
+    return HttpHandler{}
 }
 
 {{range $method := .Interface.Methods}}

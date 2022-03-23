@@ -133,6 +133,8 @@ type Options struct {
 	PkgNeedSyntax bool
 
 	BatchTemplate []BatchTemplate
+
+	RunCmdDir string
 }
 
 type BatchTemplate struct {
@@ -171,6 +173,8 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 		if options.Vars == nil {
 			options.Vars = make(map[string]interface{})
 		}
+
+		options.Vars["instance"] = makeInstance(gloabOption.RunCmdDir)
 
 		dstPackagePath := filepath.Dir(options.OutputFile)
 		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
@@ -219,6 +223,8 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 		if options.Vars == nil {
 			options.Vars = make(map[string]interface{})
 		}
+
+		options.Vars["instance"] = makeInstance(gloabOption.RunCmdDir)
 
 		fs := token.NewFileSet()
 
@@ -288,6 +294,15 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 
 	}
 	return gs, nil
+}
+
+func makeInstance(dirPath string) string {
+	dirS := strings.Split(dirPath, "/")
+	var instance string
+	if len(dirS) >= 2 {
+		instance = strings.Join(dirS[len(dirS)-2:], ".")
+	}
+	return instance
 }
 
 func makeImports(imports []*ast.ImportSpec) []string {

@@ -5,6 +5,7 @@ import (
   "github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+
 {{ $decorator := (or .Vars.DecoratorName (printf "%sWithPrometheus" .Interface.Name)) }}
 {{ $metric_name := (or .Vars.MetricName (printf "%s_duration_seconds" (down .Interface.Name))) }}
 

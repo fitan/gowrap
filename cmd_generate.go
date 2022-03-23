@@ -170,6 +170,11 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 		return nil, err
 	}
 
+	cmdDir, err := os.Getwd()
+	if err != nil {
+		return nil, errors.Wrap(err, "os.Getwd")
+	}
+
 	for _, v := range serviceCombo {
 		bodyTemplate := v
 		outputFile := fmt.Sprintf("./%s/%s_%s.go", serviceName, serviceName, v)
@@ -187,6 +192,7 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 			Vars:          gc.vars.toMap(),
 			LocalPrefix:   gc.localPrefix,
 			PkgNeedSyntax: false,
+			RunCmdDir:     cmdDir,
 		}
 
 		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
@@ -213,6 +219,11 @@ func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 		return nil, errors.Wrap(err, "failed to load source package")
 	}
 
+	cmdDir, err := os.Getwd()
+	if err != nil {
+		return nil, errors.Wrap(err, "os.Getwd")
+	}
+
 	btl := strings.Split(gc.batchTemplate, " ")
 	for _, v := range btl {
 		vl := strings.Split(v, ":")
@@ -235,6 +246,7 @@ func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 			Vars:          gc.vars.toMap(),
 			LocalPrefix:   gc.localPrefix,
 			PkgNeedSyntax: gc.pkgNeedSyntax,
+			RunCmdDir:     cmdDir,
 		}
 
 		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))

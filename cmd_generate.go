@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"text/template"
 	"unicode"
 
@@ -121,12 +123,18 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		return err
 	}
 
+	g := sync.WaitGroup{}
 	for _, gen := range gens {
-		err := gen.Generate()
-		if err != nil {
-			return err
-		}
+		g.Add(1)
+		go func(gen *generator.Generator) {
+			defer g.Done()
+			err := gen.Generate()
+			if err != nil {
+				log.Fatalf("generate err: %s", err.Error())
+			}
+		}(gen)
 	}
+	g.Wait()
 
 	//buf := bytes.NewBuffer([]byte{})
 	//

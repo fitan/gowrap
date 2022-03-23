@@ -147,6 +147,9 @@ var errUnexportedMethod = errors.New("unexported method")
 
 var methods methodsList
 var importSpecs []*ast.ImportSpec
+var srcPackage *packages.Package
+var dstPackage *packages.Package
+var srcPackageAST *ast.Package
 
 var gloabOption Options
 
@@ -228,9 +231,11 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 
 		fs := token.NewFileSet()
 
-		srcPackage, err := pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load source package")
+		if srcPackage == nil {
+			srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to load source package")
+			}
 		}
 
 		dstPackagePath := filepath.Dir(options.OutputFile)
@@ -238,14 +243,18 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			dstPackagePath = "./" + dstPackagePath
 		}
 
-		dstPackage, err := loadDestinationPackage(dstPackagePath)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+		if dstPackage == nil {
+			dstPackage, err = loadDestinationPackage(dstPackagePath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+			}
 		}
 
-		srcPackageAST, err := pkg.AST(fs, srcPackage)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse source package")
+		if srcPackageAST == nil {
+			srcPackageAST, err = pkg.AST(fs, srcPackage)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse source package")
+			}
 		}
 
 		interfaceType := srcPackage.Name + "." + options.InterfaceName

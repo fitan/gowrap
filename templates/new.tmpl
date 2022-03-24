@@ -1,16 +1,15 @@
-{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
-
 package {{.Interface.Name}}
 
 import "go.uber.org/zap"
 
+
 type Middleware func({{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service
 
-func NewServiceMiddleware(logger *zap.SugaredLogger) (mw []Middleware) {
+func NewServiceMiddleware(logger *zap.SugaredLogger,appName string) (mw []Middleware) {
 	mw = []Middleware{}
 	// Append your middleware here
 	mw = append(mw, func({{upFirst .Interface.Name}}Service {{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service {
-		return New{{upFirst .Interface.Name}}ServiceWithPrometheus({{upFirst .Interface.Name}}Service, "{{.Vars.instance}}.{{upFirst .Interface.Name}}")
+		return New{{upFirst .Interface.Name}}ServiceWithPrometheus({{upFirst .Interface.Name}}Service, appName)
 	})
 	mw = append(mw, func({{upFirst .Interface.Name}}Service {{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service {
 		return New{{upFirst .Interface.Name}}ServiceWithLog({{upFirst .Interface.Name}}Service, logger)

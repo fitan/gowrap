@@ -4,6 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Ops map[string][]http.ServerOption
+
+
 func AddHttpOptionToAllMethods(options map[string][]http.ServerOption, option http.ServerOption) {
 	methods := []string{
 {{range $method := .Interface.Methods}}
@@ -21,7 +24,7 @@ type HttpHandler struct {
 
 }
 
-func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options map[string][]http.ServerOption) HttpHandler {
+func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops) HttpHandler {
 {{range $method := .Interface.Methods}}
 {{if $method.HasGin}}
 	make{{$method.Name}}Handler(r, endpoints, options["{{$method.Name}}"])

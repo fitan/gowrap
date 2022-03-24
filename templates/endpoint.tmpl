@@ -7,6 +7,8 @@ import (
 
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
 
+type Mws map[string][]endpoint.Middleware
+
 type Endpoints struct {
 {{range $method := .Interface.Methods}}
 	{{if $method.HasGin}}
@@ -43,7 +45,7 @@ func AddEndpointMiddlewareToAllMethodsWithMethodName(mw map[string][]endpoint.Mi
 
 // New returns a Endpoints struct that wraps the provided service, and wires in all of the
 // expected endpoint middlewares
-func NewEndpoints(s {{.Interface.Name}}, mdw map[string][]endpoint.Middleware) Endpoints {
+func NewEndpoints(s {{.Interface.Name}}, mdw Mws) Endpoints {
 	eps := Endpoints{
 {{range $method := .Interface.Methods}}
 	{{if $method.HasGin}}

@@ -11,10 +11,12 @@ import (
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 )
 
 //Generator generates decorators for the interface types
@@ -102,6 +104,8 @@ type Options struct {
 	//Imports from the file with interface definition
 	Imports []string
 
+	SourceLoadPkg *packages.Package
+
 	//SourcePackage is an import path or a relative path of the package that contains the source interface
 	SourcePackage string
 
@@ -147,8 +151,9 @@ var errUnexportedMethod = errors.New("unexported method")
 
 var methods methodsList
 var importSpecs []*ast.ImportSpec
-var srcPackage *packages.Package
-var dstPackage *packages.Package
+
+//var srcPackage *packages.Package
+//var dstPackage *packages.Package
 var srcPackageAST *ast.Package
 
 var gloabOption Options
@@ -231,34 +236,34 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 
 		fs := token.NewFileSet()
 
-		if srcPackage == nil {
-			srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to load source package")
-			}
-		}
+		//if srcPackage == nil {
+		//	srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
+		//	if err != nil {
+		//		return nil, errors.Wrap(err, "failed to load source package")
+		//	}
+		//}
 
 		dstPackagePath := filepath.Dir(options.OutputFile)
 		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
 			dstPackagePath = "./" + dstPackagePath
 		}
 
-		if dstPackage == nil {
-			dstPackage, err = loadDestinationPackage(dstPackagePath)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
-			}
-		}
+		//if dstPackage == nil {
+		//	dstPackage, err = loadDestinationPackage(dstPackagePath)
+		//	if err != nil {
+		//		return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+		//	}
+		//}
 
 		if srcPackageAST == nil {
-			srcPackageAST, err = pkg.AST(fs, srcPackage)
+			srcPackageAST, err = pkg.AST(fs, options.SourceLoadPkg)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse source package")
 			}
 		}
 
-		interfaceType := srcPackage.Name + "." + options.InterfaceName
-		if srcPackage.PkgPath == dstPackage.PkgPath {
+		interfaceType := options.SourceLoadPkg.Name + "." + options.InterfaceName
+		if options.SourceLoadPkg.PkgPath == options.SourceLoadPkg.PkgPath {
 			interfaceType = options.InterfaceName
 			srcPackageAST.Name = ""
 		} else {
@@ -266,12 +271,14 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 				srcPackageAST.Name = options.SourcePackageAlias
 			}
 
-			options.Imports = append(options.Imports, `"`+srcPackage.PkgPath+`"`)
+			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
 		}
 
 		if methods == nil && importSpecs == nil {
 
-			methods, importSpecs, err = findInterface(fs, srcPackage, srcPackageAST, options.InterfaceName)
+			t1 := time.Now()
+			methods, importSpecs, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName)
+			log.Printf("findInterface time: %v", time.Now().Sub(t1).String())
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse interface declaration")
 			}
@@ -293,8 +300,8 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			Options:        options,
 			headerTemplate: headerTemplate,
 			bodyTemplate:   bodyTemplate,
-			srcPackage:     srcPackage,
-			dstPackage:     dstPackage,
+			srcPackage:     options.SourceLoadPkg,
+			dstPackage:     options.SourceLoadPkg,
 			interfaceType:  interfaceType,
 			methods:        methods,
 			localPrefix:    options.LocalPrefix,
@@ -378,7 +385,9 @@ func (g Generator) Generate() error {
 	}
 
 	imports.LocalPrefix = g.localPrefix
+	t1 := time.Now()
 	processedSource, err := imports.Process(g.Options.OutputFile, buf.Bytes(), nil)
+	log.Printf("outoutFile: %v. imports.Porcess time: %v", g.Options.OutputFile, time.Now().Sub(t1).String())
 	if err != nil {
 		return errors.Wrapf(err, "failed to format generated code:\n%s", buf)
 	}

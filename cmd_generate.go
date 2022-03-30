@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 	"unicode"
 
 	"github.com/fitan/gowrap/generator"
@@ -82,6 +83,10 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 
 // Run implements Command interface
 func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
+	totalT := time.Now()
+	defer func() {
+		log.Printf("total time: %v", time.Now().Sub(totalT).String())
+	}()
 
 	if err := gc.FlagSet().Parse(args); err != nil {
 		return CommandLineError(err.Error())
@@ -118,11 +123,14 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		return err
 	}
 
+	t1 := time.Now()
 	gens, err := generator.NewGenerator(ops)
 	if err != nil {
 		return err
 	}
+	log.Printf("generator.NewGenerator time: %v", time.Now().Sub(t1).String())
 
+	t2 := time.Now()
 	g := sync.WaitGroup{}
 	for _, gen := range gens {
 		g.Add(1)
@@ -135,6 +143,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		}(gen)
 	}
 	g.Wait()
+	log.Printf("gen.Generate time: %v", time.Now().Sub(t2).String())
 
 	//buf := bytes.NewBuffer([]byte{})
 	//
@@ -222,7 +231,7 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
 
-	sourcePackage, err := pkg.Load(gc.sourcePkg, false)
+	sourcePackage, err := pkg.Load(gc.sourcePkg, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load source package")
 	}
@@ -265,6 +274,8 @@ func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 		if gc.sourcePkg == "" {
 			gc.sourcePkg = "./"
 		}
+
+		options.SourceLoadPkg = sourcePackage
 
 		options.SourcePackage = sourcePackage.PkgPath
 		//options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)

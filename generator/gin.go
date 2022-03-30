@@ -23,8 +23,8 @@ func HasGinHttpMark(fi *ast.Field) (has bool, url string, method string) {
 	}
 	for _, v := range fi.Doc.List {
 		vl := strings.Split(v.Text, " ")
-		fmt.Println(vl)
 		if len(vl) == 4 && vl[1] == HttpGinMark {
+			log.Printf("has gin path %v", vl)
 			return true, vl[2], vl[3]
 		}
 	}

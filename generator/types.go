@@ -28,6 +28,7 @@ type Method struct {
 
 type GinParams struct {
 	Url    string
+	SwagUrl string
 	Method string
 	Result string
 
@@ -35,7 +36,12 @@ type GinParams struct {
 	UriTagMsgs []TagMsg
 
 	HasQuery bool
+	QueryRawStructName string
+	QueryRawStruct string
+
 	HasBody  bool
+	BodyRawStructName string
+	BodyRawStruct string
 
 	HasHeader     bool
 	HeaderTagMsgs []TagMsg

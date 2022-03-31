@@ -14,7 +14,7 @@ import (
 
 var errPackageNotFound = errors.New("package not found")
 
-const mode packages.LoadMode = packages.NeedName |
+const mode packages.LoadMode =packages.NeedName |
 	packages.NeedTypes |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo |
@@ -22,8 +22,8 @@ const mode packages.LoadMode = packages.NeedName |
 	packages.NeedModule |
 	packages.NeedExportsFile |
 	packages.NeedTypesSizes |
-	packages.NeedFiles |
 	packages.NeedDeps |
+	packages.NeedFiles |
 	packages.NeedCompiledGoFiles
 
 // Load loads package by its import path
@@ -34,7 +34,8 @@ func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {
 	}()
 	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedModule}
 	if pkgNeedSyntax {
-		cfg = &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedSyntax}
+		//cfg = &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedSyntax | packages.NeedTypesInfo}
+		cfg = &packages.Config{Mode: mode}
 	}
 	//cfg := &packages.Config{Mode: mode}
 	pkgs, err := packages.Load(cfg, path)

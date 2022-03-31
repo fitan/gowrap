@@ -8,6 +8,7 @@ import (
 	"go/printer"
 	"go/token"
 	"go/types"
+	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/packages"
 	"log"
 	"path"
@@ -22,9 +23,8 @@ func HasGinHttpMark(fi *ast.Field) (has bool, url string, method string) {
 		return false, "", ""
 	}
 	for _, v := range fi.Doc.List {
-		vl := strings.Split(v.Text, " ")
+		vl := strings.Fields(v.Text)
 		if len(vl) == 4 && vl[1] == HttpGinMark {
-			log.Printf("has gin path %v", vl)
 			return true, vl[2], vl[3]
 		}
 	}
@@ -59,6 +59,7 @@ func (h *HttpMethod) Parse() (bool, error) {
 
 	if has {
 		h.GinParams.Url = url
+		h.GinParams.SwagUrl = GinUrl2SwagUrl(url)
 		h.GinParams.Method = method
 	}
 
@@ -88,18 +89,38 @@ func (h *HttpMethod) gin() (gp GinParams) {
 			switch ident.Name {
 			case "Query":
 				h.GinParams.HasQuery = true
+				h.GinParams.QueryRawStruct = Node2String(h.SrcPkg.Fset, field.Type)
+				h.GinParams.QueryRawStructName = h.Name + "QuerySwag"
 			case "Body":
 				h.GinParams.HasBody = true
+				h.GinParams.BodyRawStruct = Node2String(h.SrcPkg.Fset, field.Type)
+				h.GinParams.BodyRawStructName = h.Name +"BodySwag"
 			case "Uri":
 				h.GinParams.HasUri = true
+				h.GinParams.UriTagMsgs = FindTagAndCommentByStruct(h.SrcPkg, h.SrcFile, field.Type.(*ast.StructType),"uri")
 			case "Header":
 				h.GinParams.HasHeader = true
+				h.GinParams.HeaderTagMsgs = FindTagAndCommentByStruct(h.SrcPkg, h.SrcFile, field.Type.(*ast.StructType),"header")
 			case "CtxKey":
 				h.GinParams.HasKey = true
 			}
 		}
 	}
 	return
+}
+
+func GinUrl2SwagUrl(s string) string {
+	sl := strings.Split(s, "/")
+	for i, v := range sl {
+		if i == 0 {
+			continue
+		}
+		if v[0:1] == ":" {
+			v = "{" + v[1:len(v)] + "}"
+			sl[i] = v
+		}
+	}
+	return strings.Join(sl, "/")
 }
 
 func FindByExpr(pkg *packages.Package, file *ast.File, expr ast.Expr) (*packages.Package, *ast.File, *ast.StructType, error) {
@@ -213,6 +234,7 @@ func FindTagAndCommentByStruct(pkg *packages.Package, file *ast.File, structType
 						Comment:  strings.ReplaceAll(fd.Doc.Text(), "\n", "\\n"),
 					}
 					tagMsgs = append(tagMsgs, msg)
+					return false
 				}
 			}
 		}
@@ -237,7 +259,9 @@ func FindTagByType(pkg *packages.Package, file *ast.File, ty ast.Node, tagName s
 			return false
 		default:
 			e, ok := node.(ast.Expr)
+			//log.Println("e: ", Node2String(pkg.Fset, node))
 			if ok {
+				log.Println("typesinfo: ", pkg.TypesInfo.TypeOf(e))
 				_, ok := pkg.TypesInfo.TypeOf(e).Underlying().(*types.Struct)
 				if ok {
 					switch structType := t.(type) {
@@ -264,4 +288,83 @@ func FindTagByType(pkg *packages.Package, file *ast.File, ty ast.Node, tagName s
 		return true
 	})
 	return tagMsgs
+}
+
+
+//type Req struct {
+//转换部分 xxx.Client
+//Name Client
+//}
+func Node2SwagType(node ast.Node, selectName string) ast.Node {
+	t := node2SwagType2(node, selectName)
+	t = node2SwagType1(t)
+	return t
+}
+
+// 去掉指针
+func node2SwagType1(node ast.Node) ast.Node {
+	return astutil.Apply(node, func(c *astutil.Cursor) bool {
+		switch c.Node().(type) {
+		case *ast.StarExpr:
+			tmp := c.Node().(*ast.StarExpr).X
+			c.Replace(tmp)
+		}
+		return true
+	}, func(c *astutil.Cursor) bool {
+		return true
+	})
+}
+
+func node2SwagType2(node ast.Node, selectName string) ast.Node {
+	return astutil.Apply(node, func(c *astutil.Cursor) bool {
+		switch t := c.Node().(type) {
+		case *ast.SelectorExpr:
+			return false
+
+		case *ast.Ident:
+			if t.Obj != nil {
+				if t.Obj.Kind.String() == "type" {
+					tmp := ast.SelectorExpr{X: ast.NewIdent(selectName), Sel: ast.NewIdent(c.Node().(*ast.Ident).Name)}
+					c.Replace(&tmp)
+				}
+			} else {
+				spew.Dump(c.Node())
+				if ok := JudgeBuiltInType(c.Node().(*ast.Ident).Name); !ok {
+					tmp := ast.SelectorExpr{X: ast.NewIdent(selectName), Sel: ast.NewIdent(c.Node().(*ast.Ident).Name)}
+					c.Replace(&tmp)
+				}
+			}
+		}
+		return true
+	}, func(c *astutil.Cursor) bool {
+		return true
+	})
+}
+
+// go 的内置基础类型
+func JudgeBuiltInType(t string) bool {
+	m := map[string]int{
+		"uint8":      0,
+		"uint16":     0,
+		"uint32":     0,
+		"uint64":     0,
+		"int8":       0,
+		"int16":      0,
+		"int32":      0,
+		"int64":      0,
+		"float32":    0,
+		"float64":    0,
+		"complex64":  0,
+		"complex128": 0,
+		"byte":       0,
+		"rune":       0,
+		"uint":       0,
+		"int":        0,
+		"uintptr":    0,
+		"string":     0,
+		"bool":       0,
+		"error":      0,
+	}
+	_, ok := m[t]
+	return ok
 }

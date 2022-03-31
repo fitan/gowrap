@@ -94,13 +94,13 @@ func (h *HttpMethod) gin() (gp GinParams) {
 			case "Body":
 				h.GinParams.HasBody = true
 				h.GinParams.BodyRawStruct = Node2String(h.SrcPkg.Fset, field.Type)
-				h.GinParams.BodyRawStructName = h.Name +"BodySwag"
+				h.GinParams.BodyRawStructName = h.Name + "BodySwag"
 			case "Uri":
 				h.GinParams.HasUri = true
-				h.GinParams.UriTagMsgs = FindTagAndCommentByStruct(h.SrcPkg, h.SrcFile, field.Type.(*ast.StructType),"uri")
+				h.GinParams.UriTagMsgs = FindTagAndCommentByStruct(h.SrcPkg, h.SrcFile, field.Type.(*ast.StructType), "uri")
 			case "Header":
 				h.GinParams.HasHeader = true
-				h.GinParams.HeaderTagMsgs = FindTagAndCommentByStruct(h.SrcPkg, h.SrcFile, field.Type.(*ast.StructType),"header")
+				h.GinParams.HeaderTagMsgs = FindTagAndCommentByStruct(h.SrcPkg, h.SrcFile, field.Type.(*ast.StructType), "header")
 			case "CtxKey":
 				h.GinParams.HasKey = true
 			}
@@ -289,7 +289,6 @@ func FindTagByType(pkg *packages.Package, file *ast.File, ty ast.Node, tagName s
 	})
 	return tagMsgs
 }
-
 
 //type Req struct {
 //转换部分 xxx.Client

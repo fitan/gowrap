@@ -261,7 +261,6 @@ func FindTagByType(pkg *packages.Package, file *ast.File, ty ast.Node, tagName s
 			e, ok := node.(ast.Expr)
 			//log.Println("e: ", Node2String(pkg.Fset, node))
 			if ok {
-				log.Println("typesinfo: ", pkg.TypesInfo.TypeOf(e))
 				_, ok := pkg.TypesInfo.TypeOf(e).Underlying().(*types.Struct)
 				if ok {
 					switch structType := t.(type) {

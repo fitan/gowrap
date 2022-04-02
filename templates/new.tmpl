@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/go-kit/kit/otelkit"
 	"go.uber.org/zap"
 	"hello/pkg/mid"
+    "github.com/google/wire"
 )
 
 
@@ -44,20 +45,8 @@ func NewEndpointMiddleware(logger *zap.SugaredLogger, ep []endpoint.Middleware) 
 	otelkitEMW := func(n string) endpoint.Middleware {
 		return otelkit.EndpointMiddleware(otelkit.WithOperation(n))
 	}
-	//logEMW := func(n string) endpoint.Middleware {
-	//	return mid.LoggingMiddleware(logger)
-	//}
-	instrumentingEMW := func(n string) endpoint.Middleware {
-		return mid.InstrumentingMiddleware(prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-			Namespace: "{{replace .Vars.instance "." "_"}}",
-			Subsystem: n,
-			Name:      "request_duration_seconds",
-			Help:      "Total time spent serving requests.",
-		}, []string{"success"}))
-	}
+
 	AddEndpointMiddlewareToAllMethodsWithMethodName(mws, otelkitEMW)
-	//AddEndpointMiddlewareToAllMethodsWithMethodName(mw, logEMW)
-	AddEndpointMiddlewareToAllMethodsWithMethodName(mws, instrumentingEMW)
 	for _, e := range ep {
 		AddEndpointMiddlewareToAllMethods(mws, e)
 	}
@@ -72,4 +61,11 @@ func NewServiceOption(op []http.ServerOption) Ops {
 	}
 	return ops
 }
+{{end}}
+
+{{if (eq .Vars.initType "kit")}}
+	var {{upFirst .Interface.Name}}KitSet = wire.NewSet(NewBasicService, NewService, NewEndpointMiddleware, NewServiceMiddleware, NewEndpoints, NewServiceOption, NewHTTPHandler)
+{{end}}
+{{if (eq .Vars.initType "service" )}}
+	var {{upFirst .Interface.Name}}ServiceSet = wire.NewSet(NewBasicService, NewService, NewServiceMiddleware)
 {{end}}

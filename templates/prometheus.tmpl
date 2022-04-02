@@ -32,7 +32,7 @@ var {{down .Interface.Name}}DurationSummaryVec = promauto.NewSummaryVec(
 func New{{$decorator}}(base {{.Interface.Type}}) {{$decorator}} {
   return {{$decorator}} {
     base: base,
-    instanceName: "(down .Interface.Name)",
+    instanceName: "{{down .Interface.Name}}",
   }
 }
 

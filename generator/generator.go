@@ -139,6 +139,7 @@ type Options struct {
 	BatchTemplate []BatchTemplate
 
 	RunCmdDir string
+	InitType string
 }
 
 type BatchTemplate struct {
@@ -183,6 +184,7 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 		}
 
 		options.Vars["instance"] = makeInstance(gloabOption.RunCmdDir)
+		options.Vars["initType"] = options.InitType
 
 		dstPackagePath := filepath.Dir(options.OutputFile)
 		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {

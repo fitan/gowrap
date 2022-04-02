@@ -5,10 +5,12 @@ import (
   "github.com/prometheus/client_golang/prometheus"
   "github.com/prometheus/client_golang/prometheus/promauto"
 )
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+
 
 
 {{ $decorator := (or .Vars.DecoratorName (printf "%sWithPrometheus" .Interface.Name)) }}
-{{ $metric_name := (or .Vars.MetricName (printf "%s_duration_seconds" (down .Interface.Name))) }}
+{{ $metric_name := (or .Vars.MetricName (printf "%s_duration_seconds" (replace .Vars.instance "." "_"))) }}
 
 // {{$decorator}} implements {{.Interface.Type}} interface with all methods wrapped
 // with Prometheus metrics
@@ -27,10 +29,10 @@ var {{down .Interface.Name}}DurationSummaryVec = promauto.NewSummaryVec(
   []string{"instance_name", "method", "result"})
 
 // New{{.Interface.Name}}WithPrometheus returns an instance of the {{.Interface.Type}} decorated with prometheus summary metric
-func New{{$decorator}}(base {{.Interface.Type}}, instanceName string) {{$decorator}} {
+func New{{$decorator}}(base {{.Interface.Type}}) {{$decorator}} {
   return {{$decorator}} {
     base: base,
-    instanceName: instanceName,
+    instanceName: "(down .Interface.Name)",
   }
 }
 

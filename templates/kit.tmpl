@@ -1,15 +1,7 @@
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
 package {{.Interface.Name}}
 
-import (
-	"github.com/fitan/gink/transport/http"
-	"github.com/go-kit/kit/endpoint"
-	"github.com/go-kit/kit/metrics/prometheus"
-	stdprometheus "github.com/prometheus/client_golang/prometheus"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/go-kit/kit/otelkit"
-	"go.uber.org/zap"
-	"hello/pkg/mid"
-)
+import "go.uber.org/zap"
 
 
 type Middleware func({{upFirst .Interface.Name}}Service) {{upFirst .Interface.Name}}Service
@@ -37,7 +29,8 @@ func NewService(svc BaseService, middleware []Middleware) {{upFirst .Interface.N
 	}
 	return svc
 }
-{{if eq .Vars.initType "kit"}}
+
+
 func NewEndpointMiddleware(logger *zap.SugaredLogger, ep []endpoint.Middleware) Mws {
 	mws := make(Mws)
 	// Add you endpoint middleware here
@@ -49,7 +42,7 @@ func NewEndpointMiddleware(logger *zap.SugaredLogger, ep []endpoint.Middleware) 
 	//}
 	instrumentingEMW := func(n string) endpoint.Middleware {
 		return mid.InstrumentingMiddleware(prometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-			Namespace: "{{replace .Vars.instance "." "_"}}",
+			Namespace: "user_endpoint",
 			Subsystem: n,
 			Name:      "request_duration_seconds",
 			Help:      "Total time spent serving requests.",
@@ -72,4 +65,3 @@ func NewServiceOption(op []http.ServerOption) Ops {
 	}
 	return ops
 }
-{{end}}

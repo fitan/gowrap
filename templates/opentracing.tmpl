@@ -6,6 +6,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 )
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
 
 {{ $decorator := (or .Vars.DecoratorName (printf "%sWithTracing" .Interface.Name)) }}
 
@@ -28,6 +29,7 @@ func New{{$decorator}} (base {{.Interface.Type}}) {{$.Interface.Type}} {
   {{if $method.AcceptsContext}}
     // {{$method.Name}} implements {{$.Interface.Type}}
     func (_d {{$decorator}}) {{$method.Declaration}} {
+	  {{if $method.ReturnsError}}
       var name = "{{$.Interface.Type}}.{{$method.Name}}"
       _, span := otel.Tracer(name).Start(ctx, name)
       defer func() {
@@ -42,6 +44,7 @@ func New{{$decorator}} (base {{.Interface.Type}}) {{$.Interface.Type}} {
         }
         span.End()
       }()
+	  {{end}}
       {{$method.Pass (printf "_d.%s." $.Interface.Name) }}
     }
   {{end}}

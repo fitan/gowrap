@@ -40,7 +40,8 @@ type GenerateCommand struct {
 	loader        templateLoader
 	filepath      fs
 	batchTemplate string
-	combo         string
+	initType      string
+	initName      string
 }
 
 var serviceCombo []string = []string{"service", "new"}
@@ -70,7 +71,8 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 		"run `gowrap template list` for details")
 	fs.Var(&gc.vars, "v", "a key-value pair to parametrize the template,\narguments without an equal sign are treated as a bool values,\ni.e. -v foo=bar -v disableChecks")
 	fs.StringVar(&gc.localPrefix, "l", "", "put imports beginning with this string after 3rd-party packages; comma-separated list")
-	fs.StringVar(&gc.combo, "init", "", "initialize template")
+	fs.StringVar(&gc.initType, "init", "", "init type")
+	fs.StringVar(&gc.initName, "n", "", "init name")
 
 	gc.BaseCommand = BaseCommand{
 		Short: "generate decorators",
@@ -98,8 +100,8 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 
 	var ops []generator.Options
 	var err error
-	if gc.combo != "" {
-		ops, err = gc.getInitOptions(gc.combo)
+	if gc.initType != "" {
+		ops, err = gc.getComboOptions(gc.initType,gc.initName)
 		if err != nil {
 			return err
 		}
@@ -159,11 +161,16 @@ var (
 	errNoInterfaceName = CommandLineError("interface name is not specified")
 	errNoTemplate      = CommandLineError("no template specified")
 	errMustBeOrdered   = CommandLineError("Must be ordered bt or init")
+	errInitMustName = CommandLineError("init must be -n name")
 )
 
 func (gc *GenerateCommand) checkFlags() error {
-	if gc.batchTemplate == "" && gc.combo == "" {
+	if gc.batchTemplate == "" && gc.initType == "" {
 		return errNoTemplate
+	}
+
+	if gc.initType != "" && gc.initName == "" {
+		return errInitMustName
 	}
 	//if gc.outputFile == "" {
 	//	return errNoOutputFile
@@ -180,9 +187,9 @@ func (gc *GenerateCommand) checkFlags() error {
 	return nil
 }
 
-func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Options, error) {
+func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
-	err := os.Mkdir(serviceName, os.ModePerm)
+	err := os.Mkdir(initName, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
@@ -194,10 +201,10 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 
 	for _, v := range serviceCombo {
 		bodyTemplate := v
-		outputFile := fmt.Sprintf("./%s/%s_%s.go", serviceName, serviceName, v)
+		outputFile := fmt.Sprintf("./%s/%s_%s.go", initName, initName, v)
 
 		options := generator.Options{
-			InterfaceName:  serviceName,
+			InterfaceName:  initName,
 			OutputFile:     outputFile,
 			Funcs:          helperFuncs,
 			HeaderTemplate: headerTemplate,
@@ -210,6 +217,7 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 			LocalPrefix:   gc.localPrefix,
 			PkgNeedSyntax: false,
 			RunCmdDir:     cmdDir,
+			InitType: initType,
 		}
 
 		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
@@ -217,7 +225,7 @@ func (gc *GenerateCommand) getInitOptions(serviceName string) ([]generator.Optio
 			return nil, err
 		}
 
-		gc.sourcePkg = serviceName
+		gc.sourcePkg = initName
 
 		options.BodyTemplate, options.HeaderVars["Template"], err = gc.embedLoadTemplate(bodyTemplate, outputFileDir)
 		if err != nil {

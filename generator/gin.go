@@ -48,6 +48,7 @@ func NewHttpMethod(name string, srcPkg *packages.Package, srcFile *ast.File, fi 
 }
 
 func (h *HttpMethod) Parse() (bool, error) {
+
 	f, ok := h.SrcField.Type.(*ast.FuncType)
 	if !ok {
 		return false, fmt.Errorf("%q is not a method", h.Name)
@@ -89,11 +90,23 @@ func (h *HttpMethod) gin() (gp GinParams) {
 			switch ident.Name {
 			case "Query":
 				h.GinParams.HasQuery = true
-				h.GinParams.QueryRawStruct = Node2String(h.SrcPkg.Fset, field.Type)
+				qrs := Node2String(h.SrcPkg.Fset, field.Type)
+				if !strings.Contains(qrs, ".") && !strings.HasPrefix(qrs,"struct ") {
+					if globalOption.Vars["pkgName"] != h.DstPkg.Name {
+						qrs = h.DstPkg.Name + "." + qrs
+					}
+				}
+				h.GinParams.QueryRawStruct = qrs
 				h.GinParams.QueryRawStructName = h.Name + "QuerySwag"
 			case "Body":
 				h.GinParams.HasBody = true
-				h.GinParams.BodyRawStruct = Node2String(h.SrcPkg.Fset, field.Type)
+				brs := Node2String(h.SrcPkg.Fset, field.Type)
+				if !strings.Contains(brs, ".") && !strings.HasPrefix(brs, "struct ") {
+					if globalOption.Vars["pkgName"] != h.DstPkg.Name {
+						brs = h.DstPkg.Name + "." + brs
+					}
+				}
+				h.GinParams.BodyRawStruct = brs
 				h.GinParams.BodyRawStructName = h.Name + "BodySwag"
 			case "Uri":
 				h.GinParams.HasUri = true

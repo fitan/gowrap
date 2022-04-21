@@ -2,6 +2,9 @@ import (
 	"context"
 	"github.com/fitan/gink/transport/http"
 	"github.com/gin-gonic/gin"
+	{{range $i := $.Imports}}
+    {{$i}}
+    {{end}}
 )
 
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}

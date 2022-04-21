@@ -27,6 +27,7 @@ type Method struct {
 }
 
 type GinParams struct {
+
 	Url    string
 	SwagUrl string
 	Method string

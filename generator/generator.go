@@ -157,14 +157,14 @@ var importSpecs []*ast.ImportSpec
 //var dstPackage *packages.Package
 var srcPackageAST *ast.Package
 
-var gloabOption Options
+var globalOption Options
 
 func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 	if len(ops) == 0 {
 		return nil, nil
 	}
 
-	gloabOption = ops[0]
+	globalOption = ops[0]
 
 	gs := make([]*Generator, 0, 0)
 
@@ -183,8 +183,9 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 			options.Vars = make(map[string]interface{})
 		}
 
-		options.Vars["instance"] = makeInstance(gloabOption.RunCmdDir)
+		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
 		options.Vars["initType"] = options.InitType
+		options.Vars["pkgName"] = options.SourceLoadPkg.Name
 
 		dstPackagePath := filepath.Dir(options.OutputFile)
 		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
@@ -212,7 +213,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 		return nil, nil
 	}
 
-	gloabOption = ops[0]
+	globalOption = ops[0]
 
 	gs := make([]*Generator, 0, 0)
 	for _, options := range ops {
@@ -234,7 +235,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			options.Vars = make(map[string]interface{})
 		}
 
-		options.Vars["instance"] = makeInstance(gloabOption.RunCmdDir)
+		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
 
 		fs := token.NewFileSet()
 
@@ -479,7 +480,7 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 			var method *Method
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
 			if err == nil {
-				if gloabOption.PkgNeedSyntax {
+				if globalOption.PkgNeedSyntax {
 					httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
 					has, err := httpMethod.Parse()
 					if err != nil {

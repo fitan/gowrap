@@ -3,6 +3,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	endpoint "github.com/go-kit/kit/endpoint"
+	{{range $i := $.Imports}}
+		{{$i}}
+    {{end}}
 )
 
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}

@@ -101,11 +101,15 @@ func (h *HttpMethod) gin() (gp GinParams) {
 			case "Body":
 				h.GinParams.HasBody = true
 				brs := Node2String(h.SrcPkg.Fset, field.Type)
-				if !strings.Contains(brs, ".") && !strings.HasPrefix(brs, "struct ") {
-					if globalOption.Vars["pkgName"] != h.DstPkg.Name {
+				if globalOption.Vars["pkgName"] != h.DstPkg.Name {
+					switch {
+					case !strings.Contains(brs, ".") && brs[0:2] == "[]":
+						brs = "[]" + h.DstPkg.Name + "." + brs[2:]
+					case !strings.Contains(brs, ".") && !strings.HasPrefix(brs, "struct "):
 						brs = h.DstPkg.Name + "." + brs
 					}
 				}
+
 				h.GinParams.BodyRawStruct = brs
 				h.GinParams.BodyRawStructName = h.Name + "BodySwag"
 			case "Uri":

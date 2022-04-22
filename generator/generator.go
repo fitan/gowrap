@@ -185,7 +185,9 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 
 		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
 		options.Vars["initType"] = options.InitType
-		options.Vars["pkgName"] = options.SourceLoadPkg.Name
+		if options.SourceLoadPkg != nil {
+			options.Vars["pkgName"] = options.SourceLoadPkg.Name
+		}
 
 		dstPackagePath := filepath.Dir(options.OutputFile)
 		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {

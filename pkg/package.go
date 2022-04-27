@@ -29,6 +29,7 @@ const mode packages.LoadMode =packages.NeedName |
 // Load loads package by its import path
 func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {
 	t1 := time.Now()
+	log.Printf("open pkg need syntax %v", pkgNeedSyntax)
 	defer func() {
 		log.Printf("load pkg time: %v", time.Now().Sub(t1).String())
 	}()
@@ -40,7 +41,8 @@ func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {
 	//cfg := &packages.Config{Mode: mode}
 	pkgs, err := packages.Load(cfg, path)
 	if err != nil {
-		return nil, err
+		log.Printf("packages.Load err: %v", err.Error())
+		return pkgs[0], nil
 	}
 
 	if len(pkgs) < 1 {

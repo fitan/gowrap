@@ -298,6 +298,18 @@ func (m Method) ParamsNamesExcludeCtx() string {
 	return strings.Join(ss, ", ")
 }
 
+func (m Method) ParamsExcludeCtx() ParamsSlice {
+	tmp := make(ParamsSlice, 0, 0)
+	for _, p := range m.Params {
+		if p.Type == "context.Context" {
+			continue
+		}
+
+		tmp = append(tmp, p)
+	}
+	return tmp
+}
+
 // ResultsNames returns a list of method results names
 func (m Method) ResultsNames() string {
 	ss := []string{}
@@ -305,6 +317,18 @@ func (m Method) ResultsNames() string {
 		ss = append(ss, r.Name)
 	}
 	return strings.Join(ss, ", ")
+}
+
+func (m Method) ResultsExcludeErr() ParamsSlice {
+	tmp := make(ParamsSlice, 0,0)
+	for _, p := range m.Results {
+		if p.Type == "error" {
+			continue
+		}
+
+		tmp = append(tmp,p)
+	}
+	return tmp
 }
 
 // ParamsStruct returns a struct type with fields corresponding
@@ -382,6 +406,17 @@ func (m Method) ParamsMapExcludeCtx() string {
 func (m Method) ResultsMap() string {
 	ss := []string{}
 	for _, r := range m.Results {
+		ss = append(ss, `"`+r.Name+`": `+r.Name)
+	}
+	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"
+}
+
+func (m Method) ResultsMapExcludeErr() string {
+	ss := []string{}
+	for _, r := range m.Results {
+		if r.Type == "error" {
+			continue
+		}
 		ss = append(ss, `"`+r.Name+`": `+r.Name)
 	}
 	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"

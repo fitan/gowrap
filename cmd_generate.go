@@ -239,7 +239,7 @@ func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]
 func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
 
-	sourcePackage, err := pkg.Load(gc.sourcePkg, true)
+	sourcePackage, err := pkg.Load(gc.sourcePkg, gc.pkgNeedSyntax)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load source package")
 	}

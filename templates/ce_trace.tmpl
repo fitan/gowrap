@@ -1,0 +1,42 @@
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+import (
+"github.com/opentracing/opentracing-go"
+"github.com/opentracing/opentracing-go/ext"
+"time"
+{{range $i := $.Imports}}
+    {{$i}}
+{{end}}
+)
+
+type tracing struct {
+	next   Service
+	tracer opentracing.Tracer
+}
+
+{{range $m := $.Interface.Methods}}
+func (s *tracing) {{$m.Declaration}} {
+	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "{{$m.Name}}", opentracing.Tag{
+		Key:   string(ext.Component),
+		Value: "{{$.Vars.instance}}",
+	})
+	defer func() {
+		span.LogKV(
+			{{range $v := $m.ParamsExcludeCtx}}"{{$v.Name}}",{{$v.Name}},{{end}}
+			"err",err,
+		)
+		span.SetTag(string(ext.Error), err != nil)
+		span.Finish()
+	}()
+	return s.next.{{$m.Name}}({{$m.ParamsNames}})
+}
+{{end}}
+
+
+func NewTracing(otTracer opentracing.Tracer) Middleware {
+	return func(next Service) Service {
+		return &tracing{
+			next:   next,
+			tracer: otTracer,
+		}
+	}
+}

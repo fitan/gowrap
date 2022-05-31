@@ -27,7 +27,7 @@ func (s *tracing) {{$m.Declaration}} {
 		span.SetTag(string(ext.Error), err != nil)
 		span.Finish()
 	}()
-	return s.next.{{$m.Name}}({{$m.ParamsNames}})
+	return s.next.{{$m.Call}}
 }
 {{end}}
 

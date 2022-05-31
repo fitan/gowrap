@@ -1,6 +1,7 @@
 import (
 	"github.com/fitan/gink/transport/http"
 	"github.com/gin-gonic/gin"
+	"hello/pkg/debug"
 	{{range $i := $.Imports}}
     {{$i}}
     {{end}}
@@ -15,7 +16,7 @@ func AddHttpOptionToAllMethods(options map[string][]http.ServerOption, option ht
 	methods := []string{
 {{range $method := .Interface.Methods}}
 {{if $method.HasGin}}
-		"{{$method.Name}}",
+		{{$method.Name}}MethodName,
 {{end}}
 {{end}}
 	}
@@ -28,10 +29,14 @@ type HttpHandler struct {
 
 }
 
-func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops) HttpHandler {
+func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops, debugSwitch *debug.DebugSwitch) HttpHandler {
+{{range $method := .Interface.Methods}}
+	debugSwitch.Register("{{$method.Name}}", "{{$method.Gin.Url}}", "{{up $method.Gin.Method}}")
+{{end}}
+
 {{range $method := .Interface.Methods}}
 {{if $method.HasGin}}
-	make{{$method.Name}}Handler(r, endpoints, options["{{$method.Name}}"])
+	make{{$method.Name}}Handler(r, endpoints, options[{{$method.Name}}MethodName])
 {{end}}
 {{end}}
     return HttpHandler{}
@@ -39,6 +44,7 @@ func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops) HttpHandler
 
 type SwagResponse struct {
 	TraceId string `json:"traceId"`
+	Status int `json:"status"`
 	Data interface{} `json:"data"`
 }
 

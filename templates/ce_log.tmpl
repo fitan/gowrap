@@ -16,7 +16,7 @@ func (s *logging) {{$m.Declaration}} {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(
 			s.traceId, ctx.Value(s.traceId),
-			"method", "LifeCycle",
+			"method", "{{$m.Name}}",
 			{{range $v := $m.ParamsExcludeCtx}}
 			"{{$v.Name}}", {{$v.Name}},
 			{{end}}

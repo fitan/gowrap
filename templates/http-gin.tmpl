@@ -1,7 +1,7 @@
 import (
 	"github.com/fitan/gink/transport/http"
 	"github.com/gin-gonic/gin"
-	"hello/pkg/debug"
+	"hello/utils/debug"
 	{{range $i := $.Imports}}
     {{$i}}
     {{end}}
@@ -29,9 +29,9 @@ type HttpHandler struct {
 
 }
 
-func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops, debugSwitch *debug.DebugSwitch) HttpHandler {
+func NewHTTPHandler(r *gin.RouterGroup, endpoints Endpoints, options Ops, debugSwitch *debug.DebugSwitch) HttpHandler {
 {{range $method := .Interface.Methods}}
-	debugSwitch.Register("{{$method.Name}}", "{{$method.Gin.Url}}", "{{up $method.Gin.Method}}")
+	debugSwitch.Register("{{$method.Name}}", r.BasePath() + "{{$method.Gin.Url}}", "{{up $method.Gin.Method}}")
 {{end}}
 
 {{range $method := .Interface.Methods}}
@@ -65,7 +65,7 @@ type {{$method.Gin.BodyRawStructName}} {{$method.Gin.BodyRawStruct}}
 // @Param {{$TagMsg.TagValue}} header string false "{{$TagMsg.Comment}} "{{- end}}{{end}}
 // @Success 200 {object} SwagResponse{data={{replace (index $method.Results 0).Type "*" ""}}}
 // @Router {{$method.Gin.SwagUrl}} [{{down $method.Gin.Method}}]
-func make{{$method.Name}}Handler(r *gin.Engine, endpoints Endpoints, options []http.ServerOption) {
+func make{{$method.Name}}Handler(r *gin.RouterGroup, endpoints Endpoints, options []http.ServerOption) {
 	r.{{up $method.Gin.Method}}("{{$method.Gin.Url}}", http.NewServer(endpoints.{{$method.Name}}Endpoint, decode{{$method.Name}}Request, http.EncodeJSONResponse, options...).ServeHTTP)
 }
 

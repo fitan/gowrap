@@ -38,7 +38,7 @@ func New{{$decorator}} (base {{.Interface.Type}}) {{$.Interface.Type}} {
         if err != nil {
           l := map[string]interface{}{
           	"params": {{$method.ParamsMapExcludeCtx}},
-          	"result": {{$method.ResultsMap}},
+          	"result": {{$method.ResultsMapExcludeErr}},
           }
           s, _ := json.Marshal(l)
           span.AddEvent(semconv.ExceptionEventName, trace.WithAttributes(semconv.ExceptionTypeKey.String("context"), semconv.ExceptionMessageKey.String(string(s))))

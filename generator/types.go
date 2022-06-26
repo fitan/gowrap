@@ -24,6 +24,34 @@ type Method struct {
 	// my extra
 	HasGin bool
 	Gin    GinParams
+	Kit    KitParams
+}
+
+func (m Method) KitEndpointName() string {
+	if m.Kit.Endpoint == `""` || m.Kit.Endpoint == "" {
+		return "Make" + m.Name + "Endpoint"
+	}
+	return m.Kit.Endpoint
+}
+
+func (m Method) KitEncodeName() string {
+	if m.Kit.Encode == `""` || m.Kit.Encode == "" {
+		return "http.EncodeJSONFormatResponse"
+	}
+	return m.Kit.Encode
+}
+
+func (m Method) KitDecodeName() string {
+	if m.Kit.Decode == `""` || m.Kit.Decode == "" {
+		return "decode" + m.Name + "Request"
+	}
+	return m.Kit.Decode
+}
+
+type KitParams struct {
+	Endpoint string
+	Decode   string
+	Encode   string
 }
 
 type GinParams struct {

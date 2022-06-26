@@ -1,13 +1,10 @@
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
-import (
-  "time"
+{{$.Import
+`"time"`
+`"github.com/prometheus/client_golang/prometheus"`
+`"github.com/prometheus/client_golang/prometheus/promauto"`
+}}
 
-  "github.com/prometheus/client_golang/prometheus"
-  "github.com/prometheus/client_golang/prometheus/promauto"
-  {{range $i := $.Imports}}
-  {{$i}}
-  {{end}}
-)
 
 
 {{ $decorator := (or .Vars.DecoratorName (printf "%sWithPrometheus" .Interface.Name)) }}

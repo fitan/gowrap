@@ -63,13 +63,13 @@ func (t TemplateInputs) Import(imports ...string) string {
 
 		i = strings.TrimSpace(i)
 
-		if i[len(i)-1] != '"' {
-			i += `"`
-		}
-
-		if i[0] != '"' {
-			i = `"` + i
-		}
+		//if i[len(i)-1] != '"' {
+		//	i += `"`
+		//}
+		//
+		//if i[0] != '"' {
+		//	i = `"` + i
+		//}
 
 		allImports[i] = struct{}{}
 	}
@@ -139,7 +139,7 @@ type Options struct {
 	BatchTemplate []BatchTemplate
 
 	RunCmdDir string
-	InitType string
+	InitType  string
 }
 
 type BatchTemplate struct {
@@ -491,6 +491,7 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 
 					if has {
 						method.Gin = httpMethod.GinParams
+						method.Kit = httpMethod.KitParams
 						method.HasGin = true
 					}
 				}

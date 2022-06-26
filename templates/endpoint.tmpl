@@ -59,7 +59,7 @@ func NewEndpoints(s {{.Interface.Name}}, mdw Mws) Endpoints {
 	eps := Endpoints{
 {{range $method := .Interface.Methods}}
 	{{if $method.HasGin}}
-		{{$method.Name}}Endpoint: Make{{$method.Name}}Endpoint(s),
+		{{$method.Name}}Endpoint: {{$method.KitEndpointName}}(s),
 	{{end}}
 {{end}}
 	}
@@ -78,23 +78,8 @@ func NewEndpoints(s {{.Interface.Name}}, mdw Mws) Endpoints {
 {{if $method.HasGin}}
 func Make{{$method.Name}}Endpoint(s {{$.Interface.Type}}) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		var err error
-		result := make(map[string]interface{},0)
-		defer func() {
-			if err != nil {
-				result["status"] = 500
-			}
-			result["status"] = 0
-		}()
 		req := request.({{(index $method.Params 1).Type}})
-        rs, err := s.{{$method.Name}}(ctx, req)
-		if err != nil {
-			result["err"] = err.Error()
-			return result, nil
-		}
-		result["data"] = rs
-		result["traceId"] = trace.SpanFromContext(ctx).SpanContext().TraceID().String()
-		return result, nil
+        return s.{{$method.Name}}(ctx, req)
 	}
 }
 {{end}}

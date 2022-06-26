@@ -66,7 +66,7 @@ type {{$method.Gin.BodyRawStructName}} {{$method.Gin.BodyRawStruct}}
 // @Success 200 {object} SwagResponse{data={{replace (index $method.Results 0).Type "*" ""}}}
 // @Router {{$method.Gin.SwagUrl}} [{{down $method.Gin.Method}}]
 func make{{$method.Name}}Handler(r *gin.RouterGroup, endpoints Endpoints, options []http.ServerOption) {
-	r.{{up $method.Gin.Method}}("{{$method.Gin.Url}}", http.NewServer(endpoints.{{$method.Name}}Endpoint, decode{{$method.Name}}Request, http.EncodeJSONResponse, options...).ServeHTTP)
+	r.{{up $method.Gin.Method}}("{{$method.Gin.Url}}", http.NewServer(endpoints.{{$method.Name}}Endpoint, {{$method.KitDecodeName}}, {{$method.KitEncodeName}}, options...).ServeHTTP)
 }
 
 func decode{{$method.Name}}Request(_ context.Context, ctx *gin.Context) (interface{}, error) {

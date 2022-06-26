@@ -1,11 +1,4 @@
-import (
-  "go.opentelemetry.io/otel/trace"
-  "go.uber.org/zap"
-  ginkHttp "github.com/fitan/gink/transport/http"
-  {{range $i := $.Imports}}
-  {{$i}}
-  {{end}}
-)
+{{$.Import `"go.opentelemetry.io/otel/trace"` `"go.uber.org/zap"` `ginkHttp "github.com/fitan/gink/transport/http"`}}
 
 
 

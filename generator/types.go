@@ -24,6 +24,10 @@ type Method struct {
 	// my extra
 	HasGin bool
 	Gin    GinParams
+
+	// my extra
+	Kit bool
+	KitMethodConf MethodConf
 }
 
 type GinParams struct {

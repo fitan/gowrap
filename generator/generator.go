@@ -442,7 +442,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 		return nil, nil, errors.Wrap(errInterfaceNotFound, interfaceName)
 	}
 
-	methods, err = processInterface(fs, currentPackage, currentFile, it, types, p.Name, imports)
+	methods, err = processInterface(interfaceName,fs, currentPackage, currentFile, it, types, p.Name, imports)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -466,7 +466,7 @@ func typeSpecs(f *ast.File) []*ast.TypeSpec {
 	return result
 }
 
-func processInterface(fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
+func processInterface(interfaceName string,fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
 	if it.Methods == nil {
 		return nil, nil
 	}
@@ -481,6 +481,9 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 		case *ast.FuncType:
 			var method *Method
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
+
+
+			NewKit(interfaceName,field.Names[0].Name, currentPackage, currentFile, field)
 			if err == nil {
 				if globalOption.PkgNeedSyntax {
 					httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
@@ -493,6 +496,8 @@ func processInterface(fs *token.FileSet, currentPackage *packages.Package, curre
 						method.Gin = httpMethod.GinParams
 						method.HasGin = true
 					}
+
+
 				}
 
 				methods[field.Names[0].Name] = *method
@@ -572,10 +577,12 @@ var errNotAnInterface = errors.New("embedded type is not an interface")
 
 func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, i *ast.Ident, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methodsList, error) {
 	var embeddedInterface *ast.InterfaceType
+	var interfaceName string
 	for _, t := range types {
 		if t.Name.Name == i.Name {
 			var ok bool
 			embeddedInterface, ok = t.Type.(*ast.InterfaceType)
+			interfaceName = t.Name.Name
 			if !ok {
 				return nil, errors.Wrap(errNotAnInterface, t.Name.Name)
 			}
@@ -587,7 +594,7 @@ func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFi
 		return nil, errors.Wrap(errEmbeddedInterfaceNotFound, i.Name)
 	}
 
-	return processInterface(fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports)
+	return processInterface(interfaceName,fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports)
 }
 
 var errUnknownSelector = errors.New("unknown selector")

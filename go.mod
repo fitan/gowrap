@@ -1,10 +1,11 @@
 module github.com/fitan/gowrap
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/gojuno/minimock/v3 v3.0.10
 	github.com/golangci/golangci-lint v1.41.1
 	github.com/goreleaser/goreleaser v0.169.0
+	github.com/imroc/req/v3 v3.13.2
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1

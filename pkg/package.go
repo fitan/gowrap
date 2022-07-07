@@ -33,7 +33,8 @@ func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {
 	defer func() {
 		log.Printf("load pkg time: %v", time.Now().Sub(t1).String())
 	}()
-	cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedModule}
+	//cfg := &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedModule | }
+	cfg := &packages.Config{Mode: mode}
 	if pkgNeedSyntax {
 		//cfg = &packages.Config{Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedSyntax | packages.NeedTypesInfo}
 		cfg = &packages.Config{Mode: mode}

@@ -475,15 +475,23 @@ func processInterface(interfaceName string,fs *token.FileSet, currentPackage *pa
 
 	for _, field := range it.Methods.List {
 		var embeddedMethods methodsList
-		var err error
 
 		switch v := field.Type.(type) {
 		case *ast.FuncType:
+
+			if field.Doc != nil {
+				var kit *Kit
+				kit, err = NewKit(interfaceName, field.Names[0].Name, currentPackage, field)
+				if err != nil {
+					err = errors.Wrap(err, "NewKit")
+					return
+				}
+				fmt.Println(kit)
+			}
+
 			var method *Method
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
 
-
-			NewKit(interfaceName,field.Names[0].Name, currentPackage, currentFile, field)
 			if err == nil {
 				if globalOption.PkgNeedSyntax {
 					httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)

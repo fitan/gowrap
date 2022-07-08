@@ -11,8 +11,8 @@ import (
 
 const (
 	KitHttp = "@kit-http" 
-	KitService = "@kit-service"
-	kitParam = "@kit-param"
+	KitService = "@kit-http-service"
+	kitParam = "@kit-http-param"
 )
 
 type KitCommentConf struct {
@@ -118,18 +118,18 @@ type InterfaceMethodParam struct {
 	ParamType string
 }
 
-func NewKit(interafaceName string,methodName string, srcPkg *packages.Package,  fi *ast.Field) error {
+func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  fi *ast.Field) (*Kit,error) {
 	kit := Kit{
 		InterfaceMethodParams: make(map[string]InterfaceMethodParam, 0),
 	}
-	commentConf, err := KitComment(fi.Comment.List)
+	commentConf, err := KitComment(fi.Doc.List)
 	if err != nil {
-		return err
+		return nil,err
 	}
 
 	kit.Comment = commentConf
 
-	obj := srcPkg.Types.Scope().Lookup(interafaceName)
+	obj := srcPkg.Types.Scope().Lookup(interfaceName)
 	objInterface := obj.Type().Underlying().(*types.Interface)
 
 	for i := 0; i < objInterface.NumMethods(); i++ {
@@ -145,9 +145,9 @@ func NewKit(interafaceName string,methodName string, srcPkg *packages.Package,  
 				}
 
 				if _, ok := kit.Comment.HttpParams[param.Name()]; !ok {
-					return errors.New(
+					return nil,errors.New(
 						fmt.Sprintf(
-							"%s.%s param %s not found in @kit-http comment", interafaceName, methodName, param.Name(),
+							"%s.%s param %s not found in @kit-http comment", interfaceName, methodName, param.Name(),
 						),
 					)
 				}
@@ -159,5 +159,5 @@ func NewKit(interafaceName string,methodName string, srcPkg *packages.Package,  
 			}
 		}
 	}
-	return nil
+	return &kit,nil
 }

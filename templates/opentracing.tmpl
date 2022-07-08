@@ -32,8 +32,8 @@ func New{{$decorator}} (base {{.Interface.Type}}) {{$.Interface.Type}} {
     // {{$method.Name}} implements {{$.Interface.Type}}
     func (_d {{$decorator}}) {{$method.Declaration}} {
 	  {{if $method.ReturnsError}}
-      var name = "{{$.Interface.Type}}.{{$method.Name}}"
-      _, span := otel.Tracer(name).Start(ctx, name)
+      var _name = "{{$.Interface.Type}}.{{$method.Name}}"
+      _, span := otel.Tracer(_name).Start(ctx, _name)
       defer func() {
         if err != nil {
           l := map[string]interface{}{

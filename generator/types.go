@@ -27,7 +27,7 @@ type Method struct {
 
 	// my extra
 	Kit bool
-	KitMethodConf MethodConf
+	KitConf Kit
 }
 
 type GinParams struct {

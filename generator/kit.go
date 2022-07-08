@@ -26,15 +26,16 @@ type KitCommentConf struct {
 type HttpParam struct {
 	MethodParamName string
 	SourceType string
-	SourceParamName string
 	Validate string
 	Annotation string
 }
 
 type KitServiceParam struct {
-	Has bool
+	HasEndpointName bool
 	EndpointName string
+	HasDecodeName bool
 	DecodeName string
+	HasEncodeName bool
 	EncodeName string
 }
 
@@ -42,7 +43,7 @@ func KitComment(comments []*ast.Comment) (kitCommentConf KitCommentConf,err erro
 	kitCommentConf.HttpParams = make(map[string]HttpParam, 0)
 	for _, comment := range comments {
 		fields := strings.Fields(strings.TrimSpace(comment.Text))
-		switch fields[0] {
+		switch fields[1] {
 		case KitHttp:
 			err = (&kitCommentConf).ParamKitHttp(fields)
 			if err != nil {
@@ -68,12 +69,12 @@ func KitComment(comments []*ast.Comment) (kitCommentConf KitCommentConf,err erro
 }
 
 func (m *KitCommentConf) ParamKitHttp(s []string) (err error) {
-	if len(s) < 2 {
+	if len(s) < 3 {
 		err = errors.New("must format: @kit-http url method")
 		return
 	}
-	m.Url = s[1]
-	m.UrlMethod = s[2]
+	m.Url = s[2]
+	m.UrlMethod = s[3]
 	return
 }
 
@@ -82,40 +83,54 @@ func (m *KitCommentConf) ParamKitService(s []string) (err error) {
 		err = errors.New("must format: @kit-service endpoint decode encode")
 		return
 	}
-	m.KitServiceParam.Has = true
-	m.KitServiceParam.EndpointName = s[1]
-	m.KitServiceParam.DecodeName = s[2]
-	m.KitServiceParam.EncodeName = s[3]
+	m.KitServiceParam.EndpointName = s[2]
+	if m.KitServiceParam.EndpointName != "" {
+		m.KitServiceParam.HasEndpointName = true
+	}
+	m.KitServiceParam.DecodeName = s[3]
+	if m.KitServiceParam.DecodeName != "" {
+		m.KitServiceParam.HasDecodeName = true
+	}
+	m.KitServiceParam.EncodeName = s[4]
+	if m.KitServiceParam.EncodeName != "" {
+		m.KitServiceParam.HasEncodeName = true
+	}
 	return
 }
 
 func (m *KitCommentConf) ParamKitParam(s []string) (err error) {
-	if len(s) < 6 {
+	if len(s) < 5 {
 		err = errors.New("must format: @kit-param methodParamName sourceType sourceParamName validate annotation")
 		return
 	}
 
 	httpParam := HttpParam{
-		MethodParamName: s[1],
-		SourceType:      s[2],
-		SourceParamName: s[3],
+		MethodParamName: s[2],
+		SourceType:      s[3],
 		Validate:        s[4],
 		Annotation:      s[5],
 	}
 
-	m.HttpParams[s[1]] = httpParam
+	m.HttpParams[s[2]] = httpParam
 	return
 }
 
 type Kit struct {
-	Comment KitCommentConf
+	//Comment KitCommentConf
+	HasParamSourcePath bool
 	InterfaceMethodParams map[string]InterfaceMethodParam
+	KitServiceParam KitServiceParam
 	HasCtx bool
 }
+
 
 type InterfaceMethodParam struct {
 	ParamName string
 	ParamType string
+	MethodParamName string
+	SourceType string
+	Validate string
+	Annotation string
 }
 
 func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  fi *ast.Field) (*Kit,error) {
@@ -127,7 +142,7 @@ func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  f
 		return nil,err
 	}
 
-	kit.Comment = commentConf
+	kit.KitServiceParam = commentConf.KitServiceParam
 
 	obj := srcPkg.Types.Scope().Lookup(interfaceName)
 	objInterface := obj.Type().Underlying().(*types.Interface)
@@ -144,7 +159,7 @@ func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  f
 					continue
 				}
 
-				if _, ok := kit.Comment.HttpParams[param.Name()]; !ok {
+				if _, ok := commentConf.HttpParams[param.Name()]; !ok {
 					return nil,errors.New(
 						fmt.Sprintf(
 							"%s.%s param %s not found in @kit-http comment", interfaceName, methodName, param.Name(),
@@ -152,12 +167,32 @@ func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  f
 					)
 				}
 
+
 				kit.InterfaceMethodParams[param.Name()] = InterfaceMethodParam{
-					ParamName: param.Name(),
-					ParamType: param.Type().String(),
+					ParamName:       param.Name(),
+					ParamType:       param.Type().String(),
+					MethodParamName: commentConf.HttpParams[param.Name()].MethodParamName,
+					SourceType:      commentConf.HttpParams[param.Name()].SourceType,
+					Validate:        commentConf.HttpParams[param.Name()].Validate,
+					Annotation:      commentConf.HttpParams[param.Name()].Annotation,
+				}
+
+				if commentConf.HttpParams[param.Name()].SourceType == "path" {
+					kit.HasParamSourcePath = true
+				}
+
+				paramStruct, ok :=  param.Type().Underlying().(*types.Struct)
+				if ok {
+					fmt.Println("string: ", paramStruct.String())
+					fmt.Println("field1: ", paramStruct.Field(0).Name())
+					fmt.Println("tag: ", paramStruct.Tag(0))
 				}
 			}
 		}
 	}
 	return &kit,nil
+}
+
+func (k *Kit) Gen() {
+	
 }

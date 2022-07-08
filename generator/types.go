@@ -26,7 +26,6 @@ type Method struct {
 	Gin    GinParams
 
 	// my extra
-	Kit bool
 	KitConf Kit
 	Kit    KitParams
 }

@@ -1,0 +1,87 @@
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+import (
+"net/http"
+valid "github.com/asaskevich/govalidator"
+"github.com/go-kit/kit/endpoint"
+kithttp "github.com/go-kit/kit/transport/http"
+"github.com/gorilla/mux"
+"gitlab.creditease.corp/paas/paas-api/src/encode"
+{{range $i := $.Imports}}
+    {{$i}}
+{{end}}
+)
+
+func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.ServerOption) http.Handler {
+	var ems []endpoint.Middleware
+
+	opts = append(opts, kithttp.ServerBefore(func(ctx context.Context, request *http.Request) context.Context {
+		return ctx
+	}))
+
+	ems = append(ems, dmw...)
+
+	eps := NewEndpoint(s, map[string][]endpoint.Middleware{
+		{{range $m := $.Interface.Methods}}
+		"{{$m.Name}}": ems,
+		{{end}}
+	})
+
+	r := mux.NewRouter()
+
+	{{range $m := $.Interface.Methods}}
+	r.Handle("{{$m.KitConf.Comment.Url}}", kithttp.NewServer(
+		eps.{{$m.Name}}Endpoint,
+		decode{{$m.Name}}Request,
+		encode.JsonResponse,
+		opts...,
+	)).Methods("http.Method{{up $m.KitConf.Comment.UrlMethod}}")
+	{{end}}
+
+	return r
+}
+
+{{range $m := $.Interface.Methods}}
+func decode{{$m.Name}}Request(_ context.Context, r *http.Request) (interface{}, error) {
+{{range $v := $m.ParamsExcludeCtx}}
+    var {{$v.Name}} {{$v.Type}}
+{{end}}
+	var err error
+
+{{if $m.KitConf.HasParamSourcePath}}
+	_vars := mux.Vars(r)
+{{end}}
+
+{{range $v := $m.KitConf.InterfaceMethodParams}}
+	{{if (eq $v.SourceType "path")}}
+		{{$v.ParamName}} = _vars["{{$v.ParamName}}"]
+	{{end}}
+	{{if (eq $v.SourceType "query")}}
+		{{$v.ParamName}} = r.URL.Query().Get({{$v.ParamName}})
+	{{end}}
+	{{if (eq $v.SourceType "body")}}
+		json.NewDecoder(r.Body).Decode({{$v.ParamName}})
+	{{end}}
+{{end}}
+
+
+
+	req := {{$m.Name}}Request{
+{{range $v := $m.ParamsExcludeCtx}}
+    {{upFirst $v.Name}}: {{$v.Name}},
+{{end}}
+	}
+	// Todo decode request
+
+	validResult, err := valid.ValidateStruct(req)
+	if err != nil {
+		err = errors.Wrap(err, "valid.ValidateStruct")
+		return nil, err
+	}
+
+	if !validResult {
+		err = errors.Wrap(err,"valid false")
+		return nil, err
+	}
+	return req, err
+}
+{{end}}

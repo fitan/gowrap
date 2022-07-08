@@ -9,6 +9,14 @@ import (
 
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
 
+const (
+{{range $method := .Interface.Methods}}
+	{{if $method.HasGin}}
+	{{$method.Name}}MethodName = "{{$method.Name}}"
+	{{end}}
+{{end}}
+)
+
 type Mws map[string][]endpoint.Middleware
 
 type Endpoints struct {
@@ -23,7 +31,7 @@ func AddEndpointMiddlewareToAllMethods(mw map[string][]endpoint.Middleware, m en
 	methods := []string{
 {{range $method := .Interface.Methods}}
     {{if $method.HasGin}}
-		"{{$method.Name}}",
+		{{$method.Name}}MethodName,
 	{{end}}
 {{end}}
 }
@@ -36,7 +44,7 @@ func AddEndpointMiddlewareToAllMethodsWithMethodName(mw map[string][]endpoint.Mi
 	methods := []string{
 {{range $method := .Interface.Methods}}
 	{{if $method.HasGin}}
-		"{{$method.Name}}",
+		{{$method.Name}}MethodName,
 	{{end}}
 {{end}}
 }
@@ -51,13 +59,13 @@ func NewEndpoints(s {{.Interface.Name}}, mdw Mws) Endpoints {
 	eps := Endpoints{
 {{range $method := .Interface.Methods}}
 	{{if $method.HasGin}}
-		{{$method.Name}}Endpoint: Make{{$method.Name}}Endpoint(s),
+		{{$method.Name}}Endpoint: {{$method.KitEndpointName}}(s),
 	{{end}}
 {{end}}
 	}
 {{range $method := .Interface.Methods}}
 	{{if $method.HasGin}}
-	for _, m := range mdw["{{$method.Name}}"] {
+	for _, m := range mdw[{{$method.Name}}MethodName] {
 		eps.{{$method.Name}}Endpoint = m(eps.{{$method.Name}}Endpoint)
 	}
 	{{end}}
@@ -71,15 +79,7 @@ func NewEndpoints(s {{.Interface.Name}}, mdw Mws) Endpoints {
 func Make{{$method.Name}}Endpoint(s {{$.Interface.Type}}) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.({{(index $method.Params 1).Type}})
-        rs, err := s.{{$method.Name}}(ctx, req)
-        result := make(map[string]interface{},0)
-		if err != nil {
-			result["err"] = err.Error()
-			return result, nil
-		}
-		result["data"] = rs
-		result["traceId"] = trace.SpanFromContext(ctx).SpanContext().TraceID().String()
-		return result, nil
+        return s.{{$method.Name}}(ctx, req)
 	}
 }
 {{end}}

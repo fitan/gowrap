@@ -1,10 +1,4 @@
-import (
-  "go.opentelemetry.io/otel/trace"
-  "go.uber.org/zap"
-  {{range $i := $.Imports}}
-  {{$i}}
-  {{end}}
-)
+{{$.Import `"go.opentelemetry.io/otel/trace"` `"go.uber.org/zap"` `ginkHttp "github.com/fitan/gink/transport/http"`}}
 
 
 
@@ -32,16 +26,36 @@ func New{{$decorator}}(base {{.Interface.Type}},log *zap.SugaredLogger) {{$decor
       {{else}}
           _log := _d._log
       {{end}}
+
+      debug, _ := ctx.Value(ginkHttp.ContextKeyRequestDebug).(bool)
+
+
       defer func() {
-          _log.Debugw("{{$decorator}} calling {{$method.Name}}", "params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMap}})
+
         {{- if $method.HasResults}}
           {{- if $method.ReturnsError}}
-            if err != nil {
-              _log.Errorw("with_log","params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMap}})
+            if debug {
+            if err == nil {
+                _log.Infow("with_log calling {{$method.Name}}","params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMapErr2Str}})
             }
+
+            if err != nil {
+                _log.Errorw("with_log calling {{$method.Name}}","params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMapErr2Str}})
+            }
+
+          }
+          if !debug && err == nil {
+            _log.Debugw("with_log calling {{$method.Name}}", "params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMapErr2Str}})
+          }
+
+            if err != nil && !debug {
+              _log.Errorw("with_log calling {{$method.Name}}","params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMapErr2Str}})
+            }
+          {{else}}
+          if debug {
+            _log.Infow("with_log calling {{$method.Name}}","params", {{$method.ParamsMapExcludeCtx}}, "results", {{$method.ResultsMapErr2Str}})
+          }
           {{end -}}
-{{/*        {{else}}*/}}
-{{/*          _d._log.Infow("with_log","{{$decorator}}: {{$method.Name}} finished")*/}}
         {{end -}}
       }()
       {{ $method.Pass "_d._base." }}

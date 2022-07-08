@@ -28,25 +28,52 @@ type Method struct {
 	// my extra
 	Kit bool
 	KitConf Kit
+	Kit    KitParams
+}
+
+func (m Method) KitEndpointName() string {
+	if m.Kit.Endpoint == `""` || m.Kit.Endpoint == "" {
+		return "Make" + m.Name + "Endpoint"
+	}
+	return m.Kit.Endpoint
+}
+
+func (m Method) KitEncodeName() string {
+	if m.Kit.Encode == `""` || m.Kit.Encode == "" {
+		return "http.EncodeJSONFormatResponse"
+	}
+	return m.Kit.Encode
+}
+
+func (m Method) KitDecodeName() string {
+	if m.Kit.Decode == `""` || m.Kit.Decode == "" {
+		return "decode" + m.Name + "Request"
+	}
+	return m.Kit.Decode
+}
+
+type KitParams struct {
+	Endpoint string
+	Decode   string
+	Encode   string
 }
 
 type GinParams struct {
-
-	Url    string
+	Url     string
 	SwagUrl string
-	Method string
-	Result string
+	Method  string
+	Result  string
 
 	HasUri     bool
 	UriTagMsgs []TagMsg
 
-	HasQuery bool
+	HasQuery           bool
 	QueryRawStructName string
-	QueryRawStruct string
+	QueryRawStruct     string
 
-	HasBody  bool
+	HasBody           bool
 	BodyRawStructName string
-	BodyRawStruct string
+	BodyRawStruct     string
 
 	HasHeader     bool
 	HeaderTagMsgs []TagMsg
@@ -324,13 +351,13 @@ func (m Method) ResultsNames() string {
 }
 
 func (m Method) ResultsExcludeErr() ParamsSlice {
-	tmp := make(ParamsSlice, 0,0)
+	tmp := make(ParamsSlice, 0, 0)
 	for _, p := range m.Results {
 		if p.Type == "error" {
 			continue
 		}
 
-		tmp = append(tmp,p)
+		tmp = append(tmp, p)
 	}
 	return tmp
 }
@@ -410,6 +437,18 @@ func (m Method) ParamsMapExcludeCtx() string {
 func (m Method) ResultsMap() string {
 	ss := []string{}
 	for _, r := range m.Results {
+		ss = append(ss, `"`+r.Name+`": `+r.Name)
+	}
+	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"
+}
+
+func (m Method) ResultsMapErr2Str() string {
+	ss := []string{}
+	for _, r := range m.Results {
+		if r.Type == "error" {
+			ss = append(ss, `"`+r.Name+`": `+fmt.Sprintf(`fmt.Sprintf("%%v", %v)`, r.Name))
+			continue
+		}
 		ss = append(ss, `"`+r.Name+`": `+r.Name)
 	}
 	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"

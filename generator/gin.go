@@ -17,8 +17,22 @@ import (
 )
 
 const HttpGinMark = "@http-gin"
+const HttpKitMark = "@http-kit"
 
-func HasGinHttpMark(fi *ast.Field) (has bool, url string, method string) {
+func HasHttpKitMark(fi *ast.Field) (has bool, endpoint string, decode string, encode string) {
+	if fi.Doc == nil {
+		return false, "", "", ""
+	}
+	for _, v := range fi.Doc.List {
+		vl := strings.Fields(v.Text)
+		if len(vl) == 5 && vl[1] == HttpKitMark {
+			return true, vl[2], vl[3], vl[4]
+		}
+	}
+	return false, "", "", ""
+}
+
+func HasHttpGinMark(fi *ast.Field) (has bool, url string, method string) {
 	if fi.Doc == nil {
 		return false, "", ""
 	}
@@ -41,6 +55,7 @@ type HttpMethod struct {
 	DstFile   *ast.File
 	DstStruct *ast.StructType
 	GinParams GinParams
+	KitParams KitParams
 }
 
 func NewHttpMethod(name string, srcPkg *packages.Package, srcFile *ast.File, fi *ast.Field) *HttpMethod {
@@ -53,7 +68,7 @@ func (h *HttpMethod) Parse() (bool, error) {
 	if !ok {
 		return false, fmt.Errorf("%q is not a method", h.Name)
 	}
-	has, url, method := HasGinHttpMark(h.SrcField)
+	has, url, method := HasHttpGinMark(h.SrcField)
 	if !has {
 		return has, nil
 	}
@@ -64,23 +79,30 @@ func (h *HttpMethod) Parse() (bool, error) {
 		h.GinParams.Method = method
 	}
 
+	has, endpoint, decode, encode := HasHttpKitMark(h.SrcField)
+	if has {
+		h.KitParams.Endpoint = endpoint
+		h.KitParams.Decode = decode
+		h.KitParams.Encode = encode
+	}
+
 	if len(f.Params.List) != 2 {
-		return has, fmt.Errorf("%s method params len must 2", h.Name)
+		return false, fmt.Errorf("%s method params len must 2", h.Name)
 	}
 
 	if len(f.Results.List) != 2 {
-		return has, fmt.Errorf("%s method results len must 2", h.Name)
+		return false, fmt.Errorf("%s method results len must 2", h.Name)
 	}
 	findPkg, findFile, findStruct, err := FindByExpr(h.SrcPkg, h.SrcFile, f.Params.List[1].Type)
 	if err != nil {
-		return has, err
+		return false, err
 	}
 
 	h.DstPkg = findPkg
 	h.DstFile = findFile
 	h.DstStruct = findStruct
 	h.gin()
-	return has, nil
+	return true, nil
 
 }
 
@@ -91,7 +113,7 @@ func (h *HttpMethod) gin() (gp GinParams) {
 			case "Query":
 				h.GinParams.HasQuery = true
 				qrs := Node2String(h.SrcPkg.Fset, field.Type)
-				if !strings.Contains(qrs, ".") && !strings.HasPrefix(qrs,"struct ") {
+				if !strings.Contains(qrs, ".") && !strings.HasPrefix(qrs, "struct ") {
 					if globalOption.Vars["pkgName"] != h.DstPkg.Name {
 						qrs = h.DstPkg.Name + "." + qrs
 					}

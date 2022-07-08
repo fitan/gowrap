@@ -1,6 +1,7 @@
 import (
 	"github.com/fitan/gink/transport/http"
 	"github.com/gin-gonic/gin"
+	"hello/utils/debug"
 	{{range $i := $.Imports}}
     {{$i}}
     {{end}}
@@ -15,7 +16,7 @@ func AddHttpOptionToAllMethods(options map[string][]http.ServerOption, option ht
 	methods := []string{
 {{range $method := .Interface.Methods}}
 {{if $method.HasGin}}
-		"{{$method.Name}}",
+		{{$method.Name}}MethodName,
 {{end}}
 {{end}}
 	}
@@ -28,10 +29,14 @@ type HttpHandler struct {
 
 }
 
-func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops) HttpHandler {
+func NewHTTPHandler(r *gin.RouterGroup, endpoints Endpoints, options Ops, debugSwitch *debug.DebugSwitch) HttpHandler {
+{{range $method := .Interface.Methods}}
+	debugSwitch.Register("{{$method.Name}}", r.BasePath() + "{{$method.Gin.Url}}", "{{up $method.Gin.Method}}")
+{{end}}
+
 {{range $method := .Interface.Methods}}
 {{if $method.HasGin}}
-	make{{$method.Name}}Handler(r, endpoints, options["{{$method.Name}}"])
+	make{{$method.Name}}Handler(r, endpoints, options[{{$method.Name}}MethodName])
 {{end}}
 {{end}}
     return HttpHandler{}
@@ -39,6 +44,7 @@ func NewHTTPHandler(r *gin.Engine, endpoints Endpoints, options Ops) HttpHandler
 
 type SwagResponse struct {
 	TraceId string `json:"traceId"`
+	Status int `json:"status"`
 	Data interface{} `json:"data"`
 }
 
@@ -59,8 +65,8 @@ type {{$method.Gin.BodyRawStructName}} {{$method.Gin.BodyRawStruct}}
 // @Param {{$TagMsg.TagValue}} header string false "{{$TagMsg.Comment}} "{{- end}}{{end}}
 // @Success 200 {object} SwagResponse{data={{replace (index $method.Results 0).Type "*" ""}}}
 // @Router {{$method.Gin.SwagUrl}} [{{down $method.Gin.Method}}]
-func make{{$method.Name}}Handler(r *gin.Engine, endpoints Endpoints, options []http.ServerOption) {
-	r.{{up $method.Gin.Method}}("{{$method.Gin.Url}}", http.NewServer(endpoints.{{$method.Name}}Endpoint, decode{{$method.Name}}Request, http.EncodeJSONResponse, options...).ServeHTTP)
+func make{{$method.Name}}Handler(r *gin.RouterGroup, endpoints Endpoints, options []http.ServerOption) {
+	r.{{up $method.Gin.Method}}("{{$method.Gin.Url}}", http.NewServer(endpoints.{{$method.Name}}Endpoint, {{$method.KitDecodeName}}, {{$method.KitEncodeName}}, options...).ServeHTTP)
 }
 
 func decode{{$method.Name}}Request(_ context.Context, ctx *gin.Context) (interface{}, error) {

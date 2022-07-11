@@ -1,9 +1,11 @@
 package generator
 
 import (
+	"github.com/dave/jennifer/jen"
 	"go/types"
 	"reflect"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -34,118 +36,145 @@ func NewKitRequest() *KitRequest {
 
 type RequestParam struct {
 	ParamPath string
+
+
+	ParamName string
+	// path, query, header, body
+	ParamSource string
+	// basic, map, slice,ptr
 	ParamType string
+	// int,string,bool,float
+	BasicType string
+	
 	HasPtr bool
+
 }
 
-func (k *KitRequest) ParseRequestType(prefix []string, request *types.Struct) {
-	for i := 0; i < request.NumFields(); i++ {
-		if !request.Field(i).Exported() || request.Field(i).Anonymous() {
-			continue
-		}
-		name := request.Field(i).Name()
-		fieldType := request.Field(i).Type()
-		tag,ok := reflect.StructTag(request.Tag(i)).Lookup(RequestParamTagName)
-		if ok {
-			switch tag {
-			case QueryTag:
-				switch ft := fieldType.(type) {
-				//case *types.Map:
-				//	paramType = "map"
-				//case *types.Slice:
-				//	paramType = "slice"
-				case *types.Basic:
-					k.Query[name] = RequestParam{
-						ParamPath: strings.Join(append(prefix,name), "."),
-						ParamType: ft.Name(),
-						HasPtr:    false,
-					}
-				default:
-					panic("query field type must be map or slice or basic " + name)
-				}
-			case PathTag:
-				basic, ok := fieldType.(*types.Basic)
-				if !ok {
-					panic("path field must be basic type " + name)
-				}
+func (k *KitRequest) SetParam(param RequestParam) {
+	switch param.ParamSource {
+	case QueryTag:
+		k.Query[param.ParamName] = param
+	case PathTag:
+		k.Path[param.ParamName] = param
+	case HeaderTag:
+		k.Header[param.ParamName] = param
+	case BodyTag:
+		k.Body[param.ParamName] = param
+	default:
+		panic("param source error: " + param.ParamSource + "," + param.ParamName)
+	}
+}
 
-				k.Path[name] = RequestParam{
-					ParamPath: strings.Join(append(prefix,name), ".") ,
-					ParamType:  basic.Name(),
-					HasPtr: false,
-				}
-			case HeaderTag:
-				basic, ok := fieldType.(*types.Basic)
-				if !ok {
-					panic("header field must be basic type " + name)
-				}
+func (k *KitRequest)ParseParamTag(fieldName, tag string) (paramSource string, paramName string) {
 
-				k.Path[name] = RequestParam{
-					ParamPath: strings.Join(append(prefix, name), "."),
-					ParamType: basic.Name(),
-					HasPtr:    false,
-				}
-			case BodyTag:
-				structType, ok := fieldType.(*types.Struct)
-				if !ok {
-					panic("body field must be struct type " + name)
-				}
-				k.Body[name] = RequestParam{
-					ParamPath: ,
-					ParamType: "",
-					HasPtr:    false,
-				}
-
-
-			default:
-				panic("unknown tag: " + tag)
-			}
-		}
-
-		switch ft := fieldType.(type) {
-		case *types.Interface:
-			continue
-		case *types.Chan:
-			continue
-		case *types.Struct:
-		case *types.Pointer:
-		case *types.Slice:
-		case *types.Map:
-		case *types.Basic:
-		case *types.Named:
-		case *types.Array:
-		}
+	split := strings.Split(tag, ",")
+	if len(split) == 1 {
+		return split[0], downFirst(fieldName)
 	}
 
+	if len(split) == 2 {
+		return split[0], split[1]
+	}
+
+	return "",""
+
 }
 
-func (k *KitRequest)GenerateRequestType(prefix *[]string,requestType types.Type) {
+func (k *KitRequest) BindPathParam() (s string) {
+	if len(k.Path) == 0 {
+		return
+	}
+
+
+
+	list := make([]jen.Code, 0,0)
+
+	// vars := mux.Vars(r)
+	vars := jen.Id("vars").Op(":=").Qual("github.com/gorilla/mux", "Vars").Call(jen.Id("r"))
+	list = append(list, vars)
+	for _, v := range k.Path {
+		// id = vars["id"]
+		val := jen.Id(v.ParamName).Op("=").Id("vars").Index(jen.Lit(v.ParamName))
+		list = append(list, val)
+	}
+
+	return jen.Block(list...).GoString()
+}
+
+func (k *KitRequest)RequestType(prefix []string, requestName string,requestType types.Type, requestParamTagTypeTag string) {
+	paramSource,paramName := k.ParseParamTag(requestName, requestParamTagTypeTag)
+
 	switch rt := requestType.(type) {
 	case *types.Named:
-		k.GenerateRequestType(prefix,requestType.(*types.Named).Underlying())
+		k.RequestType(prefix, requestName,requestType.(*types.Named).Underlying(), requestParamTagTypeTag)
 	case *types.Struct:
+		if requestParamTagTypeTag != "" {
+
+			k.SetParam(RequestParam{
+				ParamPath: strings.Join(prefix, "."),
+				ParamName: paramName,
+				ParamSource: paramSource,
+				ParamType: "body",
+				BasicType: "",
+				HasPtr:    false,
+			})
+			return
+		}
 		for i := 0; i < rt.NumFields(); i++ {
 			field := rt.Field(i)
-			tag,ok := reflect.StructTag(rt.Tag(i)).Lookup(RequestParamTagName)
-			if ok {
-				k.ParseRequestType(prefix,field)
-			}
+			fieldName := field.Name()
+			fieldType := field.Type()
+			tag,_ := reflect.StructTag(rt.Tag(i)).Lookup(RequestParamTagName)
+			k.RequestType(append(prefix,fieldName), fieldName, fieldType, tag)
 		}
 	case *types.Pointer:
-		k.GenerateRequestType(prefix,requestType.(*types.Pointer).Elem())
-	case *types.Interface:
-		return
+		k.RequestType(prefix, requestName, rt.Elem().Underlying(), requestParamTagTypeTag)
 	case *types.Slice:
-		k.GenerateRequestType(prefix,requestType.(*types.Slice).Elem())
+		if requestParamTagTypeTag == "" {
+			return
+		}
+		k.SetParam(RequestParam{
+			ParamPath: strings.Join(prefix, "."),
+			ParamName: paramName,
+			ParamSource: paramSource,
+			ParamType: "slice",
+			BasicType: "",
+			HasPtr:    false,
+		})
 	case *types.Map:
-		k.GenerateRequestType(prefix,requestType.(*types.Map).Elem())
-	case *types.Chan:
-		return
-	case *types.Array:
-		k.GenerateRequestType(prefix,requestType.(*types.Array).Elem())
+		if requestParamTagTypeTag == "" {
+			return
+		}
+		k.SetParam(RequestParam{
+			ParamPath: strings.Join(prefix, "."),
+			ParamName: paramName,
+			ParamSource: paramSource,
+			ParamType: "map",
+			BasicType: "",
+			HasPtr:    false,
+		})
 	case *types.Basic:
-		rt.
-		k.GenerateRequestTypeBasic(prefix,requestType.(*types.Basic))
+		if requestParamTagTypeTag == "" {
+			return
+		}
+		k.SetParam(RequestParam{
+			ParamPath: strings.Join(prefix, "."),
+			ParamName: paramName,
+			ParamSource: paramSource,
+			ParamType: "basic",
+			BasicType: rt.Name(),
+			HasPtr:    false,
+		})
+	default:
+		return
 	}
 
+	return
+}
+
+func downFirst(s string) string {
+	for _, v := range s {
+		return string(unicode.ToLower(v)) + s[len(string(v)):]
+	}
+	return ""
 }

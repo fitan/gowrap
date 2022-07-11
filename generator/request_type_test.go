@@ -2,13 +2,12 @@ package generator
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"testing"
 )
 
-const mode packages.LoadMode =packages.NeedName |
+const mode packages.LoadMode = packages.NeedName |
 	packages.NeedTypes |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo |
@@ -50,8 +49,8 @@ func TestKitRequest_RequestType(t *testing.T) {
 		requestParamTagType string
 	}
 	tests := []struct {
-		name   string
-		args   args
+		name string
+		args args
 	}{
 		{name: "HelloRequest", args: args{
 			prefix:              []string{},
@@ -65,8 +64,8 @@ func TestKitRequest_RequestType(t *testing.T) {
 			tt.name, func(t *testing.T) {
 				k := NewKitRequest()
 				k.RequestType(tt.args.prefix, tt.args.requestName, tt.args.requestType, tt.args.requestParamTagType)
-				spew.Dump(k)
 				fmt.Println(k.BindPathParam())
+				fmt.Println(k.BindQueryParam())
 			},
 		)
 	}

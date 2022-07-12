@@ -13,6 +13,9 @@ type HelloRequest struct {
 	LastNames []string `param:"query,lastNames"`
 	Paging
 	Vm nest.Vm
+	HeaderName string `param:"header,name"`
+	// @kit-request ctx middleware.ContextKeyNamespaceList
+	Namespace []string `param:"header,namespace"`
 }
 
 type Paging struct {

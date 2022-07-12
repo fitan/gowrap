@@ -2,7 +2,8 @@ package generator
 
 import (
 	"fmt"
-	"go/types"
+	"github.com/davecgh/go-spew/spew"
+	"go/token"
 	"golang.org/x/tools/go/packages"
 	"testing"
 )
@@ -23,11 +24,7 @@ type Pkgs struct {
 	pkg *packages.Package
 }
 
-func (p *Pkgs) GetRequestType(name string) types.Type {
-	fmt.Println(p.pkg.Types.Scope().Names())
-	lookup := p.pkg.Types.Scope().Lookup(name)
-	return lookup.Type()
-}
+
 
 func LoadPkgs() *Pkgs {
 	cfg := &packages.Config{Mode: mode}
@@ -40,32 +37,43 @@ func LoadPkgs() *Pkgs {
 
 func TestKitRequest_RequestType(t *testing.T) {
 
+	var tp token.Position
+	tp.Line = tp.Line + 1
+
 	pkg := LoadPkgs()
+	for _, v := range pkg.pkg.Syntax {
+		fmt.Println("syntax file: ", v.Name)
+		fmt.Println("syntax file: ", v.Name.Name)
+		fmt.Println(pkg.pkg.Fset.Position(v.Pos()).Filename)
+		for _, c :=range v.Comments {
+			fieldLine := pkg.pkg.Fset.Position(c.End()).Line + 1
+			fmt.Println("Comment:", c.Text(), "pos:", c.Pos(), "line:", pkg.pkg.Fset.Position(c.Pos()).Line, "end:", pkg.pkg.Fset.Position(c.End()).Line, "fieldLine:", fieldLine)
+		}
+
+	}
 
 	type args struct {
-		prefix              []string
-		requestName         string
-		requestType         types.Type
-		requestParamTagType string
+		pkg *packages.Package
 	}
 	tests := []struct {
 		name string
 		args args
 	}{
 		{name: "HelloRequest", args: args{
-			prefix:              []string{},
-			requestName:         "",
-			requestType:         pkg.GetRequestType("HelloRequest"),
-			requestParamTagType: "",
+			pkg: pkg.pkg,
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(
 			tt.name, func(t *testing.T) {
-				k := NewKitRequest()
-				k.RequestType(tt.args.prefix, tt.args.requestName, tt.args.requestType, tt.args.requestParamTagType)
-				fmt.Println(k.BindPathParam())
-				fmt.Println(k.BindQueryParam())
+				k := NewKitRequest(tt.args.pkg)
+				k.ParseRequest(tt.name)
+				spew.Dump(k)
+				//fmt.Println(k.BindPathParam())
+				//fmt.Println(k.BindQueryParam())
+				//fmt.Println(k.BindHeaderParam())
+				//fmt.Println(k.BindBodyParam())
+				fmt.Println(k.DecodeRequest())
 			},
 		)
 	}

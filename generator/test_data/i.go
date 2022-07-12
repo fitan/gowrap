@@ -10,9 +10,10 @@ type HelloRequest struct {
 		Name string `json:"name"`
 		Age  string `json:"age"`
 	} `param:"body,user"`
-	LastNames []string `param:"query,lastNames"`
+	LastNames    []string `param:"query,lastNames"`
+	LastNamesInt []int    `param:"query,lastNamesInt"`
 	Paging
-	Vm nest.Vm
+	Vm         nest.Vm
 	HeaderName string `param:"header,name"`
 	// @kit-request ctx middleware.ContextKeyNamespaceList
 	Namespace []string `param:"header,namespace"`

@@ -18,35 +18,32 @@ const (
 	HeaderTag           string = "header"
 	PathTag             string = "path"
 	BodyTag             string = "body"
-	CtxTag string = "ctx"
-	EmptyTag string = "empty"
+	CtxTag              string = "ctx"
+	EmptyTag            string = "empty"
 )
 
 type KitRequest struct {
-
 	pkg *packages.Package
 
-
-
-	ServiceName string
-	RequestName string
+	ServiceName   string
+	RequestName   string
 	RequestIsBody bool
-	Query  map[string]RequestParam
-	Path   map[string]RequestParam
-	Body   map[string]RequestParam
-	Header map[string]RequestParam
-	Ctx map[string]RequestParam
-	Empty map[string]RequestParam
+	Query         map[string]RequestParam
+	Path          map[string]RequestParam
+	Body          map[string]RequestParam
+	Header        map[string]RequestParam
+	Ctx           map[string]RequestParam
+	Empty         map[string]RequestParam
 }
 
 func NewKitRequest(pkg *packages.Package) *KitRequest {
 	return &KitRequest{
-		pkg: pkg,
+		pkg:    pkg,
 		Query:  make(map[string]RequestParam),
 		Path:   make(map[string]RequestParam),
 		Body:   make(map[string]RequestParam),
 		Header: make(map[string]RequestParam),
-		Ctx: make(map[string]RequestParam),
+		Ctx:    make(map[string]RequestParam),
 		Empty:  make(map[string]RequestParam),
 	}
 }
@@ -65,7 +62,7 @@ type RequestParam struct {
 	HasPtr bool
 }
 
-func (r RequestParam) ToVal() jen.Code  {
+func (r RequestParam) ToVal() jen.Code {
 	switch r.ParamType {
 	case "basic":
 		return jen.Var().Id(r.ParamName).Id(r.BasicType)
@@ -96,7 +93,6 @@ func (k *KitRequest) SetParam(param RequestParam) {
 	}
 }
 
-
 func (k *KitRequest) ParseParamTag(fieldName, tag string) (paramSource string, paramName string) {
 
 	split := strings.Split(tag, ",")
@@ -121,15 +117,14 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, k.BindHeaderParam()...)
 	listCode = append(listCode, k.BindBodyParam()...)
 
-
-	fn := jen.Func().Id("decode" + upFirst(k.ServiceName) + "Request").Params(
+	fn := jen.Func().Id("decode"+upFirst(k.ServiceName)+"Request").Params(
 		jen.Id("ctx").Id("context.Context"),
 		jen.Id("r").Id("*http").Dot("Request"),
 	).Call(
 		jen.Id("res").Interface(),
 		jen.Id("err").Id("error"),
 	).Block(
-		listCode...
+		listCode...,
 	)
 	return fn.GoString()
 }
@@ -137,7 +132,7 @@ func (k *KitRequest) DecodeRequest() (s string) {
 func (k *KitRequest) DefineVal() []jen.Code {
 	listCode := make([]jen.Code, 0, 0)
 	for _, v := range k.Query {
-		listCode = append(listCode,v.ToVal())
+		listCode = append(listCode, v.ToVal())
 	}
 	for _, v := range k.Path {
 		listCode = append(listCode, v.ToVal())
@@ -174,8 +169,6 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 		listCode = append(listCode, decode, returnCode)
 	}
 
-
-
 	return listCode
 }
 
@@ -184,7 +177,6 @@ func (k *KitRequest) BindHeaderParam() []jen.Code {
 	if len(k.Query) == 0 {
 		return list
 	}
-
 
 	for _, v := range k.Header {
 		//r.Header.Get("project")
@@ -212,7 +204,6 @@ func (k *KitRequest) BindHeaderParam() []jen.Code {
 
 	return list
 
-
 }
 
 func (k *KitRequest) BindQueryParam() []jen.Code {
@@ -222,17 +213,19 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 		return list
 	}
 
-
 	for _, v := range k.Query {
 		//r.URL.Query().Get("project")
 		varBind := jen.Id("r.URL.Query().Get").Call(jen.Lit(v.ParamName))
 		// req.ID = id
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
-		if v.BasicType != "string" {
-			// cast.ToInt(vars["id"])
-			varBind = jen.Id("cast").Dot("To" + upFirst(v.BasicType) + "E").Call(varBind)
+		fmt.Println(v.ParamName, v.ParamType, v.BasicType)
+		if !(v.ParamType == "basic" && v.BasicType == "string") {
+			castCode, err := CastMap(v.ParamType, v.BasicType, varBind)
+			if err != nil {
+				panic(err)
+			}
 			// id, err := cast.ToIntE(vars["id"])
-			varBind = jen.List(jen.Id(v.ParamName), jen.Err()).Op("=").Add(varBind)
+			varBind = jen.List(jen.Id(v.ParamName), jen.Err()).Op("=").Add(castCode)
 			// if err != nil {
 			// 	return err
 			// }
@@ -256,7 +249,6 @@ func (k *KitRequest) BindPathParam() []jen.Code {
 	if len(k.Path) == 0 {
 		return list
 	}
-
 
 	// vars := mux.Vars(r)
 	vars := jen.Id("vars").Op(":=").Qual("github.com/gorilla/mux", "Vars").Call(jen.Id("r"))
@@ -327,7 +319,7 @@ func (k *KitRequest) ParseFieldComment(pos token.Pos) (s string) {
 			fmt.Println("find line: ", fieldFileName)
 			for _, c := range syntax.Comments {
 				fmt.Println("comment line: ", k.pkg.Fset.Position(c.End()).Line, "field line: ", fieldLine)
-				if k.pkg.Fset.Position(c.End()).Line + 1 == fieldLine {
+				if k.pkg.Fset.Position(c.End()).Line+1 == fieldLine {
 					fieldComment = c.List
 				}
 			}
@@ -342,9 +334,9 @@ func (k *KitRequest) ParseFieldComment(pos token.Pos) (s string) {
 	for _, c := range fieldComment {
 		commentField := strings.Fields(c.Text)
 		if len(commentField) < 3 {
-			panic("comment error: " + c.Text )
+			panic("comment error: " + c.Text)
 		}
-		fmt.Println("commentField",commentField)
+		fmt.Println("commentField", commentField)
 		if commentField[0] == "@kit-request" && commentField[1] == "ctx" {
 			return commentField[2]
 		}
@@ -428,34 +420,46 @@ func upFirst(s string) string {
 	return ""
 }
 
-func CastMap(t, basicT string) (fnStr string, err error) {
+func CastMap(t, basicT string, code jen.Code) (res jen.Code, err error) {
+	if t == "slice" && basicT == "string" {
+		res = jen.Id("strings.Split").Call(code)
+		return
+	}
 	var m = map[string]string{
-		"basic.int":     "ToIntE",
-		"basic.int8":    "ToInt8E",
-		"basic.int16":   "ToInt16E",
-		"basic.int32":   "ToInt32E",
-		"basic.int64":   "ToInt64E",
-		"basic.uint":    "ToUintE",
-		"basic.uint8":   "ToUint8E",
-		"basic.uint16":  "ToUint16E",
-		"basic.uint32":  "ToUint32E",
-		"basic.uint64":  "ToUint64E",
-		"basic.float32": "ToFloat32E",
-		"basic.float64": "ToFloat64E",
-		"basic.string":  "ToStringE",
-		"basic.bool":    "ToBoolE",
+		"basic.int":     "Cast.ToIntE",
+		"basic.int8":    "Cast.ToInt8E",
+		"basic.int16":   "Cast.ToInt16E",
+		"basic.int32":   "Cast.ToInt32E",
+		"basic.int64":   "Cast.ToInt64E",
+		"basic.uint":    "Cast.ToUintE",
+		"basic.uint8":   "Cast.ToUint8E",
+		"basic.uint16":  "Cast.ToUint16E",
+		"basic.uint32":  "Cast.ToUint32E",
+		"basic.uint64":  "Cast.ToUint64E",
+		"basic.float32": "Cast.ToFloat32E",
+		"basic.float64": "Cast.ToFloat64E",
+		"basic.string":  "Cast.ToStringE",
+		"basic.bool":    "Cast.ToBoolE",
 
-		"slice.int":  "ToIntSliceE",
-		"slice.bool": "ToBoolSliceE",
+		"slice.int":  "Cast.ToIntSliceE",
+		"slice.bool": "Cast.ToBoolSliceE",
 
-		"map.int":   "ToStringMapIntE",
-		"map.int64": "ToStringMapInt64E",
-		"map.bool":  "ToStringMapBoolE",
+		"map.int":   "Cast.ToStringMapIntE",
+		"map.int64": "Cast.ToStringMapInt64E",
+		"map.bool":  "Cast.ToStringMapBoolE",
 	}
 	var ok bool
-	fnStr, ok = m[t+"."+basicT]
+	fnStr, ok := m[t+"."+basicT]
 	if !ok {
 		err = fmt.Errorf("CastMap not found %s %s", t, basicT)
+		return
 	}
-	return
+
+	if t == "slice" {
+		code = jen.Id("strings.Split").Call(code)
+	}
+
+	code = jen.Id(fnStr).Call(code)
+
+	return code, nil
 }

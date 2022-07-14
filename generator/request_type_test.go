@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
-	"go/token"
 	"golang.org/x/tools/go/packages"
 	"testing"
 )
@@ -36,21 +35,17 @@ func LoadPkgs() *Pkgs {
 }
 
 func TestKitRequest_RequestType(t *testing.T) {
-
-	var tp token.Position
-	tp.Line = tp.Line + 1
-
 	pkg := LoadPkgs()
-	for _, v := range pkg.pkg.Syntax {
-		fmt.Println("syntax file: ", v.Name)
-		fmt.Println("syntax file: ", v.Name.Name)
-		fmt.Println(pkg.pkg.Fset.Position(v.Pos()).Filename)
-		for _, c :=range v.Comments {
-			fieldLine := pkg.pkg.Fset.Position(c.End()).Line + 1
-			fmt.Println("Comment:", c.Text(), "pos:", c.Pos(), "line:", pkg.pkg.Fset.Position(c.Pos()).Line, "end:", pkg.pkg.Fset.Position(c.End()).Line, "fieldLine:", fieldLine)
-		}
-
-	}
+	//for _, v := range pkg.pkg.Syntax {
+	//	fmt.Println("syntax file: ", v.Name)
+	//	fmt.Println("syntax file: ", v.Name.Name)
+	//	fmt.Println(pkg.pkg.Fset.Position(v.Pos()).Filename)
+	//	for _, c :=range v.Comments {
+	//		fieldLine := pkg.pkg.Fset.Position(c.End()).Line + 1
+	//		fmt.Println("Comment:", c.Text(), "pos:", c.Pos(), "line:", pkg.pkg.Fset.Position(c.Pos()).Line, "end:", pkg.pkg.Fset.Position(c.End()).Line, "fieldLine:", fieldLine)
+	//	}
+	//
+	//}
 
 	type args struct {
 		pkg *packages.Package
@@ -66,8 +61,8 @@ func TestKitRequest_RequestType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(
 			tt.name, func(t *testing.T) {
-				k := NewKitRequest(tt.args.pkg)
-				k.ParseRequest(tt.name)
+				k := NewKitRequest(tt.args.pkg, "Hello", "HelloRequest", false)
+				k.ParseRequest()
 				spew.Dump(k)
 				//fmt.Println(k.BindPathParam())
 				//fmt.Println(k.BindQueryParam())

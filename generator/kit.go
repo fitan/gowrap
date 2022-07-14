@@ -13,11 +13,15 @@ const (
 	KitHttp = "@kit-http" 
 	KitService = "@kit-http-service"
 	kitParam = "@kit-http-param"
+	KitHttpRequest = "@kit-http-request"
 )
 
 type KitCommentConf struct {
 	Url string
 	UrlMethod string
+
+	HttpRequestName string
+	HttpRequestBody bool
 
 	HttpParams map[string]HttpParam
 	KitServiceParam KitServiceParam
@@ -63,6 +67,28 @@ func KitComment(comments []*ast.Comment) (kitCommentConf KitCommentConf,err erro
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
+		case KitHttpRequest:
+			err = (&kitCommentConf).ParamKitHttpRequest(fields)
+			if err != nil {
+				err = errors.Wrap(err, comment.Text)
+				return
+			}
+		}
+	}
+	return
+}
+
+func (m *KitCommentConf) ParamKitHttpRequest(s []string) (err error) {
+	if len(s) < 3 {
+		err = errors.New("must format: @kit-http-request requestName ?body")
+		return
+	}
+	m.HttpRequestName = s[2]
+
+	if len(s) > 3 {
+		isBody := s[3]
+		if isBody != `""` && isBody != "false" {
+			m.HttpRequestBody = true
 		}
 	}
 	return
@@ -119,7 +145,7 @@ type Kit struct {
 	//Comment KitCommentConf
 	HasParamSourcePath bool
 	InterfaceMethodParams map[string]InterfaceMethodParam
-	KitServiceParam KitServiceParam
+	Conf KitCommentConf
 	HasCtx bool
 }
 
@@ -133,16 +159,16 @@ type InterfaceMethodParam struct {
 	Annotation string
 }
 
-func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  fi *ast.Field) (*Kit,error) {
+func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  fi *ast.Field) (res Kit,err error) {
 	kit := Kit{
 		InterfaceMethodParams: make(map[string]InterfaceMethodParam, 0),
 	}
 	commentConf, err := KitComment(fi.Doc.List)
 	if err != nil {
-		return nil,err
+		return
 	}
 
-	kit.KitServiceParam = commentConf.KitServiceParam
+	kit.Conf = commentConf
 
 	obj := srcPkg.Types.Scope().Lookup(interfaceName)
 	objInterface := obj.Type().Underlying().(*types.Interface)
@@ -160,11 +186,12 @@ func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  f
 				}
 
 				if _, ok := commentConf.HttpParams[param.Name()]; !ok {
-					return nil,errors.New(
-						fmt.Sprintf(
-							"%s.%s param %s not found in @kit-http comment", interfaceName, methodName, param.Name(),
-						),
-					)
+					continue
+					//return nil,errors.New(
+					//	fmt.Sprintf(
+					//		"%s.%s param %s not found in @kit-http comment", interfaceName, methodName, param.Name(),
+					//	),
+					//)
 				}
 
 
@@ -190,7 +217,7 @@ func NewKit(interfaceName string,methodName string, srcPkg *packages.Package,  f
 			}
 		}
 	}
-	return &kit,nil
+	return kit,nil
 }
 
 func (k *Kit) Gen() {

@@ -476,23 +476,24 @@ func processInterface(interfaceName string,fs *token.FileSet, currentPackage *pa
 	for _, field := range it.Methods.List {
 		var embeddedMethods methodsList
 
+		var kit Kit
 		switch v := field.Type.(type) {
 		case *ast.FuncType:
 
 			if field.Doc != nil {
-				var kit *Kit
 				kit, err = NewKit(interfaceName, field.Names[0].Name, currentPackage, field)
 				if err != nil {
 					err = errors.Wrap(err, "NewKit")
 					return
 				}
-				fmt.Println(kit)
 			}
 
 			var method *Method
 			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
 
 			if err == nil {
+
+
 				if globalOption.PkgNeedSyntax {
 					httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
 					has, err := httpMethod.Parse()
@@ -505,13 +506,14 @@ func processInterface(interfaceName string,fs *token.FileSet, currentPackage *pa
 						method.Kit = httpMethod.KitParams
 						method.HasGin = true
 					}
-
-
 				}
+				method.KitConf = kit
+				kitRequest := NewKitRequest(currentPackage,field.Names[0].Name ,method.KitConf.Conf.HttpRequestName, method.KitConf.Conf.HttpRequestBody)
+				kitRequest.ParseRequest()
+				method.KitRequest = kitRequest
+				method.KitRequestDecode = kitRequest.DecodeRequest()
 
 				methods[field.Names[0].Name] = *method
-
-				continue
 			}
 		case *ast.SelectorExpr:
 			embeddedMethods, err = processSelector(fs, currentPackage, v, imports)

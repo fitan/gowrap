@@ -28,6 +28,9 @@ type Method struct {
 	// my extra
 	KitConf Kit
 	Kit    KitParams
+
+	KitRequest *KitRequest
+	KitRequestDecode string
 }
 
 func (m Method) KitEndpointName() string {

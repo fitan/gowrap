@@ -36,9 +36,12 @@ type KitRequest struct {
 	Empty         map[string]RequestParam
 }
 
-func NewKitRequest(pkg *packages.Package) *KitRequest {
+func NewKitRequest(pkg *packages.Package, serviceName, requestName string, requestIsBody bool) *KitRequest {
 	return &KitRequest{
 		pkg:    pkg,
+		ServiceName: serviceName,
+		RequestName: requestName,
+		RequestIsBody: requestIsBody,
 		Query:  make(map[string]RequestParam),
 		Path:   make(map[string]RequestParam),
 		Body:   make(map[string]RequestParam),
@@ -116,6 +119,8 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, k.BindQueryParam()...)
 	listCode = append(listCode, k.BindHeaderParam()...)
 	listCode = append(listCode, k.BindBodyParam()...)
+	listCode = append(listCode, k.Validate()...)
+	listCode = append(listCode, jen.Return())
 
 	fn := jen.Func().Id("decode"+upFirst(k.ServiceName)+"Request").Params(
 		jen.Id("ctx").Id("context.Context"),
@@ -141,6 +146,23 @@ func (k *KitRequest) DefineVal() []jen.Code {
 		listCode = append(listCode, v.ToVal())
 	}
 	return listCode
+}
+
+func (k *KitRequest) Validate() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	list = append(
+		list,
+		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("Validate").Call(jen.Id("req")),
+		jen.If(jen.Err().Op("!=").Nil()).Block(
+			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid.ValidateStruct")),
+			jen.Return(),
+		),
+		jen.If(jen.Id("!validReq")).Block(
+			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid false")),
+			jen.Return(),
+		),
+	)
+	return list
 }
 
 func (k *KitRequest) BindBodyParam() []jen.Code {
@@ -220,19 +242,13 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
 		fmt.Println(v.ParamName, v.ParamType, v.BasicType)
 		if !(v.ParamType == "basic" && v.BasicType == "string") {
-			castCode, err := CastMap(v.ParamType, v.BasicType, varBind)
+			castCode, err := CastMap(v.ParamName,v.ParamType, v.BasicType, varBind)
 			if err != nil {
 				panic(err)
 			}
-			// id, err := cast.ToIntE(vars["id"])
-			varBind = jen.List(jen.Id(v.ParamName), jen.Err()).Op("=").Add(castCode)
-			// if err != nil {
-			// 	return err
-			// }
-			returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
-				jen.Return(),
-			)
-			list = append(list, varBind, returnCode, reqBindVal)
+			list = append(list, varBind)
+			list = append(list, castCode...)
+			list = append(list, reqBindVal)
 			continue
 		}
 		// id = vars["id"]
@@ -280,19 +296,21 @@ func (k *KitRequest) BindPathParam() []jen.Code {
 	return list
 }
 
-func (k *KitRequest) ParseRequest(name string) {
-	k.RequestName = name
+func (k *KitRequest) ParseRequest() {
+	var hasFindRequest bool
 	for _, s := range k.pkg.Syntax {
 		ast.Inspect(s, func(node ast.Node) bool {
 			switch nodeT := node.(type) {
 			case *ast.GenDecl:
 				for _, spec := range nodeT.Specs {
 					if specT, ok := spec.(*ast.TypeSpec); ok {
-						if specT.Name.Name == name {
+						fmt.Println("specT.Name.Name", specT.Name.Name, "k.RequestName", k.RequestName)
+						if specT.Name.Name == k.RequestName {
+							hasFindRequest =  true
 							doc := nodeT.Doc
 							k.Doc(doc)
 							t := k.pkg.TypesInfo.TypeOf(specT.Type)
-							k.RequestType([]string{}, name, t, "")
+							k.RequestType([]string{}, k.RequestName, t, "")
 							return false
 						}
 					}
@@ -301,6 +319,9 @@ func (k *KitRequest) ParseRequest(name string) {
 			}
 			return true
 		})
+	}
+	if !hasFindRequest {
+		panic("not find request" + k.RequestName)
 	}
 }
 
@@ -420,33 +441,33 @@ func upFirst(s string) string {
 	return ""
 }
 
-func CastMap(t, basicT string, code jen.Code) (res jen.Code, err error) {
+func CastMap(paramName ,t, basicT string, code jen.Code) (res []jen.Code, err error) {
 	if t == "slice" && basicT == "string" {
-		res = jen.Id("strings.Split").Call(code)
+		res = append(res,jen.Id(paramName).Op("=").Id("strings.Split").Call(code))
 		return
 	}
 	var m = map[string]string{
-		"basic.int":     "Cast.ToIntE",
-		"basic.int8":    "Cast.ToInt8E",
-		"basic.int16":   "Cast.ToInt16E",
-		"basic.int32":   "Cast.ToInt32E",
-		"basic.int64":   "Cast.ToInt64E",
-		"basic.uint":    "Cast.ToUintE",
-		"basic.uint8":   "Cast.ToUint8E",
-		"basic.uint16":  "Cast.ToUint16E",
-		"basic.uint32":  "Cast.ToUint32E",
-		"basic.uint64":  "Cast.ToUint64E",
-		"basic.float32": "Cast.ToFloat32E",
-		"basic.float64": "Cast.ToFloat64E",
-		"basic.string":  "Cast.ToStringE",
-		"basic.bool":    "Cast.ToBoolE",
+		"basic.int":     "cast.ToIntE",
+		"basic.int8":    "cast.ToInt8E",
+		"basic.int16":   "cast.ToInt16E",
+		"basic.int32":   "cast.ToInt32E",
+		"basic.int64":   "cast.ToInt64E",
+		"basic.uint":    "cast.ToUintE",
+		"basic.uint8":   "cast.ToUint8E",
+		"basic.uint16":  "cast.ToUint16E",
+		"basic.uint32":  "cast.ToUint32E",
+		"basic.uint64":  "cast.ToUint64E",
+		"basic.float32": "cast.ToFloat32E",
+		"basic.float64": "cast.ToFloat64E",
+		"basic.string":  "cast.ToStringE",
+		"basic.bool":    "cast.ToBoolE",
 
-		"slice.int":  "Cast.ToIntSliceE",
-		"slice.bool": "Cast.ToBoolSliceE",
+		"slice.int":  "cast.ToIntSliceE",
+		"slice.bool": "cast.ToBoolSliceE",
 
-		"map.int":   "Cast.ToStringMapIntE",
-		"map.int64": "Cast.ToStringMapInt64E",
-		"map.bool":  "Cast.ToStringMapBoolE",
+		"map.int":   "cast.ToStringMapIntE",
+		"map.int64": "cast.ToStringMapInt64E",
+		"map.bool":  "cast.ToStringMapBoolE",
 	}
 	var ok bool
 	fnStr, ok := m[t+"."+basicT]
@@ -459,7 +480,17 @@ func CastMap(t, basicT string, code jen.Code) (res jen.Code, err error) {
 		code = jen.Id("strings.Split").Call(code)
 	}
 
-	code = jen.Id(fnStr).Call(code)
 
-	return code, nil
+	code = jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(code)
+	// if err != nil {
+	// 	return err
+	// }
+	returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
+		jen.Return(),
+	)
+
+	res = append(res, code, returnCode)
+
+
+	return
 }

@@ -38,16 +38,16 @@ type KitRequest struct {
 
 func NewKitRequest(pkg *packages.Package, serviceName, requestName string, requestIsBody bool) *KitRequest {
 	return &KitRequest{
-		pkg:    pkg,
-		ServiceName: serviceName,
-		RequestName: requestName,
+		pkg:           pkg,
+		ServiceName:   serviceName,
+		RequestName:   requestName,
 		RequestIsBody: requestIsBody,
-		Query:  make(map[string]RequestParam),
-		Path:   make(map[string]RequestParam),
-		Body:   make(map[string]RequestParam),
-		Header: make(map[string]RequestParam),
-		Ctx:    make(map[string]RequestParam),
-		Empty:  make(map[string]RequestParam),
+		Query:         make(map[string]RequestParam),
+		Path:          make(map[string]RequestParam),
+		Body:          make(map[string]RequestParam),
+		Header:        make(map[string]RequestParam),
+		Ctx:           make(map[string]RequestParam),
+		Empty:         make(map[string]RequestParam),
 	}
 }
 
@@ -75,6 +75,40 @@ func (r RequestParam) ToVal() jen.Code {
 		return jen.Var().Id(r.ParamName).Index().Id(r.BasicType)
 	}
 	return nil
+}
+
+func (k *KitRequest) ParamPath(paramName string) string {
+	param, ok := k.Query[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
+	param, ok = k.Path[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
+	param, ok = k.Header[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
+	param, ok = k.Body[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
+	param, ok = k.Ctx[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
+	param, ok = k.Empty[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
+	panic("param not found: " + paramName)
 }
 
 func (k *KitRequest) SetParam(param RequestParam) {
@@ -152,7 +186,7 @@ func (k *KitRequest) Validate() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	list = append(
 		list,
-		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("Validate").Call(jen.Id("req")),
+		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
 		jen.If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid.ValidateStruct")),
 			jen.Return(),
@@ -240,13 +274,11 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 		varBind := jen.Id("r.URL.Query().Get").Call(jen.Lit(v.ParamName))
 		// req.ID = id
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
-		fmt.Println(v.ParamName, v.ParamType, v.BasicType)
 		if !(v.ParamType == "basic" && v.BasicType == "string") {
-			castCode, err := CastMap(v.ParamName,v.ParamType, v.BasicType, varBind)
+			castCode, err := CastMap(v.ParamName, v.ParamType, v.BasicType, varBind)
 			if err != nil {
 				panic(err)
 			}
-			list = append(list, varBind)
 			list = append(list, castCode...)
 			list = append(list, reqBindVal)
 			continue
@@ -306,7 +338,7 @@ func (k *KitRequest) ParseRequest() {
 					if specT, ok := spec.(*ast.TypeSpec); ok {
 						fmt.Println("specT.Name.Name", specT.Name.Name, "k.RequestName", k.RequestName)
 						if specT.Name.Name == k.RequestName {
-							hasFindRequest =  true
+							hasFindRequest = true
 							doc := nodeT.Doc
 							k.Doc(doc)
 							t := k.pkg.TypesInfo.TypeOf(specT.Type)
@@ -330,16 +362,13 @@ func (k *KitRequest) Doc(doc *ast.CommentGroup) {
 }
 
 func (k *KitRequest) ParseFieldComment(pos token.Pos) (s string) {
-	fmt.Println("parse field comment")
 	fieldFileName := k.pkg.Fset.Position(pos).Filename
 	fieldLine := k.pkg.Fset.Position(pos).Line
 	var fieldComment []*ast.Comment
 	for _, syntax := range k.pkg.Syntax {
 		fileName := k.pkg.Fset.Position(syntax.Pos()).Filename
 		if fieldFileName == fileName {
-			fmt.Println("find line: ", fieldFileName)
 			for _, c := range syntax.Comments {
-				fmt.Println("comment line: ", k.pkg.Fset.Position(c.End()).Line, "field line: ", fieldLine)
 				if k.pkg.Fset.Position(c.End()).Line+1 == fieldLine {
 					fieldComment = c.List
 				}
@@ -441,9 +470,9 @@ func upFirst(s string) string {
 	return ""
 }
 
-func CastMap(paramName ,t, basicT string, code jen.Code) (res []jen.Code, err error) {
+func CastMap(paramName, t, basicT string, code jen.Code) (res []jen.Code, err error) {
 	if t == "slice" && basicT == "string" {
-		res = append(res,jen.Id(paramName).Op("=").Id("strings.Split").Call(code))
+		res = append(res, jen.Id(paramName).Op("=").Id("strings.Split").Call(code, jen.Lit(",")))
 		return
 	}
 	var m = map[string]string{
@@ -477,9 +506,8 @@ func CastMap(paramName ,t, basicT string, code jen.Code) (res []jen.Code, err er
 	}
 
 	if t == "slice" {
-		code = jen.Id("strings.Split").Call(code)
+		code = jen.Id("strings.Split").Call(code, jen.Lit(","))
 	}
-
 
 	code = jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(code)
 	// if err != nil {
@@ -490,7 +518,6 @@ func CastMap(paramName ,t, basicT string, code jen.Code) (res []jen.Code, err er
 	)
 
 	res = append(res, code, returnCode)
-
 
 	return
 }

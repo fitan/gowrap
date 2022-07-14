@@ -39,7 +39,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		decode{{$m.Name}}Request,
 		kithttp.EncodeJSONResponse,
 		opts...,
-	)).Methods(up $m.KitConf.Conf.UrlMethod)
+	)).Methods("{{up $m.KitConf.Conf.UrlMethod}}")
 	{{end}}
 
 	return r

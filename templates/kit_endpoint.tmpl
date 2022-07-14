@@ -6,6 +6,12 @@ import (
 {{end}}
 )
 
+const (
+{{range $m := .Interface.Methods}}
+	{{$m.Name}}MethodName = "{{$m.Name}}"
+{{end}}
+)
+
 
 type Endpoints struct {
 {{range $m := $.Interface.Methods}}
@@ -20,7 +26,7 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 		{{end}}
 	}
 	{{range $m := $.Interface.Methods}}
-	for _, m := range dmw["{{$m.Name}}"] {
+	for _, m := range dmw[{{$m.Name}}MethodName] {
 		eps.{{$m.Name}}Endpoint = m(eps.{{$m.Name}}Endpoint)
 	}
 	{{end}}
@@ -31,7 +37,7 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 {{range $m := $.Interface.Methods}}
 func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.({{$m.Name}}Request)
+		req := request.({{$m.KitRequest.RequestName}})
 
 		{{range $v := $m.ResultsExcludeErr}}
 		var {{$v.Name}} {{$v.Type}}
@@ -39,13 +45,9 @@ func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 
 		{{$m.ResultsNames}} = s.{{$m.Name}}(
 			ctx,
-			{{range $v := $m.ParamsExcludeCtx}}req.{{upFirst $v.Name}},{{end}}
+			{{range $v := $m.ParamsExcludeCtx}}req.{{$m.KitRequest.ParamPath $v.Name}},{{end}}
 		)
-		return encode.Response{
-			// Todo change map key
-			Data: {{$m.ResultsMapExcludeErr}},
-			Error: err,
-		}, err
+		return {{$m.ResultsMap}}, err
 	}
 }
 {{end}}

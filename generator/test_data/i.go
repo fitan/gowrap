@@ -17,7 +17,7 @@ type HelloRequest struct {
 	LastNamesInt []int    `param:"query,lastNamesInt"`
 	Paging
 	Vm         nest.Vm
-	HeaderName string `param:"header,name"`
+	HeaderName string `param:"header,headerName"`
 	// @kit-request ctx middleware.ContextKeyNamespaceList
 	Namespace []string `param:"query,namespace"`
 }
@@ -30,5 +30,8 @@ type Paging struct {
 type Service interface {
 	// @kit-http /hello/{id} GET
 	// @kit-http-request HelloRequest
-	Hello(ctx context.Context,id int, namespace []string, page int, size int) (res string, err error)
+	Hello(ctx context.Context, id int, namespace []string, page int64, size int64, lastNames []string) (res string, err error)
+	// @kit-http /hello/say GET
+	// @kit-http-request HelloRequest
+	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res string, err error)
 }

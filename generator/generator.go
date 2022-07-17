@@ -3,6 +3,7 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
@@ -442,7 +443,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 		return nil, nil, errors.Wrap(errInterfaceNotFound, interfaceName)
 	}
 
-	methods, err = processInterface(interfaceName,fs, currentPackage, currentFile, it, types, p.Name, imports)
+	methods, err = processInterface(interfaceName, fs, currentPackage, currentFile, it, types, p.Name, imports)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -466,7 +467,7 @@ func typeSpecs(f *ast.File) []*ast.TypeSpec {
 	return result
 }
 
-func processInterface(interfaceName string,fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
+func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
 	if it.Methods == nil {
 		return nil, nil
 	}
@@ -493,7 +494,6 @@ func processInterface(interfaceName string,fs *token.FileSet, currentPackage *pa
 
 			if err == nil {
 
-
 				if globalOption.PkgNeedSyntax {
 					httpMethod := NewHttpMethod(field.Names[0].Name, currentPackage, currentFile, field)
 					has, err := httpMethod.Parse()
@@ -508,8 +508,9 @@ func processInterface(interfaceName string,fs *token.FileSet, currentPackage *pa
 					}
 				}
 				method.KitConf = kit
-				kitRequest := NewKitRequest(currentPackage,field.Names[0].Name ,method.KitConf.Conf.HttpRequestName, method.KitConf.Conf.HttpRequestBody)
+				kitRequest := NewKitRequest(currentPackage, field.Names[0].Name, method.KitConf.Conf.HttpRequestName, method.KitConf.Conf.HttpRequestBody)
 				kitRequest.ParseRequest()
+				spew.Dump(kitRequest)
 				method.KitRequest = kitRequest
 				method.KitRequestDecode = kitRequest.DecodeRequest()
 
@@ -605,7 +606,7 @@ func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFi
 		return nil, errors.Wrap(errEmbeddedInterfaceNotFound, i.Name)
 	}
 
-	return processInterface(interfaceName,fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports)
+	return processInterface(interfaceName, fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports)
 }
 
 var errUnknownSelector = errors.New("unknown selector")

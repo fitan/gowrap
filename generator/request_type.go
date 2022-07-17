@@ -20,6 +20,8 @@ const (
 	BodyTag             string = "body"
 	CtxTag              string = "ctx"
 	EmptyTag            string = "empty"
+
+	DocKitHttpParamMark string = "@kit-http-param"
 )
 
 type KitRequest struct {
@@ -52,7 +54,10 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 }
 
 type RequestParam struct {
+	ParamDoc  *ast.CommentGroup
 	ParamPath string
+
+	FieldName string
 
 	ParamName string
 	// path, query, header, body, empty
@@ -153,6 +158,8 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, k.BindQueryParam()...)
 	listCode = append(listCode, k.BindHeaderParam()...)
 	listCode = append(listCode, k.BindBodyParam()...)
+	listCode = append(listCode, k.BindCtxParam()...)
+	listCode = append(listCode, k.BindRequest()...)
 	listCode = append(listCode, k.Validate()...)
 	listCode = append(listCode, jen.Return())
 
@@ -177,6 +184,10 @@ func (k *KitRequest) DefineVal() []jen.Code {
 		listCode = append(listCode, v.ToVal())
 	}
 	for _, v := range k.Header {
+		listCode = append(listCode, v.ToVal())
+	}
+
+	for _, v := range k.Ctx {
 		listCode = append(listCode, v.ToVal())
 	}
 	return listCode
@@ -230,15 +241,10 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 
 func (k *KitRequest) BindHeaderParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
-	if len(k.Query) == 0 {
-		return list
-	}
 
 	for _, v := range k.Header {
 		//r.Header.Get("project")
 		varBind := jen.Id("r.Header.Get").Call(jen.Lit(v.ParamName))
-		// req.ID = id
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
 		if v.BasicType != "string" {
 			// cast.ToInt(vars["id"])
 			varBind = jen.Id("cast").Dot("To" + upFirst(v.BasicType) + "E").Call(varBind)
@@ -250,12 +256,12 @@ func (k *KitRequest) BindHeaderParam() []jen.Code {
 			returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
 				jen.Return(),
 			)
-			list = append(list, varBind, returnCode, reqBindVal)
+			list = append(list, varBind, returnCode)
 			continue
 		}
 		// id = vars["id"]
 		val := jen.Id(v.ParamName).Op("=").Add(varBind)
-		list = append(list, val, reqBindVal)
+		list = append(list, val)
 	}
 
 	return list
@@ -272,20 +278,17 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 	for _, v := range k.Query {
 		//r.URL.Query().Get("project")
 		varBind := jen.Id("r.URL.Query().Get").Call(jen.Lit(v.ParamName))
-		// req.ID = id
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
 		if !(v.ParamType == "basic" && v.BasicType == "string") {
 			castCode, err := CastMap(v.ParamName, v.ParamType, v.BasicType, varBind)
 			if err != nil {
 				panic(err)
 			}
 			list = append(list, castCode...)
-			list = append(list, reqBindVal)
 			continue
 		}
 		// id = vars["id"]
 		val := jen.Id(v.ParamName).Op("=").Add(varBind)
-		list = append(list, val, reqBindVal)
+		list = append(list, val)
 	}
 
 	return list
@@ -304,8 +307,6 @@ func (k *KitRequest) BindPathParam() []jen.Code {
 	for _, v := range k.Path {
 		// vars["id"]
 		varBind := jen.Id("vars").Index(jen.Lit(v.ParamName))
-		// req.ID = id
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
 		if v.BasicType != "string" {
 			// cast.ToInt(vars["id"])
 			varBind = jen.Id("cast").Dot("To" + upFirst(v.BasicType) + "E").Call(varBind)
@@ -317,14 +318,73 @@ func (k *KitRequest) BindPathParam() []jen.Code {
 			returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
 				jen.Return(),
 			)
-			list = append(list, varBind, returnCode, reqBindVal)
+			list = append(list, varBind, returnCode)
 			continue
 		}
 		// id = vars["id"]
 		val := jen.Id(v.ParamName).Op("=").Add(varBind)
-		list = append(list, val, reqBindVal)
+		list = append(list, val)
 	}
 
+	return list
+}
+
+func (k *KitRequest) BindCtxParam() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	for _, v := range k.Ctx {
+		var ctxKey string
+
+		if v.ParamDoc == nil {
+			panic("ctx param doc is nil")
+		}
+		for _, d := range v.ParamDoc.List {
+			fields := strings.Fields(d.Text)
+			if fields[1] == DocKitHttpParamMark {
+				if len(fields) < 3 {
+					panic("ctx param doc error: " + d.Text)
+				}
+
+				if fields[2] == "ctx" {
+					ctxKey = fields[3]
+				}
+
+			}
+		}
+		if ctxKey == "" {
+			panic("not find ctx param doc error: " + v.ParamDoc.Text())
+		}
+		ctxVal := jen.Var().Id(v.ParamName + "OK").Bool()
+		varBind := jen.List(jen.Id(v.ParamName), jen.Id(v.ParamName+"OK")).Op("=").Id("ctx.Value").Call(jen.Id(v.ParamName)).Assert(jen.Id(v.BasicType))
+		ifBind := jen.If(jen.Id(v.ParamName+"OK")).Op("==").False().Block(
+			jen.Err().Op("=").Id("errors.New").Call(jen.Lit("ctx param "+v.ParamName+" is not found")),
+			jen.Return(),
+		)
+		list = append(list, ctxVal, varBind, ifBind)
+	}
+	return list
+}
+
+func (k *KitRequest) BindRequest() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	for _, v := range k.Path {
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
+		list = append(list, reqBindVal)
+	}
+
+	for _, v := range k.Query {
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
+		list = append(list, reqBindVal)
+	}
+
+	for _, v := range k.Header {
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
+		list = append(list, reqBindVal)
+	}
+
+	for _, v := range k.Ctx {
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
+		list = append(list, reqBindVal)
+	}
 	return list
 }
 
@@ -336,13 +396,12 @@ func (k *KitRequest) ParseRequest() {
 			case *ast.GenDecl:
 				for _, spec := range nodeT.Specs {
 					if specT, ok := spec.(*ast.TypeSpec); ok {
-						fmt.Println("specT.Name.Name", specT.Name.Name, "k.RequestName", k.RequestName)
 						if specT.Name.Name == k.RequestName {
 							hasFindRequest = true
 							doc := nodeT.Doc
 							k.Doc(doc)
 							t := k.pkg.TypesInfo.TypeOf(specT.Type)
-							k.RequestType([]string{}, k.RequestName, t, "")
+							k.RequestType([]string{}, k.RequestName, t, "", doc)
 							return false
 						}
 					}
@@ -361,40 +420,41 @@ func (k *KitRequest) Doc(doc *ast.CommentGroup) {
 	k.RequestIsBody = strings.Contains(doc.Text(), "@kit-request body")
 }
 
-func (k *KitRequest) ParseFieldComment(pos token.Pos) (s string) {
+func (k *KitRequest) ParseFieldComment(pos token.Pos) (s *ast.CommentGroup) {
 	fieldFileName := k.pkg.Fset.Position(pos).Filename
 	fieldLine := k.pkg.Fset.Position(pos).Line
-	var fieldComment []*ast.Comment
+	var fieldComment *ast.CommentGroup
 	for _, syntax := range k.pkg.Syntax {
 		fileName := k.pkg.Fset.Position(syntax.Pos()).Filename
 		if fieldFileName == fileName {
 			for _, c := range syntax.Comments {
 				if k.pkg.Fset.Position(c.End()).Line+1 == fieldLine {
-					fieldComment = c.List
+					fieldComment = c
 				}
 			}
 			break
 		}
 	}
+	return fieldComment
 
-	if fieldComment == nil {
-		return ""
-	}
-
-	for _, c := range fieldComment {
-		commentField := strings.Fields(c.Text)
-		if len(commentField) < 3 {
-			panic("comment error: " + c.Text)
-		}
-		fmt.Println("commentField", commentField)
-		if commentField[0] == "@kit-request" && commentField[1] == "ctx" {
-			return commentField[2]
-		}
-	}
-	return ""
+	//if fieldComment == nil {
+	//	return ""
+	//}
+	//
+	//for _, c := range fieldComment {
+	//	commentField := strings.Fields(c.Text)
+	//	if len(commentField) < 3 {
+	//		panic("comment error: " + c.Text)
+	//	}
+	//	fmt.Println("commentField", commentField)
+	//	if commentField[0] == "@kit-request" && commentField[1] == "ctx" {
+	//		return commentField[2]
+	//	}
+	//}
+	//return ""
 }
 
-func (k *KitRequest) RequestType(prefix []string, requestName string, requestType types.Type, requestParamTagTypeTag string) {
+func (k *KitRequest) RequestType(prefix []string, requestName string, requestType types.Type, requestParamTagTypeTag string, doc *ast.CommentGroup) {
 	paramSource, paramName := k.ParseParamTag(requestName, requestParamTagTypeTag)
 	if paramSource == "" {
 		paramSource = "empty"
@@ -402,9 +462,11 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 
 	switch rt := requestType.(type) {
 	case *types.Named:
-		k.RequestType(prefix, requestName, requestType.(*types.Named).Underlying(), requestParamTagTypeTag)
+		k.RequestType(prefix, requestName, requestType.(*types.Named).Underlying(), requestParamTagTypeTag, doc)
 	case *types.Struct:
 		k.SetParam(RequestParam{
+			FieldName:   requestName,
+			ParamDoc:    doc,
 			ParamPath:   strings.Join(prefix, "."),
 			ParamName:   paramName,
 			ParamSource: paramSource,
@@ -416,14 +478,15 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			field := rt.Field(i)
 			fieldName := field.Name()
 			fieldType := field.Type()
-			k.ParseFieldComment(field.Pos())
 			tag, _ := reflect.StructTag(rt.Tag(i)).Lookup(RequestParamTagName)
-			k.RequestType(append(prefix, fieldName), fieldName, fieldType, tag)
+			k.RequestType(append(prefix, fieldName), fieldName, fieldType, tag, k.ParseFieldComment(field.Pos()))
 		}
 	case *types.Pointer:
-		k.RequestType(prefix, requestName, rt.Elem().Underlying(), requestParamTagTypeTag)
+		k.RequestType(prefix, requestName, rt.Elem().Underlying(), requestParamTagTypeTag, doc)
 	case *types.Slice:
 		k.SetParam(RequestParam{
+			FieldName:   requestName,
+			ParamDoc:    doc,
 			ParamPath:   strings.Join(prefix, "."),
 			ParamName:   paramName,
 			ParamSource: paramSource,
@@ -433,6 +496,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		})
 	case *types.Map:
 		k.SetParam(RequestParam{
+			FieldName:   requestName,
+			ParamDoc:    doc,
 			ParamPath:   strings.Join(prefix, "."),
 			ParamName:   paramName,
 			ParamSource: paramSource,
@@ -442,6 +507,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		})
 	case *types.Basic:
 		k.SetParam(RequestParam{
+			FieldName:   requestName,
+			ParamDoc:    doc,
 			ParamPath:   strings.Join(prefix, "."),
 			ParamName:   paramName,
 			ParamSource: paramSource,

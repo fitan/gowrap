@@ -46,5 +46,22 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 }
 
 {{range $m := $.Interface.Methods}}
+// {{$m.KitRequest.ServiceName}}
+// @Summary
+// @Description
+// @Tags {{$.Interface.Name}}
+// @Accept json
+// @Produce json
+{{- range $k,$v := $m.KitRequest.Path}}
+// @Param {{$v.ParamName}} path {{$v.BasicType}} true {{$v.Annotations}}
+{{- end}}
+{{- range $k, $v := $m.KitRequest.Query}}
+// @Param {{$v.ParamName}} query {{if eq $v.ParamType "slice"}}[]{{end}}{{$v.BasicType}} false {{$v.Annotations}}
+{{- end}}
+{{- range $k, $v := $m.KitRequest.Header}}
+// @Param {{$v.ParamName}} header {{$v.BasicType}} false {{$v.Annotations}}
+{{- end}}
+// @Success 200 {object} encode.Response{data={{(index $m.Results 0).Type}}}
+// @Router {{$m.KitConf.Conf.Url}} [{{$m.KitConf.Conf.UrlMethod}}]
 {{$m.KitRequestDecode}}
 {{end}}

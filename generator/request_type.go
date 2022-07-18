@@ -70,6 +70,21 @@ type RequestParam struct {
 	HasPtr bool
 }
 
+func (r RequestParam) Annotations() string {
+	if r.ParamDoc == nil {
+		return ""
+	}
+	for _, v := range r.ParamDoc.List {
+		field := strings.Fields(v.Text)
+		if len(field) > 3 {
+			if field[1] == r.FieldName {
+				return fmt.Sprintf(`"%s""`, strings.Join(field[2:], " "))
+			}
+		}
+	}
+	return ""
+}
+
 func (r RequestParam) ToVal() jen.Code {
 	switch r.ParamType {
 	case "basic":

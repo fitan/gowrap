@@ -417,7 +417,6 @@ func (k *KitRequest) ParseRequest() {
 }
 
 func (k *KitRequest) Doc(doc *ast.CommentGroup) {
-	k.RequestIsBody = strings.Contains(doc.Text(), "@kit-request body")
 }
 
 func (k *KitRequest) ParseFieldComment(pos token.Pos) (s *ast.CommentGroup) {

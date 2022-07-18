@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
@@ -508,11 +507,15 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 					}
 				}
 				method.KitConf = kit
-				kitRequest := NewKitRequest(currentPackage, field.Names[0].Name, method.KitConf.Conf.HttpRequestName, method.KitConf.Conf.HttpRequestBody)
-				kitRequest.ParseRequest()
-				spew.Dump(kitRequest)
-				method.KitRequest = kitRequest
-				method.KitRequestDecode = kitRequest.DecodeRequest()
+				if kit.Conf.HttpRequestName != "" {
+					kitRequest := NewKitRequest(
+						currentPackage, field.Names[0].Name, method.KitConf.Conf.HttpRequestName,
+						method.KitConf.Conf.HttpRequestBody,
+					)
+					kitRequest.ParseRequest()
+					method.KitRequest = kitRequest
+					method.KitRequestDecode = kitRequest.DecodeRequest()
+				}
 
 				methods[field.Names[0].Name] = *method
 			}

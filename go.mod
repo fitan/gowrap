@@ -20,7 +20,7 @@ require (
 	go.opentelemetry.io/otel v1.0.1
 	go.opentelemetry.io/otel/trace v1.0.1
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03 // indirect
-	golang.org/x/tools v0.1.8
+	golang.org/x/tools v0.1.11
 	google.golang.org/grpc v1.37.0
 )
 

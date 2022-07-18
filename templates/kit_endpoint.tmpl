@@ -45,9 +45,23 @@ func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 
 		{{$m.ResultsNames}} = s.{{$m.Name}}(
 			ctx,
+			{{if $m.KitRequest.RequestIsBody}}
+			req,
+			{{else}}
 			{{range $v := $m.ParamsExcludeCtx}}req.{{$m.KitRequest.ParamPath $v.Name}},{{end}}
+			{{end}}
 		)
-		return {{$m.ResultsMap}}, err
+		{{if eq (len $m.ResultsExcludeErr) 1}}
+		return encode.Response{
+			Data: {{(index $m.ResultsExcludeErr 0).Name}},
+			Error: err,
+		}, err
+		{{else}}
+		return encode.Response{
+			Data: {{$m.ResultsMapExcludeErr}},
+			Error: err,
+		},err
+		{{end}}
 	}
 }
 {{end}}

@@ -29,6 +29,7 @@ type Generator struct {
 	dstPackage     *packages.Package
 	genTemplates   []genTemplate
 	methods        methodsList
+	doc            *ast.CommentGroup
 	interfaceType  string
 	localPrefix    string
 }
@@ -92,6 +93,19 @@ type TemplateInputInterface struct {
 	Type string
 	// Methods name keyed map of method information
 	Methods map[string]Method
+	Doc     *ast.CommentGroup
+}
+
+func (t TemplateInputInterface) Tags() string {
+	if t.Doc != nil {
+		for _, v := range t.Doc.List {
+			fields := strings.Fields(v.Text)
+			if strings.HasPrefix(strings.Join(fields, " "), "// @tags") {
+				return v.Text
+			}
+		}
+	}
+	return "// @tags " + t.Name
 }
 
 type methodsList map[string]Method
@@ -152,6 +166,7 @@ var errUnexportedMethod = errors.New("unexported method")
 
 var methods methodsList
 var importSpecs []*ast.ImportSpec
+var doc *ast.CommentGroup
 
 //var srcPackage *packages.Package
 //var dstPackage *packages.Package
@@ -282,7 +297,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 		if methods == nil && importSpecs == nil {
 
 			t1 := time.Now()
-			methods, importSpecs, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName)
+			methods, importSpecs, doc, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName)
 			log.Printf("findInterface time: %v", time.Now().Sub(t1).String())
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to parse interface declaration")
@@ -309,6 +324,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			dstPackage:     options.SourceLoadPkg,
 			interfaceType:  interfaceType,
 			methods:        methods,
+			doc:            doc,
 			localPrefix:    options.LocalPrefix,
 			genTemplates:   make([]genTemplate, 0, 0),
 		})
@@ -381,6 +397,7 @@ func (g Generator) Generate() error {
 			Name:    g.Options.InterfaceName,
 			Type:    g.interfaceType,
 			Methods: g.methods,
+			Doc:     g.doc,
 		},
 		Imports: g.Options.Imports,
 		Vars:    g.Options.Vars,
@@ -414,7 +431,7 @@ var errInterfaceNotFound = errors.New("interface type declaration not found")
 // findInterface looks for the interface declaration in the given directory
 // and returns a list of the interface's methods and a list of imports from the file
 // where interface type declaration was found
-func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.Package, interfaceName string) (methods methodsList, imports []*ast.ImportSpec, err error) {
+func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.Package, interfaceName string) (methods methodsList, imports []*ast.ImportSpec, doc *ast.CommentGroup, err error) {
 	var found bool
 	var types []*ast.TypeSpec
 	var it *ast.InterfaceType
@@ -424,11 +441,13 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 	//while doing this we also store all found type declarations to check if some of the
 	//interface methods use unexported types
 	for _, f := range p.Files {
-		for _, ts := range typeSpecs(f) {
+		tsList, gdDoc := typeSpecs(f)
+		for index, ts := range tsList {
 			types = append(types, ts)
 
 			if i, ok := ts.Type.(*ast.InterfaceType); ok {
 				if ts.Name.Name == interfaceName && !found {
+					doc = gdDoc[index]
 					imports = f.Imports
 					currentFile = f
 					it = i
@@ -439,31 +458,33 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 	}
 
 	if !found {
-		return nil, nil, errors.Wrap(errInterfaceNotFound, interfaceName)
+		return nil, nil, doc, errors.Wrap(errInterfaceNotFound, interfaceName)
 	}
 
 	methods, err = processInterface(interfaceName, fs, currentPackage, currentFile, it, types, p.Name, imports)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, doc, err
 	}
 
-	return methods, imports, err
+	return methods, imports, doc, err
 }
 
-func typeSpecs(f *ast.File) []*ast.TypeSpec {
+func typeSpecs(f *ast.File) ([]*ast.TypeSpec, []*ast.CommentGroup) {
 	result := []*ast.TypeSpec{}
+	gdDoc := []*ast.CommentGroup{}
 
 	for _, decl := range f.Decls {
 		if gd, ok := decl.(*ast.GenDecl); ok && gd.Tok == token.TYPE {
 			for _, spec := range gd.Specs {
 				if ts, ok := spec.(*ast.TypeSpec); ok {
 					result = append(result, ts)
+					gdDoc = append(gdDoc, gd.Doc)
 				}
 			}
 		}
 	}
 
-	return result
+	return result, gdDoc
 }
 
 func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
@@ -557,7 +578,7 @@ func processSelector(fs *token.FileSet, currentPackage *packages.Package, se *as
 		return nil, errors.Wrap(err, "failed to import package")
 	}
 
-	methods, _, err := findInterface(fs, p, astPkg, interfaceName)
+	methods, _, _, err = findInterface(fs, p, astPkg, interfaceName)
 
 	return methods, err
 }

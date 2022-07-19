@@ -62,6 +62,7 @@ type Paging struct {
 	Size int64 `param:"query,size"`
 }
 
+// @tags paas-api
 type Service interface {
 	// Hello
 	// @kit-http /hello/{id} GET

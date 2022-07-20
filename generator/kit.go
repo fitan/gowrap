@@ -43,32 +43,32 @@ type KitServiceParam struct {
 	EncodeName string
 }
 
-func KitComment(comments []*ast.Comment) (kitCommentConf KitCommentConf,err error) {
-	kitCommentConf.HttpParams = make(map[string]HttpParam, 0)
+func KitComment(comments []*ast.Comment) (kitConf KitCommentConf,err error) {
+	kitConf.HttpParams = make(map[string]HttpParam, 0)
 	for _, comment := range comments {
 		fields := strings.Fields(strings.TrimSpace(comment.Text))
 		switch fields[1] {
 		case KitHttp:
-			err = (&kitCommentConf).ParamKitHttp(fields)
+			err = (&kitConf).ParamKitHttp(fields)
 			if err != nil {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
 		case kitParam:
-			err = (&kitCommentConf).ParamKitParam(fields)
+			err = (&kitConf).ParamKitParam(fields)
 			if err != nil {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
 
 		case KitService:
-			err = (&kitCommentConf).ParamKitService(fields)
+			err = (&kitConf).ParamKitService(fields)
 			if err != nil {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
 		case KitHttpRequest:
-			err = (&kitCommentConf).ParamKitHttpRequest(fields)
+			err = (&kitConf).ParamKitHttpRequest(fields)
 			if err != nil {
 				err = errors.Wrap(err, comment.Text)
 				return
@@ -142,7 +142,7 @@ func (m *KitCommentConf) ParamKitParam(s []string) (err error) {
 }
 
 type Kit struct {
-	//Comment KitCommentConf
+	//Comment KitConf
 	HasParamSourcePath bool
 	InterfaceMethodParams map[string]InterfaceMethodParam
 	Conf KitCommentConf

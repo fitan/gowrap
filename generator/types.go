@@ -26,7 +26,7 @@ type Method struct {
 	Gin    GinParams
 
 	// my extra
-	KitConf Kit
+	RawKit Kit
 	Kit    KitParams
 
 	KitRequest *KitRequest

@@ -29,12 +29,12 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 	r := mux.NewRouter()
 
 	{{range $m := $.Interface.Methods}}
-	r.Handle("{{$m.KitConf.Comment.Url}}", kithttp.NewServer(
+	r.Handle("{{$m.RawKit.Comment.Url}}", kithttp.NewServer(
 		eps.{{$m.Name}}Endpoint,
 		decode{{$m.Name}}Request,
 		encode.JsonResponse,
 		opts...,
-	)).Methods("http.Method{{up $m.KitConf.Comment.UrlMethod}}")
+	)).Methods("http.Method{{up $m.RawKit.Comment.UrlMethod}}")
 	{{end}}
 
 	return r
@@ -47,11 +47,11 @@ func decode{{$m.Name}}Request(_ context.Context, r *http.Request) (interface{}, 
 {{end}}
 	var err error
 
-{{if $m.KitConf.HasParamSourcePath}}
+{{if $m.RawKit.HasParamSourcePath}}
 	_vars := mux.Vars(r)
 {{end}}
 
-{{range $v := $m.KitConf.InterfaceMethodParams}}
+{{range $v := $m.RawKit.InterfaceMethodParams}}
 	{{if (eq $v.SourceType "path")}}
 		{{$v.ParamName}} = _vars["{{$v.ParamName}}"]
 	{{end}}

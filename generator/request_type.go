@@ -76,9 +76,9 @@ func (r RequestParam) Annotations() string {
 	}
 	for _, v := range r.ParamDoc.List {
 		field := strings.Fields(v.Text)
-		if len(field) > 3 {
+		if len(field) >= 3 {
 			if field[1] == r.FieldName {
-				return fmt.Sprintf(`"%s""`, strings.Join(field[2:], " "))
+				return fmt.Sprintf(`"%s"`, strings.Join(field[2:], " "))
 			}
 		}
 	}
@@ -177,6 +177,10 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, k.BindRequest()...)
 	listCode = append(listCode, k.Validate()...)
 	listCode = append(listCode, jen.Return())
+	var LineListCode []jen.Code
+	for _, v := range listCode {
+		LineListCode = append(LineListCode, jen.Line(),v)
+	}
 
 	fn := jen.Func().Id("decode"+upFirst(k.ServiceName)+"Request").Params(
 		jen.Id("ctx").Id("context.Context"),
@@ -185,7 +189,7 @@ func (k *KitRequest) DecodeRequest() (s string) {
 		jen.Id("res").Interface(),
 		jen.Id("err").Id("error"),
 	).Block(
-		listCode...,
+		LineListCode...,
 	)
 	return fn.GoString()
 }

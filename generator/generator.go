@@ -334,9 +334,26 @@ func makeImports(imports []*ast.ImportSpec) []string {
 			name = i.Name.Name
 		}
 		result = append(result, name+" "+i.Path.Value)
+		extra := makeExtraImport(i.Doc)
+		if extra != "" {
+			result = append(result, extra)
+		}
 	}
 
+
 	return result
+}
+
+func makeExtraImport(doc *ast.CommentGroup) string {
+	if doc == nil {
+		return ""
+	}
+	for _, c := range doc.List {
+		if strings.HasPrefix(c.Text, "// @extra ") {
+			return strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra "))
+		}
+	}
+	return ""
 }
 
 func loadDestinationPackage(path string) (*packages.Package, error) {
@@ -506,11 +523,11 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 						method.HasGin = true
 					}
 				}
-				method.KitConf = kit
+				method.RawKit = kit
 				if kit.Conf.HttpRequestName != "" {
 					kitRequest := NewKitRequest(
-						currentPackage, field.Names[0].Name, method.KitConf.Conf.HttpRequestName,
-						method.KitConf.Conf.HttpRequestBody,
+						currentPackage, field.Names[0].Name, method.RawKit.Conf.HttpRequestName,
+						method.RawKit.Conf.HttpRequestBody,
 					)
 					kitRequest.ParseRequest()
 					method.KitRequest = kitRequest

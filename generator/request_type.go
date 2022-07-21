@@ -30,6 +30,8 @@ type KitRequest struct {
 	ServiceName   string
 	RequestName   string
 	RequestIsBody bool
+
+	NamedMap map[string]string
 	Query         map[string]RequestParam
 	Path          map[string]RequestParam
 	Body          map[string]RequestParam
@@ -44,6 +46,7 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 		ServiceName:   serviceName,
 		RequestName:   requestName,
 		RequestIsBody: requestIsBody,
+		NamedMap: 	make(map[string]string),
 		Query:         make(map[string]RequestParam),
 		Path:          make(map[string]RequestParam),
 		Body:          make(map[string]RequestParam),
@@ -55,6 +58,7 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 
 type RequestParam struct {
 	ParamDoc  *ast.CommentGroup
+
 	ParamPath string
 
 	FieldName string
@@ -64,25 +68,26 @@ type RequestParam struct {
 	ParamSource string
 	// basic, map, slice,ptr
 	ParamType string
+	// []string map[string]string
+	RawParamType string
 	// int,string,bool,float
 	BasicType string
+
 
 	HasPtr bool
 }
 
 func (r RequestParam) Annotations() string {
 	if r.ParamDoc == nil {
-		return ""
+		return `" "`
 	}
 	for _, v := range r.ParamDoc.List {
-		field := strings.Fields(v.Text)
-		if len(field) >= 3 {
-			if field[1] == r.FieldName {
-				return fmt.Sprintf(`"%s"`, strings.Join(field[2:], " "))
-			}
+		docFormat := DocFormat(v.Text)
+		if strings.HasPrefix(docFormat, "// " + r.FieldName) {
+			return fmt.Sprintf(`"%s"`,strings.TrimPrefix(docFormat, "// " + r.FieldName))
 		}
 	}
-	return ""
+	return strings.TrimPrefix(r.ParamDoc.List[0].Text, "// ")
 }
 
 func (r RequestParam) ToVal() jen.Code {
@@ -176,7 +181,7 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, k.BindCtxParam()...)
 	listCode = append(listCode, k.BindRequest()...)
 	listCode = append(listCode, k.Validate()...)
-	listCode = append(listCode, jen.Return())
+	listCode = append(listCode, jen.Return(jen.Id("req"), jen.Id("err")))
 	var LineListCode []jen.Code
 	for _, v := range listCode {
 		LineListCode = append(LineListCode, jen.Line(),v)
@@ -216,7 +221,7 @@ func (k *KitRequest) Validate() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	list = append(
 		list,
-		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
+		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("res")),
 		jen.If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid.ValidateStruct")),
 			jen.Return(),
@@ -373,7 +378,7 @@ func (k *KitRequest) BindCtxParam() []jen.Code {
 			panic("not find ctx param doc error: " + v.ParamDoc.Text())
 		}
 		ctxVal := jen.Var().Id(v.ParamName + "OK").Bool()
-		varBind := jen.List(jen.Id(v.ParamName), jen.Id(v.ParamName+"OK")).Op("=").Id("ctx.Value").Call(jen.Id(v.ParamName)).Assert(jen.Id(v.BasicType))
+		varBind := jen.List(jen.Id(v.ParamName), jen.Id(v.ParamName+"OK")).Op("=").Id("ctx.Value").Call(jen.Id(ctxKey)).Assert(jen.Id(v.RawParamType))
 		ifBind := jen.If(jen.Id(v.ParamName+"OK")).Op("==").False().Block(
 			jen.Err().Op("=").Id("errors.New").Call(jen.Lit("ctx param "+v.ParamName+" is not found")),
 			jen.Return(),
@@ -473,6 +478,7 @@ func (k *KitRequest) ParseFieldComment(pos token.Pos) (s *ast.CommentGroup) {
 }
 
 func (k *KitRequest) RequestType(prefix []string, requestName string, requestType types.Type, requestParamTagTypeTag string, doc *ast.CommentGroup) {
+	rawParamType := requestType.String()
 	paramSource, paramName := k.ParseParamTag(requestName, requestParamTagTypeTag)
 	if paramSource == "" {
 		paramSource = "empty"
@@ -480,7 +486,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 
 	switch rt := requestType.(type) {
 	case *types.Named:
-		k.RequestType(prefix, requestName, requestType.(*types.Named).Underlying(), requestParamTagTypeTag, doc)
+		k.NamedMap[paramName] = rt.Obj().Id()
+		k.RequestType(prefix, requestName, rt.Underlying(), requestParamTagTypeTag, doc)
 	case *types.Struct:
 		k.SetParam(RequestParam{
 			FieldName:   requestName,
@@ -489,7 +496,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamName:   paramName,
 			ParamSource: paramSource,
 			ParamType:   "struct",
-			BasicType:   "",
+			RawParamType: rawParamType,
+			BasicType:   k.NamedMap[paramName],
 			HasPtr:      false,
 		})
 		for i := 0; i < rt.NumFields(); i++ {
@@ -509,6 +517,7 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamName:   paramName,
 			ParamSource: paramSource,
 			ParamType:   "slice",
+			RawParamType: rawParamType,
 			BasicType:   rt.Elem().Underlying().String(),
 			HasPtr:      false,
 		})
@@ -520,6 +529,7 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamName:   paramName,
 			ParamSource: paramSource,
 			ParamType:   "map",
+			RawParamType: rawParamType,
 			BasicType:   rt.Elem().Underlying().String(),
 			HasPtr:      false,
 		})
@@ -531,6 +541,7 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamName:   paramName,
 			ParamSource: paramSource,
 			ParamType:   "basic",
+			RawParamType: rawParamType,
 			BasicType:   rt.Name(),
 			HasPtr:      false,
 		})
@@ -590,19 +601,23 @@ func CastMap(paramName, t, basicT string, code jen.Code) (res []jen.Code, err er
 		return
 	}
 
+	paramStr := paramName +"Str"
+	varParamStr := jen.Id(paramStr).Op(":=").Add(code)
+	paramStrCode := jen.Id(paramStr)
 	if t == "slice" {
-		code = jen.Id("strings.Split").Call(code, jen.Lit(","))
+		paramStrCode = jen.Id("strings.Split").Call(paramStrCode, jen.Lit(","))
 	}
-
-	code = jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(code)
-	// if err != nil {
-	// 	return err
-	// }
-	returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
-		jen.Return(),
+	ifParamStr := jen.If(jen.Id(paramStr).Op("!=").Lit("")).Block(
+		jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(paramStrCode),
+		// if err != nil {
+		// 	return err
+		// }
+		jen.If(jen.Err().Op("!=").Nil()).Block(
+			jen.Return(),
+		),
 	)
 
-	res = append(res, code, returnCode)
+	res = append(res, varParamStr,ifParamStr)
 
 	return
 }

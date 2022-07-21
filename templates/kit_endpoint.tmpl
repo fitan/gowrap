@@ -1,10 +1,7 @@
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
-import (
-    endpoint "github.com/go-kit/kit/endpoint"
-{{range $i := $.Imports}}
-    {{$i}}
-{{end}}
-)
+{{$.Import
+`endpoint "github.com/go-kit/kit/endpoint"`
+}}
 
 const (
 {{range $m := .Interface.Methods}}

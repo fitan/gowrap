@@ -19,12 +19,12 @@ const mode packages.LoadMode =packages.NeedName |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo |
 	packages.NeedImports |
-	packages.NeedModule |
-	packages.NeedTypesSizes |
-	packages.NeedDeps |
-	packages.NeedFiles |
-	packages.NeedCompiledGoFiles |
-	packages.NeedExportFile
+	//packages.NeedModule |
+	//packages.NeedTypesSizes |
+	//packages.NeedDeps |
+	packages.NeedFiles
+	//packages.NeedCompiledGoFiles |
+	//packages.NeedExportFile
 
 // Load loads package by its import path
 func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {

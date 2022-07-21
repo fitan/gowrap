@@ -33,6 +33,20 @@ type Method struct {
 	KitRequestDecode string
 }
 
+func DocFormat(doc string) string {
+	return strings.Join(strings.Fields(doc)," ")
+}
+
+func (m Method) Annotation() string {
+	for _, c := range m.Doc {
+		docFormat := DocFormat(c)
+		if strings.HasPrefix(docFormat, "// " +  m.Name) {
+			return strings.TrimPrefix(docFormat, "// " + m.Name)
+		}
+	}
+	return ""
+}
+
 func (m Method) KitEndpointName() string {
 	if m.Kit.Endpoint == `""` || m.Kit.Endpoint == "" {
 		return "Make" + m.Name + "Endpoint"

@@ -351,25 +351,23 @@ func makeImports(imports []*ast.ImportSpec) []string {
 		}
 		result = append(result, name+" "+i.Path.Value)
 		extra := makeExtraImport(i.Doc)
-		if extra != "" {
-			result = append(result, extra)
-		}
+		result = append(result, extra...)
 	}
 
 
 	return result
 }
 
-func makeExtraImport(doc *ast.CommentGroup) string {
+func makeExtraImport(doc *ast.CommentGroup) (res []string) {
 	if doc == nil {
-		return ""
+		return
 	}
 	for _, c := range doc.List {
 		if strings.HasPrefix(c.Text, "// @extra ") {
-			return strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra "))
+			res = append(res,strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra ")))
 		}
 	}
-	return ""
+	return
 }
 
 func loadDestinationPackage(path string) (*packages.Package, error) {

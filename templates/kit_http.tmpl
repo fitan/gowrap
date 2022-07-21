@@ -1,20 +1,15 @@
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
-import (
-"encoding/json"
-"net/http"
-"strings"
-
-valid "github.com/asaskevich/govalidator"
-"github.com/go-kit/kit/endpoint"
-kithttp "github.com/go-kit/kit/transport/http"
-"github.com/gorilla/mux"
-"github.com/pkg/errors"
-"github.com/spf13/cast"
-
-{{range $i := $.Imports}}
-    {{$i}}
-{{end}}
-)
+{{$.Import
+`"encoding/json"`
+`"net/http"`
+`"strings"`
+`valid "github.com/asaskevich/govalidator"`
+`"github.com/go-kit/kit/endpoint"`
+`kithttp "github.com/go-kit/kit/transport/http"`
+`"github.com/gorilla/mux"`
+`"github.com/pkg/errors"`
+`"github.com/spf13/cast"`
+}}
 
 func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.ServerOption) http.Handler {
 	var ems []endpoint.Middleware
@@ -47,8 +42,8 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 
 {{range $m := $.Interface.Methods}}
 // {{$m.KitRequest.ServiceName}}
-// @Summary
-// @Description
+// @Summary {{$m.Annotation}}
+// @Description {{$m.Annotation}}
 {{$.Interface.Tags}}
 // @Accept json
 // @Produce json
@@ -60,6 +55,13 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 {{- end}}
 {{- range $k, $v := $m.KitRequest.Header}}
 // @Param {{$v.ParamName}} header {{$v.BasicType}} false {{$v.Annotations}}
+{{- end}}
+{{- if $m.KitRequest.RequestIsBody}}
+// @Param {{$m.KitRequest.RequestName}} body {{$m.KitRequest.RequestName}} 	true "http request body"
+{{- else}}
+{{- range $k, $v := $m.KitRequest.Body}}
+// @Param {{$v.ParamName}} body {{$v.BasicType}} true {{$v.Annotations}}
+{{- end}}
 {{- end}}
 // @Success 200 {object} encode.Response{data={{(index $m.Results 0).Type}}}
 // @Router {{$m.RawKit.Conf.Url}} [{{$m.RawKit.Conf.UrlMethod}}]

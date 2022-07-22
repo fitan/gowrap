@@ -87,7 +87,7 @@ func (r RequestParam) Annotations() string {
 			return fmt.Sprintf(`"%s"`,strings.TrimPrefix(docFormat, "// " + r.FieldName))
 		}
 	}
-	return strings.TrimPrefix(r.ParamDoc.List[0].Text, "// ")
+	return fmt.Sprintf(`"%s"`,strings.TrimPrefix(r.ParamDoc.List[0].Text, "// "))
 }
 
 func (r RequestParam) ToVal() jen.Code {
@@ -150,6 +150,9 @@ func (k *KitRequest) SetParam(param RequestParam) {
 		k.Ctx[param.ParamName] = param
 	case EmptyTag:
 		k.Empty[param.ParamName] = param
+	case "":
+		k.Empty[param.ParamName] = param
+
 	default:
 		panic("param source error: " + param.ParamSource + "," + param.ParamName)
 	}

@@ -38,13 +38,16 @@ func DocFormat(doc string) string {
 }
 
 func (m Method) Annotation() string {
+	if m.Doc == nil {
+		return ""
+	}
 	for _, c := range m.Doc {
 		docFormat := DocFormat(c)
 		if strings.HasPrefix(docFormat, "// " +  m.Name) {
 			return strings.TrimPrefix(docFormat, "// " + m.Name)
 		}
 	}
-	return ""
+	return strings.TrimPrefix(DocFormat(m.Doc[0]), "// ")
 }
 
 func (m Method) KitEndpointName() string {

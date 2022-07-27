@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"text/template"
@@ -334,7 +335,13 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 }
 
 func makeInstance(dirPath string) string {
-	dirS := strings.Split(dirPath, "/")
+	var dirS []string
+
+	if runtime.GOOS == "windows" {
+		dirS = strings.Split(dirPath, "\\")
+	} else {
+		dirS = strings.Split(dirPath, "/")
+	}
 	var instance string
 	if len(dirS) >= 2 {
 		instance = strings.Join(dirS[len(dirS)-2:], ".")

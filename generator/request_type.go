@@ -19,7 +19,6 @@ const (
 	PathTag             string = "path"
 	BodyTag             string = "body"
 	CtxTag              string = "ctx"
-	EmptyTag            string = "empty"
 
 	DocKitHttpParamMark string = "@kit-http-param"
 )
@@ -28,8 +27,10 @@ type KitRequest struct {
 	pkg *packages.Package
 
 	ServiceName   string
+	RequestTypeOf *types.Struct
 	RequestName   string
 	RequestIsBody bool
+	RequestIsNil  bool
 
 	NamedMap map[string]string
 	Query         map[string]RequestParam
@@ -148,8 +149,6 @@ func (k *KitRequest) SetParam(param RequestParam) {
 		k.Body[param.ParamName] = param
 	case CtxTag:
 		k.Ctx[param.ParamName] = param
-	case EmptyTag:
-		k.Empty[param.ParamName] = param
 	case "":
 		k.Empty[param.ParamName] = param
 
@@ -239,7 +238,11 @@ func (k *KitRequest) Validate() []jen.Code {
 
 func (k *KitRequest) BindBodyParam() []jen.Code {
 	listCode := make([]jen.Code, 0, 0)
+	if k.RequestIsNil {
+		return listCode
+	}
 	returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
+		jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("json.Decode")),
 		jen.Return(),
 	)
 	if k.RequestIsBody {
@@ -427,8 +430,11 @@ func (k *KitRequest) ParseRequest() {
 							hasFindRequest = true
 							doc := nodeT.Doc
 							k.Doc(doc)
-							t := k.pkg.TypesInfo.TypeOf(specT.Type)
+							t := k.pkg.TypesInfo.TypeOf(specT.Type).(*types.Struct)
+							k.RequestTypeOf = t
 							k.RequestType([]string{}, k.RequestName, t, "", doc)
+							k.CheckRequestIsNil()
+							
 							return false
 						}
 					}
@@ -480,12 +486,17 @@ func (k *KitRequest) ParseFieldComment(pos token.Pos) (s *ast.CommentGroup) {
 	//return ""
 }
 
+func (k *KitRequest) CheckRequestIsNil() {
+	if k.RequestIsBody {
+		if k.RequestTypeOf.NumFields() == 0 {
+			k.RequestIsNil = true
+		}
+	}
+}
+
 func (k *KitRequest) RequestType(prefix []string, requestName string, requestType types.Type, requestParamTagTypeTag string, doc *ast.CommentGroup) {
 	rawParamType := requestType.String()
 	paramSource, paramName := k.ParseParamTag(requestName, requestParamTagTypeTag)
-	if paramSource == "" {
-		paramSource = "empty"
-	}
 
 	switch rt := requestType.(type) {
 	case *types.Named:

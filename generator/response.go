@@ -3,9 +3,9 @@ package generator
 import (
 	"github.com/dave/jennifer/jen"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"strings"
 )
+
 type Type struct {
 	T             types.Type
 	Interface     bool
@@ -27,7 +27,6 @@ type Type struct {
 	Basic         bool
 	BasicType     *types.Basic
 }
-
 
 func TypeOf(t types.Type) *Type {
 	rt := &Type{}
@@ -70,31 +69,30 @@ func TypeOf(t types.Type) *Type {
 	return rt
 }
 
-
 type Field struct {
 	Path []string
 	Name string
-	//Type *Type
+	Type *Type
 	// slice map struct *
 	TypeName string
 }
 
 type DataFieldMap struct {
-	Name string
-	TypeID string
-	NamedMap map[string]Field
+	Name       string
+	TypeID     string
+	NamedMap   map[string]Field
 	PointerMap map[string]Field
-	SliceMap map[string]Field
-	MapMap map[string]Field
-	StructMap map[string]Field
-	BasicMap map[string]Field
+	SliceMap   map[string]Field
+	MapMap     map[string]Field
+	StructMap  map[string]Field
+	BasicMap   map[string]Field
 }
 
-func (d *DataFieldMap)Parse(prefix []string, name string,t types.Type) {
+func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type) {
 	f := Field{
 		Name: name,
 		Path: prefix,
-		//Type: TypeOf(t),
+		Type: TypeOf(t),
 	}
 
 	switch v := t.(type) {
@@ -117,81 +115,59 @@ func (d *DataFieldMap)Parse(prefix []string, name string,t types.Type) {
 			if !field.Exported() {
 				continue
 			}
-			d.Parse(append(prefix,field.Name()), field.Name(), field.Type())
+			d.Parse(append(prefix, field.Name()), field.Name(), field.Type())
 		}
 	default:
 		panic("unknown types.Type " + t.String())
 	}
 }
-
-func GenMethod(statement jen.Statement, src DataFieldMap, dest DataFieldMap) *jen.Statement {
-	method := jen.Func().Params(jen.Id("d").Id("*DTO")).Id(src.Name + "To" + dest.Name).Params(jen.Id("src").Id(src.TypeID)).Id(dest.TypeID)
-	var bindVar jen.Statement
-	for _, v := range dest.BasicMap {
-		srcBasicMap := src.BasicMap[v.Name]
-		bindVar.Add(jen.Id("dest." + strings.Join(v.Path,",")).Op("=").Id("src." + strings.Join(srcBasicMap.Path, ",")))
-	}
-	method.Block(bindVar...)
-	return method
-}
-
-
 
 type DTO struct {
-	jen *jen.File
-	pkg *packages.Package
-
-	srcName string
-	src types.Type
-
-	destName string
-	dest types.Type
-
-	srcMap map[string]Field
-	destMap map[string]Field
-
-	namedMap map[string]Field
-	pointerMap map[string]Field
-	sliceMap map[string]Field
-	mapMap map[string]Field
-	structMap map[string]Field
-	basicMap map[string]Field
+	JenF *jen.File
+	Src  *DataFieldMap
+	Dest *DataFieldMap
 }
 
-
-
-
-func (d *DTO)Parse(prefix []string, name string,t types.Type) {
-	f := Field{
-		Name: name,
-		Path: prefix,
-		//Type: TypeOf(t),
+func (d *DTO) GenBasic() {
+	fn := d.GenFuncName(d.Src.Name+"To"+d.Dest.Name, d.Src.TypeID, d.Dest.TypeID)
+	var bindVar jen.Statement
+	for _, v := range d.Dest.BasicMap {
+		srcBasicMap := d.Src.BasicMap[v.Name]
+		bindVar.Add(jen.Id("dest." + strings.Join(v.Path, ".")).Op("=").Id("src." + strings.Join(srcBasicMap.Path, ".")))
 	}
 
-	switch v := t.(type) {
-	case *types.Pointer:
-		d.pointerMap[name] = f
-	case *types.Basic:
-		d.basicMap[name] = f
-		return
-	case *types.Map:
-		d.mapMap[name] = f
-		return
-	case *types.Slice:
-		d.sliceMap[name] = f
-	case *types.Array:
-	case *types.Named:
-		d.Parse(append(prefix), name, v.Underlying())
-	case *types.Struct:
-		for i := 0; i < v.NumFields(); i++ {
-			field := v.Field(i)
-			if !field.Exported() {
-				continue
-			}
-			d.Parse(append(prefix,field.Name()), field.Name(), field.Type())
+	for _, v := range d.Dest.SliceMap {
+		srcV := d.Src.SliceMap[v.Name]
+		bindVar.Add(jen.Id("dest."+strings.Join(v.Path, ".")).Op("=").Make(jen.Id("[]"+v.Type.ListInner.T.String()), jen.Id("0"), jen.Id("len").Call(jen.Id("src."+strings.Join(v.Path, ".")))))
+		block := jen.Id("dest." + strings.Join(v.Path, ".")).Index(jen.Id("i")).Op("=").Id("d." + v.Name).Call(jen.Id("src." + v.Name).Index(jen.Id("i")))
+		if v.Type.ListInner.Basic {
+			block = jen.Id("dest." + strings.Join(v.Path, ".")).Index(jen.Id("i")).Op("=").Id("src." + strings.Join(srcV.Path, ".")).Index(jen.Id("i"))
 		}
-	default:
-		panic("unknown types.Type " + t.String())
+		bindVar.Add(jen.For(
+			jen.Id("i").Op(":=").Lit(0),
+			jen.Id("i").Op("<").Id("len").Call(jen.Id("src."+strings.Join(v.Path, "."))),
+			jen.Id("i").Op("++")).
+			Block(
+				block,
+			))
+		bindVar.Add(jen.Return())
+	}
+	fn.Block(bindVar...)
+	d.JenF.Add(fn)
+}
+
+func (d *DTO) GenSlice() {
+	for _, destV := range d.Dest.SliceMap {
+		srcV := d.Src.SliceMap[destV.Name]
+		FnName := destV.Name + "Slice"
+		Fn := d.GenFuncName(FnName, srcV.Type.ListInner.T.String(), destV.Type.ListInner.T.String()).Block(
+			jen.Return(),
+		)
+		d.JenF.Add(Fn)
 	}
 }
 
+func (d *DTO) GenFuncName(funcName string, srcId string, destId string) *jen.Statement {
+	return jen.Func().Params(jen.Id("d").Id("*DTO")).
+		Id(funcName).Params(jen.Id("src").Id(srcId)).Params(jen.Id("dest").Id(destId))
+}

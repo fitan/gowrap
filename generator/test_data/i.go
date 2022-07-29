@@ -46,29 +46,75 @@ type CtxKeyRole string
 
 type DTO struct {
 }
-
-func (d *DTO) SrcToDest(src HelloRequest) (dest HelloRequest) {
-	dest.Body.Age = src.Body.Age
-	dest.Paging.Size = src.Paging.Size
-	dest.HeaderName = src.HeaderName
-	dest.Role = src.Role
+func (d *DTO) HelloRequest(src HelloRequest) (dest HelloRequest) {
 	dest.ID = src.ID
-	dest.UUID = src.UUID
 	dest.Time = src.Time
 	dest.Body.Name = src.Body.Name
 	dest.Paging.Page = src.Paging.Page
 	dest.Vm.Ip = src.Vm.Ip
+	dest.HeaderName = src.HeaderName
+	dest.Role = src.Role
+	dest.UUID = src.UUID
+	dest.Body.Age = src.Body.Age
+	dest.Paging.Size = src.Paging.Size
 	dest.Vm.Port = src.Vm.Port
+	dest.VMS = make([]nest.Vm, 0, len(src.VMS))
+	for i := 0; i < len(src.VMS); i++ {
+		dest.VMS[i] = d.VMS(src.VMS[i])
+	}
+	dest.Namespace = make([]string, 0, len(src.Namespace))
+	for i := 0; i < len(src.Namespace); i++ {
+		dest.Namespace[i] = src.Namespace[i]
+	}
 	dest.LastNames = make([]string, 0, len(src.LastNames))
+	for i := 0; i < len(src.LastNames); i++ {
+		dest.LastNames[i] = src.LastNames[i]
+	}
+	dest.LastNamesInt = make([]int, 0, len(src.LastNamesInt))
+	for i := 0; i < len(src.LastNamesInt); i++ {
+		dest.LastNamesInt[i] = src.LastNamesInt[i]
+	}
+	dest.Vm.NetWorks = make([]nest.NetWork, 0, len(src.Vm.NetWorks))
+	for i := 0; i < len(src.Vm.NetWorks); i++ {
+		dest.Vm.NetWorks[i] = d.NetWorks(src.Vm.NetWorks[i])
+	}
+	dest.VMMap = make(map[string]nest.Vm, len(src.VMMap))
+	for key, value := range src.VMMap {
+		dest.VMMap[key] = d.nestVm05a7(value)
+	}
 	return
 }
-func (d *DTO) LastNamesSlice(src string) (dest string) {
+func (d *DTO) VMS(src nest.Vm) (dest nest.Vm) {
+	dest.Ip = src.Ip
+	dest.Port = src.Port
+	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
+	for i := 0; i < len(src.NetWorks); i++ {
+		dest.NetWorks[i] = d.NetWorks(src.NetWorks[i])
+	}
 	return
 }
-func (d *DTO) LastNamesIntSlice(src int) (dest int) {
+func (d *DTO) NetWorks(src nest.NetWork) (dest nest.NetWork) {
+	dest.Mark = src.Mark
+	dest.Ns = src.Ns
 	return
 }
-func (d *DTO) NamespaceSlice(src string) (dest string) {
+func (d *DTO) NetWorks(src nest.NetWork) (dest nest.NetWork) {
+	dest.Mark = src.Mark
+	dest.Ns = src.Ns
+	return
+}
+func (d *DTO) nestVm05a7(src nest.Vm) (dest nest.Vm) {
+	dest.Ip = src.Ip
+	dest.Port = src.Port
+	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
+	for i := 0; i < len(src.NetWorks); i++ {
+		dest.NetWorks[i] = d.NetWorks(src.NetWorks[i])
+	}
+	return
+}
+func (d *DTO) NetWorks(src nest.NetWork) (dest nest.NetWork) {
+	dest.Mark = src.Mark
+	dest.Ns = src.Ns
 	return
 }
 
@@ -90,6 +136,7 @@ type HelloRequest struct {
 	VMS        []nest.Vm
 	HeaderName string   `param:"header,headerName"`
 	Namespace  []string `param:"query,namespace"`
+	VMMap 	map[string]nest.Vm
 	// @kit-http-param ctx CtxKeyRole
 	Role string `param:"ctx,role"`
 }

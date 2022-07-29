@@ -41,45 +41,22 @@ func TestDTO_Parse(t *testing.T) {
 			basicMap:   map[string]Field{},
 		}, args: args{
 			prefix: []string{},
-			name:   "",
+			name:   "HelloRequest",
 			t:      obj.Type().Underlying().(*types.Struct),
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(
 			tt.name, func(t *testing.T) {
-				src := &DataFieldMap{
-					Name:       "Src",
-					TypeID:     obj.Id(),
-					NamedMap:   map[string]Field{},
-					PointerMap: map[string]Field{},
-					SliceMap:   map[string]Field{},
-					MapMap:     map[string]Field{},
-					StructMap:  map[string]Field{},
-					BasicMap:   map[string]Field{},
-				}
-				src.Parse(tt.args.prefix, tt.args.name, tt.args.t)
-
-				dest := &DataFieldMap{
-					Name:       "Dest",
-					TypeID:     obj.Id(),
-					NamedMap:   map[string]Field{},
-					PointerMap: map[string]Field{},
-					SliceMap:   map[string]Field{},
-					MapMap:     map[string]Field{},
-					StructMap:  map[string]Field{},
-					BasicMap:   map[string]Field{},
-				}
-				dest.Parse(tt.args.prefix, tt.args.name, tt.args.t)
-
 				jenF := jen.NewFile("DTO")
 				dto := DTO{
-					JenF: jenF,
-					Src:  src,
-					Dest: dest,
+					JenF:           jenF,
+					ParentSrcPath:  tt.args.prefix,
+					Src:            NewDataFieldMap(tt.args.prefix,tt.name, tt.args.name, tt.args.t),
+					ParentDestPath: tt.args.prefix,
+					Dest:           NewDataFieldMap(tt.args.prefix,tt.name, tt.args.name, tt.args.t),
 				}
-				dto.GenBasic()
-				dto.GenSlice()
+				dto.Gen()
 				fmt.Println(jenF.GoString())
 			},
 		)

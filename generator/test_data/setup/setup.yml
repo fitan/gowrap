@@ -1,4 +1,34 @@
-# Define where the code will be generated.
-generated:
-  setup: ./setup.go
-  output: ../copygen.go
+func (d *DTO) SrcToDest (src HelloRequest) (dest HelloRequest) {
+dest.Time = src.Time
+dest.Paging.Size = src.Paging.Size
+dest.HeaderName = src.HeaderName
+dest.Role = src.Role
+dest.Vm.Ip = src.Vm.Ip
+dest.Vm.Port = src.Vm.Port
+dest.ID = src.ID
+dest.UUID = src.UUID
+dest.Body.Name = src.Body.Name
+dest.Body.Age = src.Body.Age
+dest.Paging.Page = src.Paging.Page
+dest.LastNames = make([]string,0,len (src.LastNames))
+for i := 0;i < len (src.LastNames);i ++ {
+dest.LastNames [i] = d.LastNames (src.LastNames [i])
+}
+return
+dest.LastNamesInt = make([]int,0,len (src.LastNamesInt))
+for i := 0;i < len (src.LastNamesInt);i ++ {
+dest.LastNamesInt [i] = d.LastNamesInt (src.LastNamesInt [i])
+}
+return
+dest.Namespace = make([]string,0,len (src.Namespace))
+for i := 0;i < len (src.Namespace);i ++ {
+dest.Namespace [i] = d.Namespace (src.Namespace [i])
+}
+return
+} func (d *DTO) LastNamesSlice (src string) (dest string) {
+return
+} func (d *DTO) LastNamesIntSlice (src int) (dest int) {
+return
+} func (d *DTO) NamespaceSlice (src string) (dest string) {
+return
+}

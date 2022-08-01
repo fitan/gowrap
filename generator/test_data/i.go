@@ -46,23 +46,18 @@ type CtxKeyRole string
 
 type DTO struct{}
 
-//
 func (d *DTO) HelloRequest(src HelloRequest) (dest HelloRequest) {
 	dest.ID = src.ID
-	dest.Paging.Size = src.Paging.Size
-	dest.HeaderName = src.HeaderName
-	dest.Role = src.Role
 	dest.UUID = src.UUID
 	dest.Time = src.Time
-	dest.Body.Name = src.Body.Name
 	dest.Body.Age = src.Body.Age
-	dest.Paging.Page = src.Paging.Page
 	dest.Vm.Ip = src.Vm.Ip
 	dest.Vm.Port = src.Vm.Port
-	dest.Namespace = make([]string, 0, len(src.Namespace))
-	for i := 0; i < len(src.Namespace); i++ {
-		dest.Namespace[i] = src.Namespace[i]
-	}
+	dest.Role = src.Role
+	dest.Body.Name = src.Body.Name
+	dest.Paging.Page = src.Paging.Page
+	dest.Paging.Size = src.Paging.Size
+	dest.HeaderName = src.HeaderName
 	dest.ParentNames = make([]*string, 0, len(src.ParentNames))
 	for i := 0; i < len(src.ParentNames); i++ {
 		dest.ParentNames[i] = d.parentNames05a7(src.ParentNames[i])
@@ -87,133 +82,71 @@ func (d *DTO) HelloRequest(src HelloRequest) (dest HelloRequest) {
 	for i := 0; i < len(src.VMS); i++ {
 		dest.VMS[i] = d.vMS05a7(src.VMS[i])
 	}
+	dest.Namespace = make([]string, 0, len(src.Namespace))
+	for i := 0; i < len(src.Namespace); i++ {
+		dest.Namespace[i] = src.Namespace[i]
+	}
 	dest.VMMap = make(map[string]nest.Vm, len(src.VMMap))
 	for key, value := range src.VMMap {
 		dest.VMMap[key] = d.vMMap05a7(value)
 	}
-	dest.ParentName = src.ParentName
 	if src.FatherNames != nil {
 		v := d.fatherNames05a7(*src.FatherNames)
 		dest.FatherNames = &v
 	} else {
 		dest.FatherNames = src.FatherNames
 	}
+	dest.ParentName = src.ParentName
 	return
 }
 
-// :
+// parentPath: ParentNames:ParentNames // path: :
 func (d *DTO) parentNames05a7(src *string) (dest *string) {
 	dest = src
 	return
 }
 
-// :
+// parentPath: Vm.NetWorks:Vm.NetWorks // path: :
 func (d *DTO) netWorks05a7(src nest.NetWork) (dest nest.NetWork) {
-	dest.Ns = src.Ns
 	dest.Mark = src.Mark
+	dest.Ns = src.Ns
 	return
 }
 
-// :
+// parentPath: Vm.VVMMSS:Vm.VVMMSS // path: :
 func (d *DTO) vVMMSS05a7(src nest.Vm) (dest nest.Vm) {
 	dest.Ip = src.Ip
 	dest.Port = src.Port
 	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
 	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorksb556(src.NetWorks[i])
+		dest.NetWorks[i] = d.netWorks05a7(src.NetWorks[i])
 	}
 	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
 	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSSb556(src.VVMMSS[i])
+		dest.VVMMSS[i] = d.vVMMSS05a7(src.VVMMSS[i])
 	}
 	return
 }
 
-// Vm.VVMMSS:Vm.VVMMSS
-func (d *DTO) netWorksb556(src nest.NetWork) (dest nest.NetWork) {
-	dest.Mark = src.Mark
-	dest.Ns = src.Ns
-	return
-}
-
-// Vm.VVMMSS:Vm.VVMMSS
-func (d *DTO) vVMMSSb556(src nest.Vm) (dest nest.Vm) {
-	dest.Ip = src.Ip
-	dest.Port = src.Port
-	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
-	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks60b6(src.NetWorks[i])
-	}
-	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
-	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS60b6(src.VVMMSS[i])
-	}
-	return
-}
-
-// VVMMSS:VVMMSS
-func (d *DTO) netWorks60b6(src nest.NetWork) (dest nest.NetWork) {
-	dest.Mark = src.Mark
-	dest.Ns = src.Ns
-	return
-}
-
-// VVMMSS:VVMMSS
-func (d *DTO) vVMMSS60b6(src nest.Vm) (dest nest.Vm) {
-	dest.Ip = src.Ip
-	dest.Port = src.Port
-	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
-	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks60b6(src.NetWorks[i])
-	}
-	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
-	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS60b6(src.VVMMSS[i])
-	}
-	return
-}
-
-// :
+// parentPath: VMS:VMS // path: :
 func (d *DTO) vMS05a7(src nest.Vm) (dest nest.Vm) {
 	dest.Ip = src.Ip
 	dest.Port = src.Port
 	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
 	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks91dc(src.NetWorks[i])
+		dest.NetWorks[i] = d.netWorks05a7(src.NetWorks[i])
 	}
 	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
 	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS91dc(src.VVMMSS[i])
+		dest.VVMMSS[i] = d.vVMMSS05a7(src.VVMMSS[i])
 	}
 	return
 }
 
-// VMS:VMS
-func (d *DTO) netWorks91dc(src nest.NetWork) (dest nest.NetWork) {
-	dest.Mark = src.Mark
-	dest.Ns = src.Ns
-	return
-}
-
-// VMS:VMS
-func (d *DTO) vVMMSS91dc(src nest.Vm) (dest nest.Vm) {
-	dest.Ip = src.Ip
-	dest.Port = src.Port
-	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
-	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks60b6(src.NetWorks[i])
-	}
-	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
-	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS60b6(src.VVMMSS[i])
-	}
-	return
-}
-
-// :
+// parentPath: VMMap:VMMap // path: VMMap:VMMap
 func (d *DTO) vMMap05a7(src nest.Vm) (dest nest.Vm) {
-	dest.Ip = src.Ip
 	dest.Port = src.Port
+	dest.Ip = src.Ip
 	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
 	for i := 0; i < len(src.NetWorks); i++ {
 		dest.NetWorks[i] = d.netWorksa00d(src.NetWorks[i])
@@ -225,29 +158,29 @@ func (d *DTO) vMMap05a7(src nest.Vm) (dest nest.Vm) {
 	return
 }
 
-// VMMap:VMMap
+// parentPath: VMMap.NetWorks:VMMap.NetWorks // path: VMMap:VMMap
 func (d *DTO) netWorksa00d(src nest.NetWork) (dest nest.NetWork) {
 	dest.Mark = src.Mark
 	dest.Ns = src.Ns
 	return
 }
 
-// VMMap:VMMap
+// parentPath: VMMap.VVMMSS:VMMap.VVMMSS // path: VMMap:VMMap
 func (d *DTO) vVMMSSa00d(src nest.Vm) (dest nest.Vm) {
-	dest.Ip = src.Ip
 	dest.Port = src.Port
+	dest.Ip = src.Ip
 	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
 	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks60b6(src.NetWorks[i])
+		dest.NetWorks[i] = d.netWorksa00d(src.NetWorks[i])
 	}
 	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
 	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS60b6(src.VVMMSS[i])
+		dest.VVMMSS[i] = d.vVMMSSa00d(src.VVMMSS[i])
 	}
 	return
 }
 
-// :
+// parentPath: FatherNames:FatherNames // path: FatherNames:FatherNames
 func (d *DTO) fatherNames05a7(src []string) (dest []string) {
 	dest = make([]string, 0, len(src))
 	for i := 0; i < len(src); i++ {
@@ -255,6 +188,7 @@ func (d *DTO) fatherNames05a7(src []string) (dest []string) {
 	}
 	return
 }
+
 
 // Code generated by gowrap. DO NOT EDIT.
 type HelloRequest struct {

@@ -50,11 +50,14 @@ func TestDTO_Parse(t *testing.T) {
 			tt.name, func(t *testing.T) {
 				jenF := jen.NewFile("DTO")
 				dto := DTO{
-					JenF:           jenF,
-					ParentSrcPath:  tt.args.prefix,
-					Src:            NewDataFieldMap(tt.args.prefix,tt.name, tt.args.name, tt.args.t),
-					ParentDestPath: tt.args.prefix,
-					Dest:           NewDataFieldMap(tt.args.prefix,tt.name, tt.args.name, tt.args.t),
+					JenF:          jenF,
+					Recorder: NewRecorder(),
+					SrcParentPath: tt.args.prefix,
+					SrcPath: tt.args.prefix,
+					Src:           NewDataFieldMap(tt.args.prefix,tt.name, jen.Id(tt.args.name), tt.args.t),
+					DestParentPath: tt.args.prefix,
+					DestPath:      tt.args.prefix,
+					Dest:          NewDataFieldMap(tt.args.prefix,tt.name, jen.Id(tt.args.name), tt.args.t),
 				}
 				dto.Gen()
 				fmt.Println(jenF.GoString())

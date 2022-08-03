@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
+	"github.com/fitan/gowrap/xtype"
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"testing"
@@ -54,10 +55,10 @@ func TestDTO_Parse(t *testing.T) {
 					Recorder: NewRecorder(),
 					SrcParentPath: tt.args.prefix,
 					SrcPath: tt.args.prefix,
-					Src:           NewDataFieldMap(tt.args.prefix,tt.name, jen.Id(tt.args.name), tt.args.t),
+					Src:           NewDataFieldMap(tt.args.prefix,tt.name, xtype.TypeOf(obj.Type()), tt.args.t),
 					DestParentPath: tt.args.prefix,
 					DestPath:      tt.args.prefix,
-					Dest:          NewDataFieldMap(tt.args.prefix,tt.name, jen.Id(tt.args.name), tt.args.t),
+					Dest:          NewDataFieldMap(tt.args.prefix,tt.name, xtype.TypeOf(obj.Type()), tt.args.t),
 				}
 				dto.Gen()
 				fmt.Println(jenF.GoString())

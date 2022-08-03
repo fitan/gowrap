@@ -42,7 +42,7 @@ func (f Field) FieldName(s string) string {
 
 type DataFieldMap struct {
 	Name       string
-	TypeID     jen.Code
+	Type 	 *xtype.Type
 	NamedMap   map[string]Field
 	PointerMap map[string]Field
 	SliceMap   map[string]Field
@@ -50,10 +50,10 @@ type DataFieldMap struct {
 	BasicMap   map[string]Field
 }
 
-func NewDataFieldMap(prefix []string, name string, typeID jen.Code, t types.Type) *DataFieldMap {
+func NewDataFieldMap(prefix []string, name string, xType *xtype.Type, t types.Type) *DataFieldMap {
 	m := &DataFieldMap{
 		Name:       name,
-		TypeID:     typeID,
+		Type: xType,
 		NamedMap:   map[string]Field{},
 		PointerMap: map[string]Field{},
 		SliceMap:   map[string]Field{},
@@ -127,6 +127,10 @@ type DTO struct {
 	Nest     []*DTO
 }
 
+func (d *DTO) FnName() string {
+	return d.Src.Type.ID()+ "To"+upFirst(d.Dest.Type.ID())
+}
+
 func (d *DTO) SumPath() string {
 	return strings.Join(d.SrcPath, ".") + ":" + strings.Join(d.DestPath, ".")
 }
@@ -143,7 +147,7 @@ func (d *DTO) SumParentPath() string {
 }
 
 func (d *DTO) Gen() {
-	has, fn := d.GenFuncName(d.Dest.Name, d.Src.TypeID, d.Dest.TypeID)
+	has, fn := d.GenFn(d.FnName(), d.Src.Type.TypeAsJen(), d.Dest.Type.TypeAsJen())
 	if has {
 		return
 	}
@@ -192,15 +196,15 @@ func (d *DTO) GenMap() jen.Statement {
 				Recorder: d.Recorder,
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
 				SrcPath:  append([]string{}, srcV.Path...),
-				Src:      NewDataFieldMap([]string{}, srcName, srcMapValue.TypeAsJen(), srcMapValue.T),
+				Src:      NewDataFieldMap([]string{}, srcName, srcMapValue, srcMapValue.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath: append([]string{}, v.Path...),
-				Dest:     NewDataFieldMap([]string{}, destName, destMapValue.TypeAsJen(), destMapValue.T),
+				Dest:     NewDataFieldMap([]string{}, destName, destMapValue, destMapValue.T),
 				Nest:     make([]*DTO, 0),
 			}
 			d.Nest = append(d.Nest, nestDTO)
 
-			block = v.DestIdPath().Index(jen.Id("key")).Op("=").Id("d." + destName).Call(jen.Id("value"))
+			block = v.DestIdPath().Index(jen.Id("key")).Op("=").Id("d." + nestDTO.FnName()).Call(jen.Id("value"))
 		}
 		bind.Add(jen.For(
 			jen.List(jen.Id("key"), jen.Id("value")).
@@ -228,17 +232,17 @@ func (d *DTO) GenPointer() jen.Statement {
 				Recorder: d.Recorder,
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
 				SrcPath:  append([]string{}, srcV.Path...),
-				Src:      NewDataFieldMap([]string{}, srcName, srcLiner.TypeAsJen(), srcLiner.T),
+				Src:      NewDataFieldMap([]string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath: append([]string{}, v.Path...),
-				Dest:     NewDataFieldMap([]string{}, destName, srcLiner.TypeAsJen(), destLiner.T),
+				Dest:     NewDataFieldMap([]string{}, destName, srcLiner, destLiner.T),
 				Nest:     make([]*DTO, 0),
 			}
 			d.Nest = append(d.Nest, nestDTO)
 
 			bind.Add(
 				jen.If(srcV.SrcIdPath().Op("!=").Nil()).Block(
-					jen.Id("v").Op(":=").Id("d."+destName).Call(jen.Id("*").Add(srcV.SrcIdPath())),
+					jen.Id("v").Op(":=").Id("d."+nestDTO.FnName()).Call(jen.Id("*").Add(srcV.SrcIdPath())),
 					v.DestIdPath().Op("=").Id("&v"),
 				).Else().Block(
 					v.DestIdPath().Op("=").Add(srcV.SrcIdPath()),
@@ -270,16 +274,16 @@ func (d *DTO) GenSlice() jen.Statement {
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
 				//SrcPath:  append([]string{}, srcV.Path...),
 				SrcPath: d.SrcPath[0:],
-				Src:      NewDataFieldMap([]string{}, srcName, srcLiner.TypeAsJen(), srcLiner.T),
+				Src:      NewDataFieldMap([]string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				//DestPath: append([]string{}, v.Path...),
 				DestPath: d.DestPath[0:],
-				Dest:     NewDataFieldMap([]string{}, destName, destLiner.TypeAsJen(), destLiner.T),
+				Dest:     NewDataFieldMap([]string{}, destName, destLiner, destLiner.T),
 				Nest:     make([]*DTO, 0),
 			}
 			d.Nest = append(d.Nest, nestDTO)
 
-			block = v.DestIdPath().Index(jen.Id("i")).Op("=").Id("d." + destName).Call(srcV.SrcIdPath().Index(jen.Id("i")))
+			block = v.DestIdPath().Index(jen.Id("i")).Op("=").Id("d." + nestDTO.FnName()).Call(srcV.SrcIdPath().Index(jen.Id("i")))
 		}
 		bind.Add(jen.For(
 			jen.Id("i").Op(":=").Lit(0),
@@ -292,12 +296,18 @@ func (d *DTO) GenSlice() jen.Statement {
 	return bind
 }
 
-func (d *DTO) GenFuncName(funcName string, srcId, destId jen.Code) (has bool, fn *jen.Statement) {
-	has = d.Recorder.Lookup(funcName)
+func (d *DTO) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.Statement) {
+	srcType := jen.Type().Id("src").Add(srcId)
+	destType := jen.Type().Id("dest").Add(destId)
+
+	funcKey := fmt.Sprintf("%s_%s_%s", funcName, srcType.GoString(), destType.GoString())
+	//fmt.Printf("funcName: %s, srcpath: %#v, destpath %#v \n", funcName,srcType, destType)
+
+	has = d.Recorder.Lookup(funcKey)
 	if has {
 		return has, nil
 	}
-	d.Recorder.Reg(funcName)
+	d.Recorder.Reg(funcKey)
 
 	return false, jen.Func().Params(jen.Id("d").Id("*DTO")).
 		Id(funcName).Params(jen.Id("src").Add(srcId)).Params(jen.Id("dest").Add(destId))

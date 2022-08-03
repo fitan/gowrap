@@ -46,21 +46,34 @@ type CtxKeyRole string
 
 type DTO struct{}
 
-func (d *DTO) HelloRequest(src HelloRequest) (dest HelloRequest) {
-	dest.ID = src.ID
-	dest.UUID = src.UUID
-	dest.Time = src.Time
-	dest.Body.Age = src.Body.Age
-	dest.Vm.Ip = src.Vm.Ip
-	dest.Vm.Port = src.Vm.Port
+// parentPath: : // path: :
+func (d *DTO) test_dataHelloRequestTotest_dataHelloRequest(src HelloRequest) (dest HelloRequest) {
 	dest.Role = src.Role
 	dest.Body.Name = src.Body.Name
 	dest.Paging.Page = src.Paging.Page
+	dest.Vm.Port = src.Vm.Port
+	dest.Body.Age = src.Body.Age
 	dest.Paging.Size = src.Paging.Size
+	dest.Vm.Ip = src.Vm.Ip
 	dest.HeaderName = src.HeaderName
+	dest.ID = src.ID
+	dest.UUID = src.UUID
+	dest.Time = src.Time
+	dest.Vm.VVMMSS = make([]nest.Vm, 0, len(src.Vm.VVMMSS))
+	for i := 0; i < len(src.Vm.VVMMSS); i++ {
+		dest.Vm.VVMMSS[i] = d.nestVmTonestVm(src.Vm.VVMMSS[i])
+	}
+	dest.VMS = make([]nest.Vm, 0, len(src.VMS))
+	for i := 0; i < len(src.VMS); i++ {
+		dest.VMS[i] = d.nestVmTonestVm(src.VMS[i])
+	}
+	dest.Namespace = make([]string, 0, len(src.Namespace))
+	for i := 0; i < len(src.Namespace); i++ {
+		dest.Namespace[i] = src.Namespace[i]
+	}
 	dest.ParentNames = make([]*string, 0, len(src.ParentNames))
 	for i := 0; i < len(src.ParentNames); i++ {
-		dest.ParentNames[i] = d.parentNames05a7(src.ParentNames[i])
+		dest.ParentNames[i] = d.pStringTopString(src.ParentNames[i])
 	}
 	dest.LastNames = make([]string, 0, len(src.LastNames))
 	for i := 0; i < len(src.LastNames); i++ {
@@ -72,123 +85,58 @@ func (d *DTO) HelloRequest(src HelloRequest) (dest HelloRequest) {
 	}
 	dest.Vm.NetWorks = make([]nest.NetWork, 0, len(src.Vm.NetWorks))
 	for i := 0; i < len(src.Vm.NetWorks); i++ {
-		dest.Vm.NetWorks[i] = d.netWorks05a7(src.Vm.NetWorks[i])
-	}
-	dest.Vm.VVMMSS = make([]nest.Vm, 0, len(src.Vm.VVMMSS))
-	for i := 0; i < len(src.Vm.VVMMSS); i++ {
-		dest.Vm.VVMMSS[i] = d.vVMMSS05a7(src.Vm.VVMMSS[i])
-	}
-	dest.VMS = make([]nest.Vm, 0, len(src.VMS))
-	for i := 0; i < len(src.VMS); i++ {
-		dest.VMS[i] = d.vMS05a7(src.VMS[i])
-	}
-	dest.Namespace = make([]string, 0, len(src.Namespace))
-	for i := 0; i < len(src.Namespace); i++ {
-		dest.Namespace[i] = src.Namespace[i]
+		dest.Vm.NetWorks[i] = d.nestNetWorkTonestNetWork(src.Vm.NetWorks[i])
 	}
 	dest.VMMap = make(map[string]nest.Vm, len(src.VMMap))
 	for key, value := range src.VMMap {
-		dest.VMMap[key] = d.vMMap05a7(value)
+		dest.VMMap[key] = d.nestVmTonestVm(value)
 	}
+	dest.ParentName = src.ParentName
 	if src.FatherNames != nil {
-		v := d.fatherNames05a7(*src.FatherNames)
+		v := d.stringListTostringList(*src.FatherNames)
 		dest.FatherNames = &v
 	} else {
 		dest.FatherNames = src.FatherNames
 	}
-	dest.ParentName = src.ParentName
-	return
-}
-
-// parentPath: ParentNames:ParentNames // path: :
-func (d *DTO) parentNames05a7(src *string) (dest *string) {
-	dest = src
-	return
-}
-
-// parentPath: Vm.NetWorks:Vm.NetWorks // path: :
-func (d *DTO) netWorks05a7(src nest.NetWork) (dest nest.NetWork) {
-	dest.Mark = src.Mark
-	dest.Ns = src.Ns
 	return
 }
 
 // parentPath: Vm.VVMMSS:Vm.VVMMSS // path: :
-func (d *DTO) vVMMSS05a7(src nest.Vm) (dest nest.Vm) {
+func (d *DTO) nestVmTonestVm(src nest.Vm) (dest nest.Vm) {
 	dest.Ip = src.Ip
 	dest.Port = src.Port
 	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
 	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks05a7(src.NetWorks[i])
+		dest.NetWorks[i] = d.nestNetWorkTonestNetWork(src.NetWorks[i])
 	}
 	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
 	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS05a7(src.VVMMSS[i])
+		dest.VVMMSS[i] = d.nestVmTonestVm(src.VVMMSS[i])
 	}
 	return
 }
 
-// parentPath: VMS:VMS // path: :
-func (d *DTO) vMS05a7(src nest.Vm) (dest nest.Vm) {
-	dest.Ip = src.Ip
-	dest.Port = src.Port
-	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
-	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorks05a7(src.NetWorks[i])
-	}
-	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
-	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSS05a7(src.VVMMSS[i])
-	}
-	return
-}
-
-// parentPath: VMMap:VMMap // path: VMMap:VMMap
-func (d *DTO) vMMap05a7(src nest.Vm) (dest nest.Vm) {
-	dest.Port = src.Port
-	dest.Ip = src.Ip
-	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
-	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorksa00d(src.NetWorks[i])
-	}
-	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
-	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSSa00d(src.VVMMSS[i])
-	}
-	return
-}
-
-// parentPath: VMMap.NetWorks:VMMap.NetWorks // path: VMMap:VMMap
-func (d *DTO) netWorksa00d(src nest.NetWork) (dest nest.NetWork) {
+// parentPath: Vm.VVMMSS.NetWorks:Vm.VVMMSS.NetWorks // path: :
+func (d *DTO) nestNetWorkTonestNetWork(src nest.NetWork) (dest nest.NetWork) {
 	dest.Mark = src.Mark
 	dest.Ns = src.Ns
 	return
 }
 
-// parentPath: VMMap.VVMMSS:VMMap.VVMMSS // path: VMMap:VMMap
-func (d *DTO) vVMMSSa00d(src nest.Vm) (dest nest.Vm) {
-	dest.Port = src.Port
-	dest.Ip = src.Ip
-	dest.NetWorks = make([]nest.NetWork, 0, len(src.NetWorks))
-	for i := 0; i < len(src.NetWorks); i++ {
-		dest.NetWorks[i] = d.netWorksa00d(src.NetWorks[i])
-	}
-	dest.VVMMSS = make([]nest.Vm, 0, len(src.VVMMSS))
-	for i := 0; i < len(src.VVMMSS); i++ {
-		dest.VVMMSS[i] = d.vVMMSSa00d(src.VVMMSS[i])
-	}
+// parentPath: ParentNames:ParentNames // path: :
+func (d *DTO) pStringTopString(src *string) (dest *string) {
+	dest = src
 	return
 }
 
 // parentPath: FatherNames:FatherNames // path: FatherNames:FatherNames
-func (d *DTO) fatherNames05a7(src []string) (dest []string) {
+func (d *DTO) stringListTostringList(src []string) (dest []string) {
 	dest = make([]string, 0, len(src))
 	for i := 0; i < len(src); i++ {
 		dest[i] = src[i]
 	}
 	return
 }
-
 
 // Code generated by gowrap. DO NOT EDIT.
 type HelloRequest struct {

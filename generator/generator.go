@@ -354,7 +354,6 @@ func makeImports(imports []*ast.ImportSpec) []string {
 		result = append(result, extra...)
 	}
 
-
 	return result
 }
 
@@ -364,7 +363,7 @@ func makeExtraImport(doc *ast.CommentGroup) (res []string) {
 	}
 	for _, c := range doc.List {
 		if strings.HasPrefix(c.Text, "// @extra ") {
-			res = append(res,strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra ")))
+			res = append(res, strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra ")))
 		}
 	}
 	return
@@ -552,6 +551,10 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 					method.KitRequest = kitRequest
 					method.KitRequestDecode = kitRequest.DecodeRequest()
 				}
+
+				//if kit.Conf.HttpResponseName != "" {
+				//	NewResponse(currentPackage, field.Names[0].Name, kit.Conf.HttpResponseName)
+				//}
 
 				methods[field.Names[0].Name] = *method
 			}

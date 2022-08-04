@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/xtype"
+	"go/ast"
 	"go/types"
+	"golang.org/x/tools/go/packages"
 	"os"
 	"strings"
 )
@@ -42,7 +44,7 @@ func (f Field) FieldName(s string) string {
 
 type DataFieldMap struct {
 	Name       string
-	Type 	 *xtype.Type
+	Type       *xtype.Type
 	NamedMap   map[string]Field
 	PointerMap map[string]Field
 	SliceMap   map[string]Field
@@ -53,7 +55,7 @@ type DataFieldMap struct {
 func NewDataFieldMap(prefix []string, name string, xType *xtype.Type, t types.Type) *DataFieldMap {
 	m := &DataFieldMap{
 		Name:       name,
-		Type: xType,
+		Type:       xType,
 		NamedMap:   map[string]Field{},
 		PointerMap: map[string]Field{},
 		SliceMap:   map[string]Field{},
@@ -115,20 +117,45 @@ func (r *Recorder) Lookup(name string) bool {
 	return ok
 }
 
+func NewResponse(jenF *jen.File, pkg *packages.Package, f *ast.Field, responseName string) DTO {
+	fnName := f.Names[0].Name
+	fnType, _ := f.Type.(*ast.FuncType)
+	srcName := fnType.Results.List[0].Names[0].Name
+	srcType := pkg.TypesInfo.TypeOf(fnType.Results.List[0].Type)
+	destType := pkg.Types.Scope().Lookup(responseName)
+
+	jenF.Add(jen.Type().Id(fnName + "DTO").Struct())
+
+	return DTO{
+		JenF:           jenF,
+		Recorder:       NewRecorder(),
+		SrcParentPath:  []string{},
+		SrcPath:        []string{},
+		Src:            NewDataFieldMap([]string{}, "src", xtype.TypeOf(srcType), srcType),
+		DestParentPath: []string{},
+		DestPath:       []string{},
+		Dest:           NewDataFieldMap([]string{}, "dest", xtype.TypeOf(destType.Type()), destType.Type()),
+		DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + fnName + "DTO")).
+			Id("DTO").Params(jen.Id("src").Id(srcName)).Params(jen.Id("dest").Id(responseName)),
+	}
+}
+
 type DTO struct {
-	JenF     *jen.File
-	Recorder *Recorder
-	SrcParentPath []string
-	SrcPath  []string
-	Src      *DataFieldMap
+	JenF           *jen.File
+	Recorder       *Recorder
+	SrcParentPath  []string
+	SrcPath        []string
+	Src            *DataFieldMap
 	DestParentPath []string
-	DestPath []string
-	Dest     *DataFieldMap
-	Nest     []*DTO
+	DestPath       []string
+	Dest           *DataFieldMap
+	Nest           []*DTO
+	DefaultFn      *jen.Statement
+	StructName     string
 }
 
 func (d *DTO) FnName() string {
-	return d.Src.Type.ID()+ "To"+upFirst(d.Dest.Type.ID())
+	return d.Src.Type.ID() + "To" + upFirst(d.Dest.Type.ID())
 }
 
 func (d *DTO) SumPath() string {
@@ -136,9 +163,9 @@ func (d *DTO) SumPath() string {
 }
 
 func (d *DTO) Doc() *jen.Statement {
-	code := make(jen.Statement,0)
-	code = append(code,jen.Comment("parentPath: "+strings.Join(d.SrcParentPath, ".") + ":" + strings.Join(d.DestParentPath, ".")))
-	code = append(code, jen.Comment("path: "+strings.Join(d.SrcPath, ".") + ":" + strings.Join(d.DestPath, ".")))
+	code := make(jen.Statement, 0)
+	code = append(code, jen.Comment("parentPath: "+strings.Join(d.SrcParentPath, ".")+":"+strings.Join(d.DestParentPath, ".")))
+	code = append(code, jen.Comment("path: "+strings.Join(d.SrcPath, ".")+":"+strings.Join(d.DestPath, ".")))
 	return &code
 }
 
@@ -192,15 +219,16 @@ func (d *DTO) GenMap() jen.Statement {
 			srcName := srcV.FieldName(d.SumPath())
 			destName := v.FieldName(d.SumPath())
 			nestDTO := &DTO{
-				JenF:     d.JenF,
-				Recorder: d.Recorder,
-				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
-				SrcPath:  append([]string{}, srcV.Path...),
-				Src:      NewDataFieldMap([]string{}, srcName, srcMapValue, srcMapValue.T),
+				JenF:           d.JenF,
+				Recorder:       d.Recorder,
+				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
+				SrcPath:        append([]string{}, srcV.Path...),
+				Src:            NewDataFieldMap([]string{}, srcName, srcMapValue, srcMapValue.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
-				DestPath: append([]string{}, v.Path...),
-				Dest:     NewDataFieldMap([]string{}, destName, destMapValue, destMapValue.T),
-				Nest:     make([]*DTO, 0),
+				DestPath:       append([]string{}, v.Path...),
+				Dest:           NewDataFieldMap([]string{}, destName, destMapValue, destMapValue.T),
+				Nest:           make([]*DTO, 0),
+				StructName:     d.StructName,
 			}
 			d.Nest = append(d.Nest, nestDTO)
 
@@ -228,15 +256,16 @@ func (d *DTO) GenPointer() jen.Statement {
 			destName := v.FieldName(d.SumPath())
 			//destName := srcLiner.HashID(d.SumPath())
 			nestDTO := &DTO{
-				JenF:     d.JenF,
-				Recorder: d.Recorder,
-				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
-				SrcPath:  append([]string{}, srcV.Path...),
-				Src:      NewDataFieldMap([]string{}, srcName, srcLiner, srcLiner.T),
+				JenF:           d.JenF,
+				Recorder:       d.Recorder,
+				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
+				SrcPath:        append([]string{}, srcV.Path...),
+				Src:            NewDataFieldMap([]string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
-				DestPath: append([]string{}, v.Path...),
-				Dest:     NewDataFieldMap([]string{}, destName, srcLiner, destLiner.T),
-				Nest:     make([]*DTO, 0),
+				DestPath:       append([]string{}, v.Path...),
+				Dest:           NewDataFieldMap([]string{}, destName, srcLiner, destLiner.T),
+				Nest:           make([]*DTO, 0),
+				StructName:     d.StructName,
 			}
 			d.Nest = append(d.Nest, nestDTO)
 
@@ -269,17 +298,18 @@ func (d *DTO) GenSlice() jen.Statement {
 			destName := v.FieldName(d.SumPath())
 			//destName := srcLiner.HashID(d.SumPath())
 			nestDTO := &DTO{
-				JenF:     d.JenF,
-				Recorder: d.Recorder,
+				JenF:          d.JenF,
+				Recorder:      d.Recorder,
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
 				//SrcPath:  append([]string{}, srcV.Path...),
-				SrcPath: d.SrcPath[0:],
-				Src:      NewDataFieldMap([]string{}, srcName, srcLiner, srcLiner.T),
+				SrcPath:        d.SrcPath[0:],
+				Src:            NewDataFieldMap([]string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				//DestPath: append([]string{}, v.Path...),
-				DestPath: d.DestPath[0:],
-				Dest:     NewDataFieldMap([]string{}, destName, destLiner, destLiner.T),
-				Nest:     make([]*DTO, 0),
+				DestPath:   d.DestPath[0:],
+				Dest:       NewDataFieldMap([]string{}, destName, destLiner, destLiner.T),
+				Nest:       make([]*DTO, 0),
+				StructName: d.StructName,
 			}
 			d.Nest = append(d.Nest, nestDTO)
 
@@ -297,6 +327,9 @@ func (d *DTO) GenSlice() jen.Statement {
 }
 
 func (d *DTO) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.Statement) {
+	if d.DefaultFn != nil {
+		return false, d.DefaultFn
+	}
 	srcType := jen.Type().Id("src").Add(srcId)
 	destType := jen.Type().Id("dest").Add(destId)
 
@@ -309,6 +342,6 @@ func (d *DTO) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.
 	}
 	d.Recorder.Reg(funcKey)
 
-	return false, jen.Func().Params(jen.Id("d").Id("*DTO")).
+	return false, jen.Func().Params(jen.Id("d").Id("*" + d.StructName)).
 		Id(funcName).Params(jen.Id("src").Add(srcId)).Params(jen.Id("dest").Add(destId))
 }

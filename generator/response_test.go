@@ -50,18 +50,23 @@ func TestDTO_Parse(t *testing.T) {
 		t.Run(
 			tt.name, func(t *testing.T) {
 				jenF := jen.NewFile("DTO")
+				jenF.Add(jen.Type().Id("HelloRequestDTO").Struct())
 				dto := DTO{
-					JenF:          jenF,
-					Recorder: NewRecorder(),
-					SrcParentPath: tt.args.prefix,
-					SrcPath: tt.args.prefix,
-					Src:           NewDataFieldMap(tt.args.prefix,tt.name, xtype.TypeOf(obj.Type()), tt.args.t),
+					StructName:     "HelloRequestDTO",
+					JenF:           jenF,
+					Recorder:       NewRecorder(),
+					SrcParentPath:  tt.args.prefix,
+					SrcPath:        tt.args.prefix,
+					Src:            NewDataFieldMap(tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
 					DestParentPath: tt.args.prefix,
-					DestPath:      tt.args.prefix,
-					Dest:          NewDataFieldMap(tt.args.prefix,tt.name, xtype.TypeOf(obj.Type()), tt.args.t),
+					DestPath:       tt.args.prefix,
+					Dest:           NewDataFieldMap(tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
+					DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + "HelloRequestDTO")).
+						Id("DTO").Params(jen.Id("src").Id(tt.name)).Params(jen.Id("dest").Id(tt.name)),
 				}
 				dto.Gen()
-				fmt.Println(jenF.GoString())
+				//fmt.Println(jenF.GoString())
+				fmt.Println(jenF.Group.GoString())
 			},
 		)
 	}

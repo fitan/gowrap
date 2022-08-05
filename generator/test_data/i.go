@@ -175,10 +175,10 @@ type Service interface {
 	// @kit-http /hello/{id} GET
 	// @kit-http-request HelloRequest
 	// @kit-http-response HelloRequest
-	Hello(ctx context.Context, id int, namespace []string, page int64, size int64, lastNames []string) (res string, err error)
+	Hello(ctx context.Context, id int, namespace []string, page int64, size int64, lastNames []string) (res HelloRequest, err error)
 	// SayHello
 	// @kit-http /hello/say GET
 	// @kit-http-request HelloRequest
 	// @kit-http-response HelloResponse
-	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res string, err error)
+	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res HelloRequest, err error)
 }

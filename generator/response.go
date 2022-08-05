@@ -117,16 +117,17 @@ func (r *Recorder) Lookup(name string) bool {
 	return ok
 }
 
-func NewResponse(jenF *jen.File, pkg *packages.Package, f *ast.Field, responseName string) DTO {
+func NewResponse(pkg *packages.Package, f *ast.Field, responseName string) DTO {
 	fnName := f.Names[0].Name
 	fnType, _ := f.Type.(*ast.FuncType)
 	srcName := fnType.Results.List[0].Names[0].Name
 	srcType := pkg.TypesInfo.TypeOf(fnType.Results.List[0].Type)
 	destType := pkg.Types.Scope().Lookup(responseName)
 
+	jenF := jen.NewFile("DTO")
 	jenF.Add(jen.Type().Id(fnName + "DTO").Struct())
 
-	return DTO{
+	dto := DTO{
 		JenF:           jenF,
 		Recorder:       NewRecorder(),
 		SrcParentPath:  []string{},
@@ -137,7 +138,10 @@ func NewResponse(jenF *jen.File, pkg *packages.Package, f *ast.Field, responseNa
 		Dest:           NewDataFieldMap([]string{}, "dest", xtype.TypeOf(destType.Type()), destType.Type()),
 		DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + fnName + "DTO")).
 			Id("DTO").Params(jen.Id("src").Id(srcName)).Params(jen.Id("dest").Id(responseName)),
+		StructName: fnName,
 	}
+	dto.Gen()
+	return dto
 }
 
 type DTO struct {

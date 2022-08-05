@@ -552,9 +552,9 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 					method.KitRequestDecode = kitRequest.DecodeRequest()
 				}
 
-				//if kit.Conf.HttpResponseName != "" {
-				//	NewResponse(currentPackage, field.Names[0].Name, kit.Conf.HttpResponseName)
-				//}
+				if kit.Conf.HttpResponseName != "" {
+					method.KitResponse = NewResponse(currentPackage, field, kit.Conf.HttpResponseName)
+				}
 
 				methods[field.Names[0].Name] = *method
 			}

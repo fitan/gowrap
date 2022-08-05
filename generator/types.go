@@ -31,6 +31,8 @@ type Method struct {
 
 	KitRequest *KitRequest
 	KitRequestDecode string
+
+	KitResponse DTO
 }
 
 func DocFormat(doc string) string {

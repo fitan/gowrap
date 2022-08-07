@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/xtype"
-	"go/ast"
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -117,11 +117,19 @@ func (r *Recorder) Lookup(name string) bool {
 	return ok
 }
 
-func NewResponse(pkg *packages.Package, f *ast.Field, responseName string) DTO {
-	fnName := f.Names[0].Name
-	fnType, _ := f.Type.(*ast.FuncType)
-	srcName := fnType.Results.List[0].Names[0].Name
-	srcType := pkg.TypesInfo.TypeOf(fnType.Results.List[0].Type)
+func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *DTO {
+	fnName := f.Id()
+	src := f.Type().(*types.Signature).Results().At(0)
+	srcType := src.Type()
+	_, typeFile := path.Split(src.Type().String())
+	srcTypeName := strings.TrimPrefix(strings.TrimPrefix(typeFile, src.Pkg().Name()), ".")
+	fmt.Println("name: ", src.Name(), "id: ", src.Id(), "typestring", src.Type(), "pkg: ", src.Pkg().Name(), "srctypename: ", srcTypeName)
+	//srcName := fnType.Results.List[0].Names[0].Name
+	//spew.Dump(pkg.Types.Scope())
+	//fmt.Println("srcName: ", srcName)
+	//srcType := pkg.TypesInfo.TypeOf(fnType.Results.List[0].Type)
+	//srcType := pkg.TypesInfo.Types[fnType]
+	//fmt.Println("names: ", pkg.Types.Scope().Names(), "path: ", pkg.Types.Path())
 	destType := pkg.Types.Scope().Lookup(responseName)
 
 	jenF := jen.NewFile("DTO")
@@ -137,11 +145,11 @@ func NewResponse(pkg *packages.Package, f *ast.Field, responseName string) DTO {
 		DestPath:       []string{},
 		Dest:           NewDataFieldMap([]string{}, "dest", xtype.TypeOf(destType.Type()), destType.Type()),
 		DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + fnName + "DTO")).
-			Id("DTO").Params(jen.Id("src").Id(srcName)).Params(jen.Id("dest").Id(responseName)),
+			Id("DTO").Params(jen.Id("src").Id(srcTypeName)).Params(jen.Id("dest").Id(responseName)),
 		StructName: fnName,
 	}
 	dto.Gen()
-	return dto
+	return &dto
 }
 
 type DTO struct {
@@ -210,7 +218,7 @@ func (d *DTO) GenBasic() jen.Statement {
 func (d *DTO) GenMap() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.MapMap {
-		fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
+		fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), v.Type.T.String(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
 		srcV := d.Src.MapMap[v.Name]
 		bind.Add(v.DestIdPath().Op("=").Make(v.Type.TypeAsJen(), jen.Id("len").Call(srcV.SrcIdPath())))
 		block := v.DestIdPath().Index(jen.Id("key")).Op("=").Add(srcV.SrcIdPath()).Index(jen.Id("value"))
@@ -346,6 +354,6 @@ func (d *DTO) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.
 	}
 	d.Recorder.Reg(funcKey)
 
-	return false, jen.Func().Params(jen.Id("d").Id("*" + d.StructName)).
+	return false, jen.Func().Params(jen.Id("d").Id("*" + d.StructName + "DTO")).
 		Id(funcName).Params(jen.Id("src").Add(srcId)).Params(jen.Id("dest").Add(destId))
 }

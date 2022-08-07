@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
@@ -501,14 +502,16 @@ func typeSpecs(f *ast.File) ([]*ast.TypeSpec, []*ast.CommentGroup) {
 	return result, gdDoc
 }
 
-func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
+func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, typeSpecs []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
 	if it.Methods == nil {
 		return nil, nil
 	}
 
+	interfaceType := currentPackage.Types.Scope().Lookup(interfaceName).Type().Underlying().(*types.Interface)
+
 	methods = make(methodsList, len(it.Methods.List))
 
-	for _, field := range it.Methods.List {
+	for index, field := range it.Methods.List {
 		var embeddedMethods methodsList
 
 		var kit Kit
@@ -524,7 +527,7 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 			}
 
 			var method *Method
-			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
+			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, typeSpecs, typesPrefix))
 
 			if err == nil {
 
@@ -553,7 +556,8 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 				}
 
 				if kit.Conf.HttpResponseName != "" {
-					method.KitResponse = NewResponse(currentPackage, field, kit.Conf.HttpResponseName)
+					response := NewResponse(currentPackage, interfaceType.Method(index), kit.Conf.HttpResponseName)
+					method.KitResponse = response
 				}
 
 				methods[field.Names[0].Name] = *method
@@ -561,7 +565,7 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 		case *ast.SelectorExpr:
 			embeddedMethods, err = processSelector(fs, currentPackage, v, imports)
 		case *ast.Ident:
-			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, types, typesPrefix, imports)
+			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, typeSpecs, typesPrefix, imports)
 		}
 
 		if err != nil {

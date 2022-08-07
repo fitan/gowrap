@@ -179,6 +179,6 @@ type Service interface {
 	// SayHello
 	// @kit-http /hello/say GET
 	// @kit-http-request HelloRequest
-	// @kit-http-response HelloResponse
+	// @kit-http-response HelloRequest
 	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res HelloRequest, err error)
 }

@@ -76,6 +76,13 @@ func KitComment(comments []*ast.Comment) (kitConf KitCommentConf, err error) {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
+		case KitHttpResponse:
+			err = (&kitConf).ParamKitHttpResponse(fields)
+			if err != nil {
+				err = errors.Wrap(err, comment.Text)
+				return
+			}
+
 		}
 	}
 	return

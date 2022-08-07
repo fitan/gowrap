@@ -29,14 +29,14 @@ type Method struct {
 	RawKit Kit
 	Kit    KitParams
 
-	KitRequest *KitRequest
+	KitRequest       *KitRequest
 	KitRequestDecode string
 
-	KitResponse DTO
+	KitResponse *DTO
 }
 
 func DocFormat(doc string) string {
-	return strings.Join(strings.Fields(doc)," ")
+	return strings.Join(strings.Fields(doc), " ")
 }
 
 func (m Method) Annotation() string {
@@ -45,8 +45,8 @@ func (m Method) Annotation() string {
 	}
 	for _, c := range m.Doc {
 		docFormat := DocFormat(c)
-		if strings.HasPrefix(docFormat, "// " +  m.Name) {
-			return strings.TrimPrefix(docFormat, "// " + m.Name)
+		if strings.HasPrefix(docFormat, "// "+m.Name) {
+			return strings.TrimPrefix(docFormat, "// "+m.Name)
 		}
 	}
 	return strings.TrimPrefix(DocFormat(m.Doc[0]), "// ")

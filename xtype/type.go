@@ -218,6 +218,9 @@ func toCode(t types.Type, st *jen.Statement) *jen.Statement {
 		return toCode(cast.Elem(), st.Op("*"))
 	case *types.Basic:
 		return toCodeBasic(cast.Kind(), st)
+	case *types.Struct:
+		fmt.Println("types.typestring",types.TypeString(t, nil))
+		return st.Id(t.String())
 	}
 	panic("unsupported type " + t.String())
 }

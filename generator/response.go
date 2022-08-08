@@ -10,8 +10,11 @@ import (
 	"golang.org/x/tools/go/packages"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 )
+
+const ResponseTag = "dto"
 
 type Field struct {
 	Path []string
@@ -93,7 +96,12 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type) {
 			if !field.Exported() {
 				continue
 			}
-			d.Parse(append(prefix[0:], field.Name()), field.Name(), field.Type())
+			indexName := field.Name()
+			tagName, ok := reflect.StructTag(v.Tag(i)).Lookup(ResponseTag)
+			if ok {
+				indexName = tagName
+			}
+			d.Parse(append(prefix[0:], field.Name()), indexName, field.Type())
 		}
 	default:
 		panic("unknown types.Type " + t.String())
@@ -297,14 +305,16 @@ func (d *DTO) GenPointer() jen.Statement {
 func (d *DTO) GenSlice() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.SliceMap {
-		fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
+		//fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
 		srcV := d.Src.SliceMap[v.Name]
+		fmt.Println("gencline v", v.Type.T.String())
+		fmt.Println("gencline srcv", srcV.Type.T.String())
 		bind.Add(v.DestIdPath().Op("=").Make(v.Type.TypeAsJen(), jen.Id("0"), jen.Id("len").Call(srcV.SrcIdPath())))
 		block := v.DestIdPath().Index(jen.Id("i")).Op("=").Add(srcV.SrcIdPath()).Index(jen.Id("i"))
 		if !v.Type.ListInner.Basic {
 			srcLiner := srcV.Type.ListInner
 			destLiner := v.Type.ListInner
-			fmt.Println("listInner", srcLiner.TypeAsJen().GoString())
+			//fmt.Println("listInner", srcLiner.TypeAsJen().GoString())
 			//srcName := srcLiner.HashID(d.SumPath())
 			srcName := srcV.FieldName(d.SumPath())
 			destName := v.FieldName(d.SumPath())

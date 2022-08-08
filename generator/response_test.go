@@ -52,7 +52,7 @@ func TestDTO_Parse(t *testing.T) {
 				jenF := jen.NewFile("DTO")
 				jenF.Add(jen.Type().Id("HelloRequestDTO").Struct())
 				dto := DTO{
-					StructName:     "HelloRequestDTO",
+					StructName:     "HelloRequest",
 					JenF:           jenF,
 					Recorder:       NewRecorder(),
 					SrcParentPath:  tt.args.prefix,

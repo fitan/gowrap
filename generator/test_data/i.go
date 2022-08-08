@@ -48,17 +48,17 @@ type HelloRequestDTO struct{}
 
 // parentPath: : // path: :
 func (d *HelloRequestDTO) DTO(src HelloRequest) (dest HelloRequest) {
-	dest.UUID = src.UUID
+	dest.ID = src.ID
 	dest.Time = src.Time
+	dest.Body.Age = src.Body.Age
+	dest.Paging.Page = src.Paging.Page
+	dest.Paging.Size = src.Paging.Size
+	dest.UUID = src.UUID
+	dest.Body.Name = src.Body.Name
 	dest.Vm.Ip = src.Vm.Ip
 	dest.Vm.Port = src.Vm.Port
 	dest.HeaderName = src.HeaderName
 	dest.Role = src.Role
-	dest.ID = src.ID
-	dest.Body.Name = src.Body.Name
-	dest.Body.Age = src.Body.Age
-	dest.Paging.Page = src.Paging.Page
-	dest.Paging.Size = src.Paging.Size
 	dest.LastNames = make([]string, 0, len(src.LastNames))
 	for i := 0; i < len(src.LastNames); i++ {
 		dest.LastNames[i] = src.LastNames[i]
@@ -86,6 +86,12 @@ func (d *HelloRequestDTO) DTO(src HelloRequest) (dest HelloRequest) {
 	dest.ParentNames = make([]*string, 0, len(src.ParentNames))
 	for i := 0; i < len(src.ParentNames); i++ {
 		dest.ParentNames[i] = d.pStringToPString(src.ParentNames[i])
+	}
+	dest.SayHi = make([]struct {
+		Say string `json:"say"`
+	}, 0, len(src.SayHi))
+	for i := 0; i < len(src.SayHi); i++ {
+		dest.SayHi[i] = d.xstructToXstruct(src.SayHi[i])
 	}
 	dest.VMMap = make(map[string]nest.Vm, len(src.VMMap))
 	for key, value := range src.VMMap {
@@ -129,6 +135,16 @@ func (d *HelloRequestDTO) pStringToPString(src *string) (dest *string) {
 	return
 }
 
+// parentPath: SayHi:SayHi // path: :
+func (d *HelloRequestDTO) xstructToXstruct(src struct {
+	Say string "json:\"say\""
+}) (dest struct {
+	Say string "json:\"say\""
+}) {
+	dest.Say = src.Say
+	return
+}
+
 // parentPath: FatherNames:FatherNames // path: FatherNames:FatherNames
 func (d *HelloRequestDTO) stringListToStringList(src []string) (dest []string) {
 	dest = make([]string, 0, len(src))
@@ -151,6 +167,9 @@ type HelloRequest struct {
 		Name string `json:"name"`
 		Age  string `json:"age"`
 	} `param:"body,user"`
+	SayHi []struct{
+		Say string `json:"say"`
+	}
 	// LastNames is the last names of the user.
 	LastNames    []string `param:"query,lastNames"`
 	LastNamesInt []int    `param:"query,lastNamesInt"`

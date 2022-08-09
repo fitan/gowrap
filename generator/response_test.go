@@ -57,16 +57,16 @@ func TestDTO_Parse(t *testing.T) {
 					Recorder:       NewRecorder(),
 					SrcParentPath:  tt.args.prefix,
 					SrcPath:        tt.args.prefix,
-					Src:            NewDataFieldMap(tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
+					Src:            NewDataFieldMap(pkg.pkg,tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
 					DestParentPath: tt.args.prefix,
 					DestPath:       tt.args.prefix,
-					Dest:           NewDataFieldMap(tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
+					Dest:           NewDataFieldMap(pkg.pkg,tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
 					DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + "HelloRequestDTO")).
 						Id("DTO").Params(jen.Id("src").Id(tt.name)).Params(jen.Id("dest").Id(tt.name)),
 				}
 				dto.Gen()
 				//fmt.Println(jenF.GoString())
-				fmt.Println(jenF.Group.GoString())
+				fmt.Println(jenF.GoString())
 			},
 		)
 	}

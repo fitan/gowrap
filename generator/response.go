@@ -4,15 +4,16 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"github.com/dave/jennifer/jen"
-	"github.com/fitan/gowrap/xtype"
 	"go/ast"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"os"
 	"path"
 	"reflect"
 	"strings"
+
+	"github.com/dave/jennifer/jen"
+	"github.com/fitan/gowrap/xtype"
+	"golang.org/x/tools/go/packages"
 )
 
 const ResponseTag = "dto"
@@ -24,20 +25,20 @@ type Field struct {
 	Type *xtype.Type
 	// slice map struct *
 	TypeName string
-	Doc *ast.CommentGroup
+	Doc      *ast.CommentGroup
 }
 
 func (f Field) DTOMethod() (pkgName, methodName string) {
 	if f.Doc == nil {
 		return
 	}
-	for _,v := range f.Doc.List {
+	for _, v := range f.Doc.List {
 		s := DocFormat(v.Text)
-		if strings.HasPrefix(s, "// " + DTOMethodName) {
-			params := strings.TrimPrefix(s, "// " + DTOMethodName)
+		if strings.HasPrefix(s, "// "+DTOMethodName) {
+			params := strings.TrimPrefix(s, "// "+DTOMethodName)
 			paramList := strings.Fields(params)
 			if len(paramList) < 1 {
-				panic("dto method format error: "+s)
+				panic("dto method format error: " + s)
 			}
 			if len(paramList) == 1 {
 				methodName = paramList[0]
@@ -75,7 +76,7 @@ func (f Field) FieldName(s string) string {
 }
 
 type DataFieldMap struct {
-	Pkg *packages.Package
+	Pkg        *packages.Package
 	Name       string
 	Type       *xtype.Type
 	NamedMap   map[string]Field
@@ -85,9 +86,9 @@ type DataFieldMap struct {
 	BasicMap   map[string]Field
 }
 
-func NewDataFieldMap(pkg *packages.Package,prefix []string, name string, xType *xtype.Type, t types.Type) *DataFieldMap {
+func NewDataFieldMap(pkg *packages.Package, prefix []string, name string, xType *xtype.Type, t types.Type) *DataFieldMap {
 	m := &DataFieldMap{
-		Pkg: pkg,
+		Pkg:        pkg,
 		Name:       name,
 		Type:       xType,
 		NamedMap:   map[string]Field{},
@@ -105,7 +106,7 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *as
 		Name: name,
 		Path: prefix,
 		Type: xtype.TypeOf(t),
-		Doc: doc,
+		Doc:  doc,
 	}
 
 	switch v := t.(type) {
@@ -177,15 +178,15 @@ func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *DTO
 	jenF.Add(jen.Type().Id(fnName + "DTO").Struct())
 
 	dto := DTO{
-		Pkg: pkg,
+		Pkg:            pkg,
 		JenF:           jenF,
 		Recorder:       NewRecorder(),
 		SrcParentPath:  []string{},
 		SrcPath:        []string{},
-		Src:            NewDataFieldMap(pkg,[]string{}, "src", xtype.TypeOf(srcType), srcType),
+		Src:            NewDataFieldMap(pkg, []string{}, "src", xtype.TypeOf(srcType), srcType),
 		DestParentPath: []string{},
 		DestPath:       []string{},
-		Dest:           NewDataFieldMap(pkg,[]string{}, "dest", xtype.TypeOf(destType.Type()), destType.Type()),
+		Dest:           NewDataFieldMap(pkg, []string{}, "dest", xtype.TypeOf(destType.Type()), destType.Type()),
 		DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + fnName + "DTO")).
 			Id("DTO").Params(jen.Id("src").Id(srcTypeName)).Params(jen.Id("dest").Id(responseName)),
 		StructName: fnName,
@@ -195,7 +196,7 @@ func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *DTO
 }
 
 type DTO struct {
-	Pkg *packages.Package
+	Pkg            *packages.Package
 	JenF           *jen.File
 	Recorder       *Recorder
 	SrcParentPath  []string
@@ -263,7 +264,7 @@ func (d *DTO) GenBasic() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.BasicMap {
 		srcV := d.Src.BasicMap[v.Name]
-		if v.Doc  != nil  {
+		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 
@@ -285,10 +286,9 @@ func (d *DTO) GenMap() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.MapMap {
 		srcV := d.Src.MapMap[v.Name]
-		if v.Doc  != nil  {
+		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
-
 
 		if d.GenExtraDTOMethod(&bind, v, srcV) {
 			continue
@@ -315,10 +315,10 @@ func (d *DTO) GenMap() jen.Statement {
 				Recorder:       d.Recorder,
 				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
 				SrcPath:        append([]string{}, srcV.Path...),
-				Src:            NewDataFieldMap(d.Pkg,[]string{}, srcName, srcMapValue, srcMapValue.T),
+				Src:            NewDataFieldMap(d.Pkg, []string{}, srcName, srcMapValue, srcMapValue.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath:       append([]string{}, v.Path...),
-				Dest:           NewDataFieldMap(d.Pkg,[]string{}, destName, destMapValue, destMapValue.T),
+				Dest:           NewDataFieldMap(d.Pkg, []string{}, destName, destMapValue, destMapValue.T),
 				Nest:           make([]*DTO, 0),
 				StructName:     d.StructName,
 			}
@@ -339,7 +339,7 @@ func (d *DTO) GenPointer() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.PointerMap {
 		srcV := d.Src.PointerMap[v.Name]
-		if v.Doc  != nil  {
+		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 
@@ -364,10 +364,10 @@ func (d *DTO) GenPointer() jen.Statement {
 				Recorder:       d.Recorder,
 				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
 				SrcPath:        append([]string{}, srcV.Path...),
-				Src:            NewDataFieldMap(d.Pkg,[]string{}, srcName, srcLiner, srcLiner.T),
+				Src:            NewDataFieldMap(d.Pkg, []string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath:       append([]string{}, v.Path...),
-				Dest:           NewDataFieldMap(d.Pkg,[]string{}, destName, srcLiner, destLiner.T),
+				Dest:           NewDataFieldMap(d.Pkg, []string{}, destName, srcLiner, destLiner.T),
 				Nest:           make([]*DTO, 0),
 				StructName:     d.StructName,
 			}
@@ -390,7 +390,7 @@ func (d *DTO) GenSlice() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.SliceMap {
 		srcV := d.Src.SliceMap[v.Name]
-		if v.Doc  != nil  {
+		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 		//fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
@@ -419,11 +419,11 @@ func (d *DTO) GenSlice() jen.Statement {
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
 				//SrcPath:  append([]string{}, srcV.Path...),
 				SrcPath:        d.SrcPath[0:],
-				Src:            NewDataFieldMap(d.Pkg,[]string{}, srcName, srcLiner, srcLiner.T),
+				Src:            NewDataFieldMap(d.Pkg, []string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				//DestPath: append([]string{}, v.Path...),
 				DestPath:   d.DestPath[0:],
-				Dest:       NewDataFieldMap(d.Pkg,[]string{}, destName, destLiner, destLiner.T),
+				Dest:       NewDataFieldMap(d.Pkg, []string{}, destName, destLiner, destLiner.T),
 				Nest:       make([]*DTO, 0),
 				StructName: d.StructName,
 			}

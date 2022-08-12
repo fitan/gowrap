@@ -22,7 +22,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 
 	eps := NewEndpoint(s, map[string][]endpoint.Middleware{
 		{{range $m := $.Interface.Methods}}
-		"{{$m.Name}}": ems,
+            {{$m.Name}}MethodName: ems,
 		{{end}}
 	})
 

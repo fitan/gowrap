@@ -63,7 +63,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 // @Param {{$v.ParamName}} body {{$v.BasicType}} true {{$v.Annotations}}
 {{- end}}
 {{- end}}
-// @Success 200 {object} encode.Response{data={{(index $m.Results 0).Type}}}
+// @Success 200 {object} encode.Response{ {{- $m.SwagFieldData}}}
 // @Router {{$m.RawKit.Conf.Url}} [{{$m.RawKit.Conf.UrlMethod}}]
 {{$m.KitRequestDecode}}
 {{end}}

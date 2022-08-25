@@ -540,3 +540,18 @@ func (m Method) Signature() string {
 func (m Method) Declaration() string {
 	return m.Name + m.Signature()
 }
+
+
+func (m Method) SwagFieldData() string {
+	if len(m.ResultsMapExcludeErr()) == 0 {
+		return "data=string"
+	}
+	if len(m.ResultsExcludeErr()) == 1 {
+		return "data=" + m.Results[0].Type
+	}
+	var s []string
+	for _,v:= range m.ResultsExcludeErr() {
+		s = append(s, "data."+v.Name + "=" + v.Type)
+	}
+	return strings.Join(s, ",")
+}

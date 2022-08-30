@@ -109,6 +109,18 @@ func (t TemplateInputInterface) Tags() string {
 	return "// @tags " + t.Name
 }
 
+func (t TemplateInputInterface) BasePath() string {
+	if t.Doc != nil {
+		for _, v := range t.Doc.List {
+			if strings.HasPrefix(DocFormat(v.Text), "// @basePath") {
+				return strings.TrimPrefix(DocFormat(v.Text), "// @basePath ")
+			}
+
+		}
+	}
+	return ""
+}
+
 type methodsList map[string]Method
 
 //Options of the NewGenerator constructor

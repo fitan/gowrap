@@ -29,7 +29,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 	r := mux.NewRouter()
 
 	{{range $m := $.Interface.Methods}}
-	r.Handle("{{$m.RawKit.Conf.Url}}", kithttp.NewServer(
+	r.Handle("{{$.Interface.BasePath}}{{$m.RawKit.Conf.Url}}", kithttp.NewServer(
 		eps.{{$m.Name}}Endpoint,
 		decode{{$m.Name}}Request,
 		encode.JsonResponse,
@@ -64,6 +64,6 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 {{- end}}
 {{- end}}
 // @Success 200 {object} encode.Response{ {{- $m.SwagFieldData}}}
-// @Router {{$m.RawKit.Conf.Url}} [{{$m.RawKit.Conf.UrlMethod}}]
+// @Router {{$.Interface.BasePath}}{{$m.RawKit.Conf.Url}} [{{$m.RawKit.Conf.UrlMethod}}]
 {{$m.KitRequestDecode}}
 {{end}}

@@ -2,6 +2,8 @@ package test_data
 
 import (
 	"context"
+	// @extra "gitlab.creditease.corp/paas/paas-assets/src/middleware"
+	// @extra "github.com/fitan/gowrap/generator/test_data/encode"
 	"fmt"
 	"github.com/fitan/gowrap/generator/test_data/nest"
 )
@@ -104,4 +106,10 @@ type Service interface {
 	// @kit-http-request HelloRequest
 	// @kit-http-response HelloRequest
 	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res HelloRequest, err error)
+
+	// HelloBody @kit-http /hello/body GET
+	// @kit-http-request HelloRequest body
+	// @kit-http-response HelloRequest
+	HelloBody(ctx context.Context, helloRequest HelloRequest) (list HelloRequest, total int64, err error)
 }
+

@@ -32,33 +32,34 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 }
 
 {{range $m := $.Interface.Methods}}
-func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.({{$m.KitRequest.RequestName}})
+{{$m.MakeEndpoint}}
+{{/*func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {*/}}
+{{/*	return func(ctx context.Context, request interface{}) (response interface{}, err error) {*/}}
+{{/*		req := request.({{$m.KitRequest.RequestName}})*/}}
 
-		{{range $v := $m.ResultsExcludeErr}}
-		var {{$v.Name}} {{$v.Type}}
-		{{end}}
+{{/*		{{range $v := $m.ResultsExcludeErr}}*/}}
+{{/*		var {{$v.Name}} {{$v.Type}}*/}}
+{{/*		{{end}}*/}}
 
-		{{$m.ResultsNames}} = s.{{$m.Name}}(
-			ctx,
-			{{if $m.KitRequest.RequestIsBody}}
-			req,
-			{{else}}
-			{{range $v := $m.ParamsExcludeCtx}}req.{{$m.KitRequest.ParamPath $v.Name}},{{end}}
-			{{end}}
-		)
-		{{if eq (len $m.ResultsExcludeErr) 1}}
-		return encode.Response{
-			Data: {{(index $m.ResultsExcludeErr 0).Name}},
-			Error: err,
-		}, err
-		{{else}}
-		return encode.Response{
-			Data: {{$m.ResultsMapExcludeErr}},
-			Error: err,
-		},err
-		{{end}}
-	}
-}
+{{/*		{{$m.ResultsNames}} = s.{{$m.Name}}(*/}}
+{{/*			ctx,*/}}
+{{/*			{{if $m.KitRequest.RequestIsBody}}*/}}
+{{/*			req,*/}}
+{{/*			{{else}}*/}}
+{{/*			{{range $v := $m.ParamsExcludeCtx}}req.{{$m.KitRequest.ParamPath $v.Name}},{{end}}*/}}
+{{/*			{{end}}*/}}
+{{/*		)*/}}
+{{/*		{{if eq (len $m.ResultsExcludeErr) 1}}*/}}
+{{/*		return encode.Response{*/}}
+{{/*			Data: {{(index $m.ResultsExcludeErr 0).Name}},*/}}
+{{/*			Error: err,*/}}
+{{/*		}, err*/}}
+{{/*		{{else}}*/}}
+{{/*		return encode.Response{*/}}
+{{/*			Data: {{$m.ResultsMapExcludeErr}},*/}}
+{{/*			Error: err,*/}}
+{{/*		},err*/}}
+{{/*		{{end}}*/}}
+{{/*	}*/}}
+{{/*}*/}}
 {{end}}

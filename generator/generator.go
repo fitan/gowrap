@@ -12,6 +12,7 @@ import (
 	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"log"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -119,6 +120,10 @@ func (t TemplateInputInterface) BasePath() string {
 		}
 	}
 	return ""
+}
+
+func (t TemplateInputInterface) MethodPath(name string) string {
+	return strings.TrimSuffix(path.Join(t.BasePath(), t.Methods[name].RawKit.Conf.Url),"/")
 }
 
 type methodsList map[string]Method

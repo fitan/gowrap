@@ -110,6 +110,31 @@ type Service interface {
 	// HelloBody @kit-http /hello/body GET
 	// @kit-http-request HelloRequest body
 	// @kit-http-response HelloRequest
+	// @kit-cache get helloRequest method GetRedisKey 1s
+	// @kit-cache delete helloRequest key 1s
+	// @kit-cache put helloRequest Interface 1s
 	HelloBody(ctx context.Context, helloRequest HelloRequest) (list HelloRequest, total int64, err error)
+}
+
+type RedisService struct {
+	
+}
+
+func (r RedisService) Hello(
+	ctx context.Context, id int, namespace []string, page int64, size int64, lastNames []string,
+) (res HelloRequest, err error) {
+	panic("implement me")
+}
+
+func (r RedisService) SayHello(
+	ctx context.Context, uuid string, ip string, port int, headerName string,
+) (res HelloRequest, err error) {
+
+}
+
+func (r RedisService) HelloBody(ctx context.Context, helloRequest HelloRequest) (
+	list HelloRequest, total int64, err error,
+) {
+	panic("implement me")
 }
 

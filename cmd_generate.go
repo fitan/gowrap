@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -40,11 +41,22 @@ type GenerateCommand struct {
 	loader        templateLoader
 	filepath      fs
 	batchTemplate string
+	initVersion   string
 	initType      string
 	initName      string
 }
 
 var serviceCombo []string = []string{"service", "new"}
+
+var initComboConf = map[string]map[string]string{
+	"repo": map[string]string{
+		"init_ce_repo_service": "service.go",
+	},
+	"service": map[string]string{
+		"init_ce_service": "service.go",
+		"init_ce_types": "types.go",
+	},
+}
 
 //NewGenerateCommand creates GenerateCommand
 func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
@@ -73,6 +85,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 	fs.StringVar(&gc.localPrefix, "l", "", "put imports beginning with this string after 3rd-party packages; comma-separated list")
 	fs.StringVar(&gc.initType, "init", "", "init type")
 	fs.StringVar(&gc.initName, "n", "", "init name")
+	fs.StringVar(&gc.initVersion, "iv", "", "init version")
 
 	gc.BaseCommand = BaseCommand{
 		Short: "generate decorators",
@@ -101,9 +114,19 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 	var ops []generator.Options
 	var err error
 	if gc.initType != "" {
-		ops, err = gc.getComboOptions(gc.initType,gc.initName)
-		if err != nil {
-			return err
+		switch gc.initVersion {
+		case "ce":
+			ops, err = gc.getCEInitOptions(gc.initType, gc.initName)
+			if err != nil {
+				return err
+			}
+		default:
+			ops,err = gc.getComboOptions(gc.initType, gc.initName)
+			if err != nil {
+				return err
+			}
+
+
 		}
 
 		gens, err := generator.NewGeneratorInit(ops)
@@ -112,7 +135,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		}
 
 		for _, gen := range gens {
-			err := gen.Generate()
+			err := gen.Generate(false)
 			if err != nil {
 				return err
 			}
@@ -138,7 +161,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		g.Add(1)
 		go func(gen *generator.Generator) {
 			defer g.Done()
-			err := gen.Generate()
+			err := gen.Generate(true)
 			if err != nil {
 				log.Fatalf("generate err: %s", err.Error())
 			}
@@ -185,6 +208,68 @@ func (gc *GenerateCommand) checkFlags() error {
 	//}
 
 	return nil
+}
+
+func (gc *GenerateCommand) getCEInitOptions(initType string, initName string) ([]generator.Options, error) {
+	ops := make([]generator.Options, 0,0)
+	dirName := "./" + initName
+	pkgName := strings.ReplaceAll(strings.ToLower(initName),"_","")
+	objName := upFirst(toSnakeCase(initName))
+	err := os.Mkdir(dirName, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	cmdDir, err := os.Getwd()
+	if err != nil {
+		return nil, errors.Wrap(err, "os.Getwd")
+	}
+
+	values := gc.vars.toMap()
+	values["pkgName"] = pkgName
+	values["objName"] = objName
+
+	combo := initComboConf[initType]
+
+
+	for k, v := range combo {
+
+		bodyTemplate := k
+		outputFile := path.Join(dirName, v)
+
+		options := generator.Options{
+			InterfaceName:  "Service",
+			OutputFile:     outputFile,
+			Funcs:          helperFuncs,
+			HeaderTemplate: headerTemplate,
+			HeaderVars: map[string]interface{}{
+				"DisableGoGenerate": gc.noGenerate,
+				"OutputFileName":    filepath.Base(outputFile),
+				"VarsArgs":          varsToArgs(gc.vars),
+			},
+			Vars:          values,
+			LocalPrefix:   gc.localPrefix,
+			PkgNeedSyntax: false,
+			RunCmdDir:     cmdDir,
+			InitType: initType,
+		}
+
+		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
+		if err != nil {
+			return nil, err
+		}
+
+		gc.sourcePkg = initName
+
+		options.BodyTemplate, options.HeaderVars["Template"], err = gc.embedLoadTemplate(bodyTemplate, outputFileDir)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, options)
+	}
+	return ops, err
+
+
 }
 
 func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]generator.Options, error) {

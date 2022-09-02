@@ -418,7 +418,8 @@ func makePackage(path string) (*packages.Package, error) {
 }
 
 //Generate generates code using header and body templates
-func (g Generator) Generate() error {
+func (g Generator) Generate(format bool) error {
+	format = true
 	buf := bytes.NewBuffer([]byte{})
 
 	err := g.headerTemplate.Execute(buf, map[string]interface{}{
@@ -445,9 +446,26 @@ func (g Generator) Generate() error {
 		return err
 	}
 
-	imports.LocalPrefix = g.localPrefix
 	t1 := time.Now()
-	processedSource, err := imports.Process(g.Options.OutputFile, buf.Bytes(), nil)
+	imports.LocalPrefix = g.localPrefix
+	imports.Debug = true
+	var importsOpt  *imports.Options
+	if format {
+		importsOpt = &imports.Options{
+			Comments: true,
+			TabWidth: 8,
+			TabIndent: true,
+			FormatOnly: false,
+		}
+	} else {
+		importsOpt = &imports.Options{
+			Comments: true,
+			TabWidth: 8,
+			TabIndent: true,
+			FormatOnly: true,
+		}
+	}
+	processedSource, err := imports.Process(g.Options.OutputFile, buf.Bytes(), importsOpt)
 	log.Printf("outoutFile: %v. imports.Porcess time: %v", g.Options.OutputFile, time.Now().Sub(t1).String())
 	if err != nil {
 		return errors.Wrapf(err, "failed to format generated code:\n%s", buf)
@@ -456,8 +474,8 @@ func (g Generator) Generate() error {
 	buf = bytes.NewBuffer([]byte{})
 	_, err = buf.Write(processedSource)
 	if err != nil {
-		return nil
-	}
+			return nil
+		}
 	err = ioutil.WriteFile(g.Options.OutputFile, buf.Bytes(), 0664)
 	return err
 

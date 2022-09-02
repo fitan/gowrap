@@ -1,0 +1,72 @@
+package {{$.Vars.pkgName}}
+
+import (
+	"context"
+	"gorm.io/gorm"
+)
+
+type Middleware func(Service) Service
+
+type Service interface {
+	Create(ctx context.Context, v types.{{$.Vars.objName}}) (err error)
+	List(ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}}) (list []types.{{$.Vars.objName}}, total int64, err error)
+	Delete(ctx context.Context, uuid string) (err error)
+	Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error)
+	Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error)
+	Filter(ctx context.Context, fieldName string, value string) (list []map[string]string, err error)
+}
+
+type service struct {
+	db *gorm.DB
+}
+
+func (s *service) Create(ctx context.Context, v types.{{$.Vars.objName}}) (err error) {
+	return s.db.WithContext(ctx).Create(&v).Error
+}
+
+func (s *service) List(
+	ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}},
+) (list []types.{{$.Vars.objName}}, total int64, err error) {
+	tx := s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{})
+
+	if order != "" {
+		tx.Order(order)
+	} else {
+		tx.Order("id desc")
+	}
+
+	if page != 0 && pageSize != 0 {
+		tx.Offset((page - 1) * pageSize).Limit(pageSize)
+	}
+
+	if filter != nil {
+		tx.Where(filter)
+	}
+
+	err = tx.Count(&total).Error
+	if err != nil {
+		return
+	}
+
+	return list, total, tx.Find(&list).Error
+}
+
+func (s *service) Delete(ctx context.Context, uuid string) (err error) {
+	return s.db.WithContext(ctx).Delete(&types.{{$.Vars.objName}}{}, "uuid = ?", uuid).Error
+}
+
+func (s *service) Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error) {
+	return s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{}).Where("uuid = ?", uuid).Save(&v).Error
+}
+
+func (s *service) Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error) {
+	return v, s.db.WithContext(ctx).First(&v, "uuid = ?", uuid).Error
+}
+
+func (s *service)Filter(ctx context.Context, fieldName string, value string) (list []map[string]string, err error) {
+	return list, s.db.WithContext(ctx).Select("uuid", value).Where(fieldName+" like ?", "%"+value+"%", value).Find(&list).Error
+}
+
+func New(db *gorm.DB) Service {
+	return &service{db: db}
+}

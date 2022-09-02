@@ -1,0 +1,221 @@
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+
+package {{$.Vars.PathName}}
+
+import (
+	// @extra "gitlab.creditease.corp/paas/paas-assets/src/middleware"
+	// @extra "gitlab.creditease.corp/paas/paas-assets/src/encode"
+	"context"
+	"github.com/go-kit/kit/log"
+	uuid2 "github.com/google/uuid"
+	"github.com/pkg/errors"
+	"strings"
+)
+
+type Middleware func(Service) Service
+
+// @tags assettag
+// @basePath /{{$.Vars.PathName}}
+type Service interface {
+	// Create 创建
+	// @kit-http / POST
+	// @kit-http-request CreateRequest body
+	Create(ctx context.Context, createRequest CreateRequest) (res bool, err error)
+	// Update 更新
+	// @kit-http /{uuid} PUT
+	// @kit-http-request UpdateRequest
+	Update(ctx context.Context, uuid string, body CreateRequest) (res bool, err error)
+	// Delete 删除
+	// @kit-http /{uuid} DELETE
+	// @kit-http-request DeleteRequest
+	Delete(ctx context.Context, uuid string) (res bool, err error)
+	// List 列表
+	// @kit-http / GET
+	// @kit-http-request ListRequest
+	List(ctx context.Context, page int, pageSize int) (list []ListResponse, total int64, err error)
+	// Get 获取
+	// @kit-http /{uuid} GET
+	// @kit-http-request GetRequest
+	Get(ctx context.Context, uuid string) (res GetResponse, err error)
+}
+
+type service struct {
+	traceId    string
+	logger     log.Logger
+	repository repository.Repository
+	api        api.Service
+}
+
+func (s *service) Create(ctx context.Context, createRequest CreateRequest) (res bool, err error) {
+
+	getV, err := s.repository.RuleTemplate().Get(ctx, createRequest.RuleTemplateUUID)
+	if err != nil {
+		err = errors.Wrap(err, "RuleTemplate.Get")
+		return false, err
+	}
+
+	uuid := strings.ReplaceAll(uuid2.New().String(), "-", "")
+
+	getV.Labels["sourceUUID"] = uuid
+	t := rulerender.Template{
+		Alert:       uuid,
+		Expr:        getV.Expr,
+		For:         createRequest.Value.For,
+		Labels:      getV.Labels,
+		Annotations: getV.Annotations,
+	}
+
+	render, err := t.Render(createRequest.Value)
+	if err != nil {
+		err = errors.Wrap(err, "Template.Render")
+		return false, err
+	}
+
+	err = s.api.Consul().PutRule(ctx, uuid, render)
+	if err != nil {
+		err = errors.Wrap(err, "Consul.PutRule")
+		return false, err
+	}
+
+	v := types.BindRuleTemplate{
+		UUID:           uuid,
+		Name:           createRequest.Name,
+		RuleTemplateID: getV.ID,
+		Value: types.Value{
+			Namespace: createRequest.Value.Namespace,
+			Name:      createRequest.Value.Name,
+			Op:        createRequest.Value.Op,
+			Target:    createRequest.Value.Target,
+		},
+		Email:  createRequest.Email,
+		Remark: createRequest.Remark,
+		Render: render,
+	}
+	err = s.repository.BindRuleTemplate().Create(ctx, v)
+
+	if err != nil {
+		err = errors.Wrap(err, "BindRuleTemplate.Create")
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (s *service) Update(ctx context.Context, uuid string, body CreateRequest) (res bool, err error) {
+	ruleTemplateV, err := s.repository.RuleTemplate().Get(ctx, body.RuleTemplateUUID)
+	if err != nil {
+		err = errors.Wrap(err, "RuleTemplate.Get")
+		return false, err
+	}
+
+	bindRuleTemplateV, err := s.repository.BindRuleTemplate().Get(ctx, uuid)
+	if err != nil {
+		err = errors.Wrap(err, "BindRuleTemplate.Get")
+		return false, err
+	}
+
+	ruleTemplateV.Labels["sourceUUID"] = uuid
+	t := rulerender.Template{
+		Alert:       uuid,
+		Expr:        ruleTemplateV.Expr,
+		For:         body.Value.For,
+		Labels:      ruleTemplateV.Labels,
+		Annotations: ruleTemplateV.Annotations,
+	}
+
+	render, err := t.Render(body.Value)
+	if err != nil {
+		err = errors.Wrap(err, "Template.Render")
+		return false, err
+	}
+
+	err = s.api.Consul().PutRule(ctx, uuid, render)
+	if err != nil {
+		err = errors.Wrap(err, "Consul.PutRule")
+		return false, err
+	}
+
+	bindRuleTemplateV.Name = body.Name
+	bindRuleTemplateV.RuleTemplateID = ruleTemplateV.ID
+	bindRuleTemplateV.Value = types.Value{
+		Namespace: body.Value.Namespace,
+		Name:      body.Value.Name,
+		Op:        body.Value.Op,
+		Target:    body.Value.Target,
+	}
+	bindRuleTemplateV.Email = body.Email
+	bindRuleTemplateV.Remark = body.Remark
+
+	err = s.repository.BindRuleTemplate().Update(ctx, uuid, bindRuleTemplateV)
+	if err != nil {
+		err = errors.Wrap(err, "BindRuleTemplate.Update")
+		return
+	}
+
+	return true, nil
+}
+
+func (s *service) Delete(ctx context.Context, uuid string) (res bool, err error) {
+	_, err = s.repository.BindRuleTemplate().Get(ctx, uuid)
+	if err != nil {
+		err = errors.Wrap(err, "BindRuleTemplate.Get")
+		return
+	}
+
+	err = s.api.Consul().DeleteRule(ctx, uuid)
+	if err != nil {
+		err = errors.Wrap(err, "Consul.DeleteRule")
+		return
+	}
+
+	err = s.repository.BindRuleTemplate().Delete(ctx, uuid)
+	if err != nil {
+		err = errors.Wrap(err, "BindRuleTemplate.Delete")
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (s *service) List(ctx context.Context, page int, pageSize int) (list []ListResponse, total int64, err error) {
+	res, total, err := s.repository.BindRuleTemplate().List(ctx, page, pageSize, "", nil)
+	if err != nil {
+		err = errors.Wrap(err, "BindRuleTemplate.List")
+		return nil, 0, err
+	}
+
+	for _, v := range res {
+		list = append(list, s.bindRuleTemplate2Api(v))
+	}
+
+	return
+}
+
+func (s *service) bindRuleTemplate2Api(v types.BindRuleTemplate) ListResponse {
+	return ListResponse{
+		UUID: v.UUID,
+		CreateRequest: CreateRequest{
+			RuleTemplateUUID: v.RuleTemplate.UUID,
+			Name:             v.Name,
+			Value: Value{
+				Namespace: v.Value.Namespace,
+				Name:      v.Value.Name,
+				Op:        v.Value.Op,
+				Target:    v.Value.Target,
+			},
+			Email:  nil,
+			Remark: v.Remark,
+		},
+		Render: v.Render,
+	}
+}
+
+func New(logger log.Logger, traceId string, repository repository.Repository, api api.Service) Service {
+	logger = log.With(logger, "openapi.pods", "service")
+	return &service{
+		traceId:    traceId,
+		logger:     logger,
+		repository: repository,
+		api:        api,
+	}
+}

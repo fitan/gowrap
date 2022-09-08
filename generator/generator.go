@@ -7,11 +7,13 @@ import (
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -120,6 +122,19 @@ func (t TemplateInputInterface) BasePath() string {
 		}
 	}
 	return ""
+}
+
+func (t TemplateInputInterface) EnableSwag(name string) bool {
+	if t.Doc != nil {
+		for _, v := range t.Doc.List {
+			if strings.HasPrefix(DocFormat(v.Text), "// @Swag false") {
+				return false
+			}
+
+		}
+	}
+
+	return t.Methods[name].EnableSwag()
 }
 
 func (t TemplateInputInterface) MethodPath(name string) string {
@@ -332,7 +347,13 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			}
 		}
 
+		mainImports, err := LoadMainImports()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load main imports")
+		}
+
 		options.Imports = append(options.Imports, makeImports(importSpecs)...)
+		options.Imports = append(options.Imports, makeImports(mainImports)...)
 
 		gs = append(gs, &Generator{
 			Options:        options,
@@ -382,6 +403,59 @@ func makeImports(imports []*ast.ImportSpec) []string {
 	return result
 }
 
+func LoadMainImports() (res []*ast.ImportSpec,err error) {
+	mainName := "main.go"
+	readMain := func (path string) (res []*ast.ImportSpec,err error) {
+		fset := token.NewFileSet()
+		var f *ast.File
+		f, err = parser.ParseFile(fset,path,nil, parser.ParseComments|parser.ImportsOnly)
+		if err != nil {
+			return
+		}
+
+		res = f.Imports
+		return
+	}
+
+	workPath, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	for {
+		_, err = os.Stat(filepath.Join(workPath, mainName))
+		if err == nil {
+			return readMain(filepath.Join(workPath, mainName))
+		}
+
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return
+			}
+		}
+
+		_, err = os.Stat(filepath.Join(workPath, "cmd", mainName))
+		if err == nil {
+			return readMain(filepath.Join(workPath, "cmd", mainName))
+		}
+
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return
+			}
+		}
+
+		preWorkPath := filepath.Dir(workPath)
+		if preWorkPath == workPath {
+			err = errors.New("not found main.go")
+			return
+		}
+
+		workPath = preWorkPath
+
+	}
+}
+
 func makeExtraImport(doc *ast.CommentGroup) (res []string) {
 	if doc == nil {
 		return
@@ -418,8 +492,7 @@ func makePackage(path string) (*packages.Package, error) {
 }
 
 //Generate generates code using header and body templates
-func (g Generator) Generate(format bool) error {
-	format = true
+func (g Generator) Generate(fix bool) error {
 	buf := bytes.NewBuffer([]byte{})
 
 	err := g.headerTemplate.Execute(buf, map[string]interface{}{
@@ -448,9 +521,8 @@ func (g Generator) Generate(format bool) error {
 
 	t1 := time.Now()
 	imports.LocalPrefix = g.localPrefix
-	imports.Debug = true
 	var importsOpt  *imports.Options
-	if format {
+	if fix {
 		importsOpt = &imports.Options{
 			Comments: true,
 			TabWidth: 8,

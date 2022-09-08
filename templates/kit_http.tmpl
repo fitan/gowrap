@@ -41,6 +41,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 }
 
 {{range $m := $.Interface.Methods}}
+{{if ($.Interface.EnableSwag $m.Name)}}
 // {{$m.KitRequest.ServiceName}}
 // @Summary {{$m.Annotation}}
 // @Description {{$m.Annotation}}
@@ -64,6 +65,6 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 {{- end}}
 {{- end}}
 // @Success 200 {object} encode.Response{ {{- $m.SwagFieldData}}}
-// @Router {{$.Interface.MethodPath $m.Name}} [{{$m.RawKit.Conf.UrlMethod}}]
+// @Router {{$.Interface.MethodPath $m.Name}} [{{$m.RawKit.Conf.UrlMethod}}]{{end}}
 {{$m.KitRequestDecode}}
 {{end}}

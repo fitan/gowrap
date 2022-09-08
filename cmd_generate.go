@@ -212,9 +212,9 @@ func (gc *GenerateCommand) checkFlags() error {
 
 func (gc *GenerateCommand) getCEInitOptions(initType string, initName string) ([]generator.Options, error) {
 	ops := make([]generator.Options, 0,0)
-	dirName := "./" + initName
-	pkgName := strings.ReplaceAll(strings.ToLower(initName),"_","")
-	objName := upFirst(toSnakeCase(initName))
+	dirName := "./" + toSnakeCase(initName)
+	pkgName := strings.ToLower(initName)
+	objName := initName
 	err := os.Mkdir(dirName, os.ModePerm)
 	if err != nil {
 		return nil, err

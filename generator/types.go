@@ -37,6 +37,21 @@ func DocFormat(doc string) string {
 	return strings.Join(strings.Fields(doc)," ")
 }
 
+func (m Method) EnableSwag() bool {
+	if m.Doc == nil {
+		return true
+	}
+
+	for _, c := range m.Doc {
+		docFormat := DocFormat(c)
+		if strings.HasPrefix(docFormat, "// @swag false") {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (m Method) Annotation() string {
 	if m.Doc == nil {
 		return ""

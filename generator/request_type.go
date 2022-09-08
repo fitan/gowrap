@@ -171,6 +171,7 @@ func (k *KitRequest) ParseParamTag(fieldName, tag string) (paramSource string, p
 	return "", ""
 
 }
+
 func (k *KitRequest) DecodeRequest() (s string) {
 	listCode := make([]jen.Code, 0, 0)
 	// req := Request{}
@@ -223,7 +224,7 @@ func (k *KitRequest) Validate() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	list = append(
 		list,
-		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("res")),
+		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
 		jen.If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid.ValidateStruct")),
 			jen.Return(),
@@ -501,6 +502,17 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 	switch rt := requestType.(type) {
 	case *types.Named:
 		k.NamedMap[paramName] = rt.Obj().Id()
+		//k.SetParam(RequestParam{
+		//	ParamDoc:     doc,
+		//	ParamPath:    strings.Join(prefix, "."),
+		//	FieldName:    requestName,
+		//	ParamName:    paramName,
+		//	ParamSource:  paramSource,
+		//	ParamType:    "named",
+		//	RawParamType: rawParamType,
+		//	BasicType:    rt.Underlying().String(),
+		//	HasPtr:       false,
+		//})
 		k.RequestType(prefix, requestName, rt.Underlying(), requestParamTagTypeTag, doc)
 	case *types.Struct:
 		k.SetParam(RequestParam{

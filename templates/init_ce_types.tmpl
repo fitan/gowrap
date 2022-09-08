@@ -1,0 +1,61 @@
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+
+package {{$.Vars.pkgName}}
+
+var DbNameMap = map[string]string{
+}
+
+type FilterRequest struct {
+	Key  string `json:"key" param:"query,key"`
+	Value string `json:"value" param:"query,value"`
+	Match Match `param:",match"`
+}
+
+type Match struct {
+}
+
+type FilterResponse []map[string]interface{}
+
+type GetRequest struct {
+	UUID string `json:"uuid" param:"path,uuid"`
+}
+
+type GetResponse struct {
+	UUID string `json:"uuid" param:"path,uuid"`
+	CreateRequest
+}
+
+type CreateRequest struct {
+}
+
+type CreateResponse struct {
+}
+
+type UpdateRequest struct {
+	UUID string `json:"-" param:"path,uuid"`
+	CreateRequest `param:"body,body"`
+}
+
+type UpdateResponse struct {
+}
+
+type DeleteRequest struct {
+	UUID string `json:"uuid" param:"path,uuid"`
+}
+
+type DeleteResponse struct {
+}
+
+type ListRequest struct {
+	Page     int    `json:"page" param:"query,page"`
+	PageSize int    `json:"pageSize" param:"query,pageSize"`
+	Match Match `param:",match"`
+}
+
+type ListResponse struct {
+	UUID string `json:"uuid" param:"path,uuid"`
+	CreateRequest
+}
+
+
+

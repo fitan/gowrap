@@ -13,7 +13,7 @@ type Service interface {
 	Delete(ctx context.Context, uuid string) (err error)
 	Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error)
 	Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error)
-	Filter(ctx context.Context, fieldName string, value string) (list []map[string]string, err error)
+	Filter(ctx context.Context, fieldName string, value string, filter *types.{{$.Vars.objName}}) (list []map[string]interface{}, err error)
 }
 
 type service struct {
@@ -63,8 +63,12 @@ func (s *service) Get(ctx context.Context, uuid string) (v types.{{$.Vars.objNam
 	return v, s.db.WithContext(ctx).First(&v, "uuid = ?", uuid).Error
 }
 
-func (s *service)Filter(ctx context.Context, fieldName string, value string) (list []map[string]string, err error) {
-	return list, s.db.WithContext(ctx).Select("uuid", value).Where(fieldName+" like ?", "%"+value+"%", value).Find(&list).Error
+func (s *service)Filter(ctx context.Context, fieldName string, value string, filter *types.{{$.Vars.objName}}) (list []map[string]interface{}, err error) {
+	tx := s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{})
+	if filter != nil {
+		tx = tx.Where(filter)
+	}
+	return list, tx.Select("uuid", fieldName).Group(fieldName).Where(fieldName+" like ?", "%"+value+"%").Find(&list).Error
 }
 
 func New(db *gorm.DB) Service {

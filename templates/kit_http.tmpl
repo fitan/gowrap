@@ -21,26 +21,26 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 	ems = append(ems, dmw...)
 
 	eps := NewEndpoint(s, map[string][]endpoint.Middleware{
-		{{range $m := $.Interface.Methods}}
+		{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
             {{$m.Name}}MethodName: ems,
-		{{end}}
+		{{end}}{{end}}
 	})
 
 	r := mux.NewRouter()
 
-	{{range $m := $.Interface.Methods}}
+	{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 	r.Handle("{{$.Interface.MethodPath $m.Name}}", kithttp.NewServer(
 		eps.{{$m.Name}}Endpoint,
 		decode{{$m.Name}}Request,
 		encode.JsonResponse,
 		opts...,
 	)).Methods("{{up $m.RawKit.Conf.UrlMethod}}")
-	{{end}}
+	{{end}}{{end}}
 
 	return r
 }
 
-{{range $m := $.Interface.Methods}}
+{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 {{if ($.Interface.EnableSwag $m.Name)}}
 // {{$m.KitRequest.ServiceName}}
 // @Summary {{$m.Annotation}}
@@ -67,4 +67,4 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 // @Success 200 {object} encode.Response{ {{- $m.SwagFieldData}}}
 // @Router {{$.Interface.MethodPath $m.Name}} [{{$m.RawKit.Conf.UrlMethod}}]{{end}}
 {{$m.KitRequestDecode}}
-{{end}}
+{{end}}{{end}}

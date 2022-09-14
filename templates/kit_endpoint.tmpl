@@ -4,34 +4,34 @@
 }}
 
 const (
-{{range $m := .Interface.Methods}}
+{{range $m := .Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 	{{$m.Name}}MethodName = "{{$m.Name}}"
-{{end}}
+{{end}}{{end}}
 )
 
 
 type Endpoints struct {
-{{range $m := $.Interface.Methods}}
+{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
     {{$m.Name}}Endpoint endpoint.Endpoint
-{{end}}
+{{end}}{{end}}
 }
 
 func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 	eps := Endpoints{
-		{{range $m := $.Interface.Methods}}
+		{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 		{{$m.Name}}Endpoint: make{{$m.Name}}Endpoint(s),
-		{{end}}
+		{{end}}{{end}}
 	}
-	{{range $m := $.Interface.Methods}}
+	{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 	for _, m := range dmw[{{$m.Name}}MethodName] {
 		eps.{{$m.Name}}Endpoint = m(eps.{{$m.Name}}Endpoint)
 	}
-	{{end}}
+	{{end}}{{end}}
 
 	return eps
 }
 
-{{range $m := $.Interface.Methods}}
+{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.({{$m.KitRequest.RequestName}})
@@ -61,4 +61,4 @@ func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 		{{end}}
 	}
 }
-{{end}}
+{{end}}{{end}}

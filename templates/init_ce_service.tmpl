@@ -38,7 +38,7 @@ type Service interface {
 	// Filter 过滤
 	// @kit-http /filter GET
 	// @kit-http-request FilterRequest
-	Filter(ctx context.Context, key, value string) (res FilterResponse, err error)
+	Filter(ctx context.Context, key, value string, match Match) (res FilterResponse, err error)
 }
 
 type service struct {

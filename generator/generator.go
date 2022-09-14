@@ -137,6 +137,10 @@ func (t TemplateInputInterface) EnableSwag(name string) bool {
 	return t.Methods[name].EnableSwag()
 }
 
+func (t TemplateInputInterface) HasMethodPath(name string) bool {
+	return t.Methods[name].RawKit.Conf.Url != ""
+}
+
 func (t TemplateInputInterface) MethodPath(name string) string {
 	return strings.TrimSuffix(path.Join(t.BasePath(), t.Methods[name].RawKit.Conf.Url),"/")
 }

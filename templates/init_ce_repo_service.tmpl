@@ -35,10 +35,6 @@ func (s *service) List(
 		tx.Order("id desc")
 	}
 
-	if page != 0 && pageSize != 0 {
-		tx.Offset((page - 1) * pageSize).Limit(pageSize)
-	}
-
 	if filter != nil {
 		tx.Where(filter)
 	}
@@ -46,6 +42,10 @@ func (s *service) List(
 	err = tx.Count(&total).Error
 	if err != nil {
 		return
+	}
+
+	if page != 0 && pageSize != 0 {
+		tx.Offset((page - 1) * pageSize).Limit(pageSize)
 	}
 
 	return list, total, tx.Find(&list).Error

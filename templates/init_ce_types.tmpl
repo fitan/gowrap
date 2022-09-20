@@ -14,7 +14,8 @@ type FilterRequest struct {
 type Match struct {
 }
 
-func (m Match) ToObj() (res *types.{{$.Vars.objName}})  {
+func (m Match) DTO() (res types.{{$.Vars.objName}})  {
+	// TODO
 	return
 }
 
@@ -30,7 +31,19 @@ type GetResponse struct {
 	CreateRequest
 }
 
+func (g GetResponse) DTO(v types.{{$.Vars.objName}}) GetResponse {
+	// TODO
+	return GetResponse{
+	}
+}
+
 type CreateRequest struct {
+	// TODO
+}
+
+func (c CreateRequest) DTO() (res types.{{$.Vars.objName}})  {
+	// TODO
+	return types.{{$.Vars.objName}}{}
 }
 
 type CreateResponse struct {
@@ -39,6 +52,11 @@ type CreateResponse struct {
 type UpdateRequest struct {
 	UUID string `json:"-" param:"path,uuid"`
 	CreateRequest `param:"body,body"`
+}
+
+func (u UpdateRequest) DTO(v types.{{$.Vars.objName}}) (res types.{{$.Vars.objName}})  {
+	// TODO
+	return
 }
 
 type UpdateResponse struct {

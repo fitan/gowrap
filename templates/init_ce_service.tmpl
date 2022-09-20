@@ -54,7 +54,7 @@ func (s *service) Filter(ctx context.Context, key, value string, match Match) (r
 		err = fmt.Errorf("key %s not found", key)
 		return
 	}
-	vs, err := s.repository.{{$.Vars.objName}}().Filter(ctx, dbName, value, match.ToObj())
+	vs, err := s.repository.{{$.Vars.objName}}().Filter(ctx, dbName, value, match.DTO())
 	if err != nil {
 		err = errors.Wrap(err, "{{$.Vars.objName}}.Filter")
 		return
@@ -78,14 +78,12 @@ func (s *service) Get(ctx context.Context, uuid string) (res GetResponse, err er
 		return
 	}
 
-	res = s.{{$.Vars.objName}}2Api(v)
+	res = res.DTO(v)
 	return
 }
 
 func (s *service) Create(ctx context.Context, createRequest CreateRequest) (res bool, err error) {
-	// todo: 修改代码
-	v := types.{{$.Vars.objName}}{}
-	err = s.repository.{{$.Vars.objName}}().Create(ctx, v)
+	err = s.repository.{{$.Vars.objName}}().Create(ctx, createRequest.DTO())
 
 	if err != nil {
 		err = errors.Wrap(err, "{{$.Vars.objName}}.Create")
@@ -96,10 +94,7 @@ func (s *service) Create(ctx context.Context, createRequest CreateRequest) (res 
 }
 
 func (s *service) Update(ctx context.Context, uuid string, createRequest CreateRequest) (res bool, err error) {
-	// todo: 修改代码
-	v := types.{{$.Vars.objName}}{}
-
-	err = s.repository.{{$.Vars.objName}}().Update(ctx, uuid, v)
+	err = s.repository.{{$.Vars.objName}}().Update(ctx, uuid, createRequest.DTO())
 	if err != nil {
 		err = errors.Wrap(err, "{{$.Vars.objName}}.Update")
 		return
@@ -119,25 +114,18 @@ func (s *service) Delete(ctx context.Context, uuid string) (res bool, err error)
 }
 
 func (s *service) List(ctx context.Context, page int, pageSize int,match Match) (list []GetResponse, total int64, err error) {
-	res, total, err := s.repository.{{$.Vars.objName}}().List(ctx, page, pageSize, "", match.ToObj())
+	res, total, err := s.repository.{{$.Vars.objName}}().List(ctx, page, pageSize, "", match.DTO())
 	if err != nil {
 		err = errors.Wrap(err, "{{$.Vars.objName}}.List")
 		return nil, 0, err
 	}
 
+	dto := GetResponse{}
 	for _, v := range res {
-		list = append(list, s.{{$.Vars.objName}}2Api(v))
+		list = append(list, dto.DTO(v))
 	}
 
 	return
-}
-
-func (s *service) {{$.Vars.objName}}2Api(v types.{{$.Vars.objName}}) GetResponse {
-	// todo: 修改代码
-	return GetResponse{
-		UUID:          "",
-		CreateRequest: CreateRequest{},
-	}
 }
 
 func New(logger log.Logger, traceId string, repository repository.Repository) Service {

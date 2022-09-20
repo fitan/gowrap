@@ -1,12 +1,9 @@
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
-import (
-"github.com/opentracing/opentracing-go"
-"github.com/opentracing/opentracing-go/ext"
-"time"
-{{range $i := $.Imports}}
-    {{$i}}
-{{end}}
-)
+{{$.Import
+`"github.com/opentracing/opentracing-go"`
+`"github.com/opentracing/opentracing-go/ext"`
+`"time"`
+}}
 
 type tracing struct {
 	next   Service

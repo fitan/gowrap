@@ -33,7 +33,6 @@ type Method struct {
 	KitRequest       *KitRequest
 	KitRequestDecode string
 
-	KitResponse *DTO
 }
 
 func DocFormat(doc string) string {
@@ -583,9 +582,6 @@ func (m Method) ReturnCode() *jen.Statement {
 	var code *jen.Statement
 	index1ResultName := m.ResultsExcludeErr()[0].Name
 	result1DataCode := jen.Id(index1ResultName)
-	if m.KitResponse != nil {
-		result1DataCode = jen.Parens(jen.Op("&").Id(m.KitResponse.StructName + "DTO").Values()).Dot("DTO").Call(jen.Id(index1ResultName))
-	}
 
 	if len(m.ResultsExcludeErr()) == 1 {
 		code = jen.Return(jen.Id("encode.Response").Values(

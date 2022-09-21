@@ -24,7 +24,7 @@ type KitCommentConf struct {
 	HttpRequestName string
 	HttpRequestBody bool
 
-	HttpResponseName string
+	//HttpResponseName string
 
 	HttpParams      map[string]HttpParam
 	KitServiceParam KitServiceParam
@@ -76,26 +76,26 @@ func KitComment(comments []*ast.Comment) (kitConf KitCommentConf, err error) {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
-		case KitHttpResponse:
-			err = (&kitConf).ParamKitHttpResponse(fields)
-			if err != nil {
-				err = errors.Wrap(err, comment.Text)
-				return
-			}
+		//case KitHttpResponse:
+		//	err = (&kitConf).ParamKitHttpResponse(fields)
+		//	if err != nil {
+		//		err = errors.Wrap(err, comment.Text)
+		//		return
+		//	}
 
 		}
 	}
 	return
 }
 
-func (m *KitCommentConf) ParamKitHttpResponse(s []string) (err error) {
-	if len(s) < 3 {
-		err = errors.New("must format: @kit-http-response responseName")
-		return
-	}
-	m.HttpResponseName = s[2]
-	return
-}
+//func (m *KitCommentConf) ParamKitHttpResponse(s []string) (err error) {
+//	if len(s) < 3 {
+//		err = errors.New("must format: @kit-http-response responseName")
+//		return
+//	}
+//	m.HttpResponseName = s[2]
+//	return
+//}
 
 func (m *KitCommentConf) ParamKitHttpRequest(s []string) (err error) {
 	if len(s) < 3 {

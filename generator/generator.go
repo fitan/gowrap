@@ -3,12 +3,12 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
 	"go/ast"
 	"go/token"
-	"go/types"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
@@ -30,6 +30,7 @@ type Generator struct {
 	dstPackage     *packages.Package
 	genTemplates   []genTemplate
 	methods        methodsList
+	GenFn *GenFn
 	doc            *ast.CommentGroup
 	interfaceType  string
 	localPrefix    string
@@ -47,6 +48,8 @@ type TemplateInputs struct {
 	// Vars additional vars to pass to the template, see Options.Vars
 	Vars    map[string]interface{}
 	Imports []string
+
+	GenFn *GenFn
 }
 
 // Import generates an import statement using a list of imports from the source file
@@ -222,6 +225,103 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 		})
 	}
 
+	return gs, nil
+}
+
+func NewGeneratorFn(ops []Options) ([]*Generator, error) {
+	if len(ops) == 0 {
+		return nil, nil
+	}
+
+	globalOption = ops[0]
+
+	gs := make([]*Generator, 0, 0)
+	for _, options := range ops {
+		if options.Funcs == nil {
+			options.Funcs = make(template.FuncMap)
+		}
+
+		headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse(options.HeaderTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse header template")
+		}
+
+		bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse body template")
+		}
+
+		if options.Vars == nil {
+			options.Vars = make(map[string]interface{})
+		}
+
+		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
+
+		fs := token.NewFileSet()
+
+		//if srcPackage == nil {
+		//	srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
+		//	if err != nil {
+		//		return nil, errors.Wrap(err, "failed to load source package")
+		//	}
+		//}
+
+		dstPackagePath := filepath.Dir(options.OutputFile)
+		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
+			dstPackagePath = "./" + dstPackagePath
+		}
+
+		//if dstPackage == nil {
+		//	dstPackage, err = loadDestinationPackage(dstPackagePath)
+		//	if err != nil {
+		//		return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+		//	}
+		//}
+
+		if srcPackageAST == nil {
+			srcPackageAST, err = pkg.AST(fs, options.SourceLoadPkg)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse source package")
+			}
+		}
+
+		interfaceType := options.SourceLoadPkg.Name + "." + options.InterfaceName
+		if options.SourceLoadPkg.PkgPath == options.SourceLoadPkg.PkgPath {
+			interfaceType = options.InterfaceName
+			srcPackageAST.Name = ""
+		} else {
+			if options.SourcePackageAlias != "" {
+				srcPackageAST.Name = options.SourcePackageAlias
+			}
+
+			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
+		}
+
+
+
+		options.Imports = append(options.Imports, makeImports(importSpecs)...)
+
+		jenF := jen.NewFile("genfn")
+
+		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnDTO())
+		genFn.Parse()
+		genFn.Run()
+
+		gs = append(gs, &Generator{
+			Options:        options,
+			headerTemplate: headerTemplate,
+			bodyTemplate:   bodyTemplate,
+			srcPackage:     options.SourceLoadPkg,
+			dstPackage:     options.SourceLoadPkg,
+			interfaceType:  interfaceType,
+			methods:        methods,
+			GenFn: genFn,
+			doc:            doc,
+			localPrefix:    options.LocalPrefix,
+			genTemplates:   make([]genTemplate, 0, 0),
+		})
+
+	}
 	return gs, nil
 }
 
@@ -416,6 +516,8 @@ func (g Generator) Generate() error {
 		},
 		Imports: g.Options.Imports,
 		Vars:    g.Options.Vars,
+
+		GenFn:  g.GenFn,
 	})
 	if err != nil {
 		return err
@@ -507,11 +609,11 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 		return nil, nil
 	}
 
-	interfaceType := currentPackage.Types.Scope().Lookup(interfaceName).Type().Underlying().(*types.Interface)
+	//interfaceType := currentPackage.Types.Scope().Lookup(interfaceName).Type().Underlying().(*types.Interface)
 
 	methods = make(methodsList, len(it.Methods.List))
 
-	for index, field := range it.Methods.List {
+	for _, field := range it.Methods.List {
 		var embeddedMethods methodsList
 
 		var kit Kit
@@ -555,10 +657,10 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 					method.KitRequestDecode = kitRequest.DecodeRequest()
 				}
 
-				if kit.Conf.HttpResponseName != "" {
-					response := NewResponse(currentPackage, interfaceType.Method(index), kit.Conf.HttpResponseName)
-					method.KitResponse = response
-				}
+				//if kit.Conf.HttpResponseName != "" {
+				//	response := NewResponse(currentPackage, interfaceType.Method(index), kit.Conf.HttpResponseName)
+				//	method.KitResponse = response
+				//}
 
 				methods[field.Names[0].Name] = *method
 			}

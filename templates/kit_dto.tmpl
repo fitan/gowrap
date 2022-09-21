@@ -1,5 +1,7 @@
 {{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
 {{$.Import}}
-{{range $m := $.Interface.Methods}}
-{{$m.KitResponse.JenF.Group.GoString}}
+{{range $.GenFn.Plugs}}
+	{{if .Name | eq "dto"}}
+		{{.JenF.Group.GoString}}
+	{{end}}
 {{end}}

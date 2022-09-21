@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"go/types"
@@ -17,13 +18,36 @@ type GenFn struct {
 	JenF *jen.File
 }
 
+func NewGenFn(pkg *packages.Package, jenF *jen.File, plugs ...FnPlug) *GenFn {
+	return &GenFn{Pkg: pkg, FuncList: map[string]Func{}, Plugs: plugs, JenF: jenF}
+}
+
 type FnPlug interface {
-	Gen(jenF *jen.File,name string, fn Func)
+	Name() string
+	Gen(pkg *packages.Package, name string, fn Func) error
+	JenF() *jen.File
 }
 
 type Func struct {
 	MarkParam []string
 	Args []types.Type
+}
+
+func (g *GenFn) JenFile() *jen.File {
+	return g.JenF
+}
+
+func (g *GenFn) Run() {
+	for name, fn := range g.FuncList {
+		for _,plug := range g.Plugs {
+			fmt.Println("plug name:",name, fn)
+			err := plug.Gen(g.Pkg, name, fn)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+	}
 }
 
 func (g *GenFn) Parse() {
@@ -43,8 +67,6 @@ func (g *GenFn) Parse() {
 
 					return true
 				}
-
-
 
 				fnName := call.Fun.(*ast.Ident).Name
 				for _,arg :=range call.Args {

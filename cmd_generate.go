@@ -42,6 +42,7 @@ type GenerateCommand struct {
 	batchTemplate string
 	initType      string
 	initName      string
+	genFn string
 }
 
 var serviceCombo []string = []string{"service", "new"}
@@ -73,6 +74,7 @@ func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 	fs.StringVar(&gc.localPrefix, "l", "", "put imports beginning with this string after 3rd-party packages; comma-separated list")
 	fs.StringVar(&gc.initType, "init", "", "init type")
 	fs.StringVar(&gc.initName, "n", "", "init name")
+	fs.StringVar(&gc.genFn, "fn", "", "gen fn")
 
 	gc.BaseCommand = BaseCommand{
 		Short: "generate decorators",
@@ -107,6 +109,26 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		}
 
 		gens, err := generator.NewGeneratorInit(ops)
+		if err != nil {
+			return err
+		}
+
+		for _, gen := range gens {
+			err := gen.Generate()
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if gc.genFn != "" {
+		ops, err = gc.getFnOptions()
+		if err != nil {
+			return err
+		}
+
+		gens, err := generator.NewGeneratorFn(ops)
 		if err != nil {
 			return err
 		}
@@ -185,6 +207,68 @@ func (gc *GenerateCommand) checkFlags() error {
 	//}
 
 	return nil
+}
+
+func (gc *GenerateCommand) getFnOptions() ([]generator.Options, error) {
+	ops := make([]generator.Options, 0, 0)
+
+	sourcePackage, err := pkg.Load(gc.sourcePkg, gc.pkgNeedSyntax)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load source package")
+	}
+
+	cmdDir, err := os.Getwd()
+	if err != nil {
+		return nil, errors.Wrap(err, "os.Getwd")
+	}
+
+	btl := strings.Split(gc.batchTemplate, " ")
+	for _, v := range btl {
+		vl := strings.Split(v, ":")
+		if len(vl) != 2 {
+			return nil, fmt.Errorf("format is wrong: %s", v)
+		}
+		bodyTemplate := vl[0]
+		outputFile := vl[1]
+
+		options := generator.Options{
+			InterfaceName:  gc.interfaceName,
+			OutputFile:     outputFile,
+			Funcs:          helperFuncs,
+			HeaderTemplate: headerTemplate,
+			HeaderVars: map[string]interface{}{
+				"DisableGoGenerate": gc.noGenerate,
+				"OutputFileName":    filepath.Base(outputFile),
+				"VarsArgs":          varsToArgs(gc.vars),
+			},
+			Vars:          gc.vars.toMap(),
+			LocalPrefix:   gc.localPrefix,
+			PkgNeedSyntax: gc.pkgNeedSyntax,
+			RunCmdDir:     cmdDir,
+		}
+
+		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
+		if err != nil {
+			return nil, err
+		}
+
+		if gc.sourcePkg == "" {
+			gc.sourcePkg = "./"
+		}
+
+		options.SourceLoadPkg = sourcePackage
+
+		options.SourcePackage = sourcePackage.PkgPath
+		//options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)
+		options.BodyTemplate, options.HeaderVars["Template"], err = gc.embedLoadTemplate(bodyTemplate, outputFileDir)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, options)
+
+	}
+
+	return ops, err
 }
 
 func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]generator.Options, error) {

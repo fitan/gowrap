@@ -18,7 +18,9 @@ type GenType struct {
 }
 
 type TypePlug interface {
-	Gen(jenF *jen.File,name string, t Type)
+	Name() string
+	Gen(pkg *packages.Package, name string, t Type) error
+	JenF() *jen.File
 }
 
 type Type struct {

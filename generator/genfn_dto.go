@@ -62,7 +62,7 @@ func (g *GenFnDTO) Gen(pkg *packages.Package , name string, fn Func) error {
 
 
 
-	g.jenF.Func().Id(name).Params(jen.Id("src").Id(srcTypeID), jen.Id("dest").Id(destTypeID)).Block(
+	g.jenF.Func().Id(name).Params(jen.Id("src").Id(srcTypeID), jen.Id("dest").Id("*"+destTypeID)).Block(
 		jen.Id("v").Op(":=").Id(objName).Block().Dot("DTO").Call(jen.Id("src")),
 		jen.Id("dest").Op("=").Id("&v"),
 	)
@@ -81,7 +81,7 @@ func (g *GenFnDTO) Gen(pkg *packages.Package , name string, fn Func) error {
 		DestPath: []string{},
 		Dest: NewDataFieldMap(pkg,[]string{}, objName, xtype.TypeOf(DestTypeElem), DestTypeElem),
 		DefaultFn: jen.Func().Params(jen.Id("d").Id(objName)).
-			Id("DTO").Params(jen.Id("src").Id(srcTypeID)).Params(jen.Id("dest").Id("*"+destTypeID)),
+			Id("DTO").Params(jen.Id("src").Id(srcTypeID)).Params(jen.Id("dest").Id(destTypeID)),
 	}
 	dto.Gen()
 	return nil

@@ -129,7 +129,10 @@ func (r RedisService) Hello(
 func (r RedisService) SayHello(
 	ctx context.Context, uuid string, ip string, port int, headerName string,
 ) (res HelloRequest, err error) {
-
+	src := HelloRequest{}
+	// @fn dto
+	apiDTO(src, &res)
+	panic("implement me")
 }
 
 func (r RedisService) HelloBody(ctx context.Context, helloRequest HelloRequest) (

@@ -1,4 +1,78 @@
-# Define where the code will be generated.
-generated:
-  setup: ./setup.go
-  output: ../copygen.go
+// parentPath: : // path: : func (d *DTO) DTO (src HelloRequest) (dest HelloRequest) {
+dest.Vm.Port = src.Vm.Port
+dest.HeaderName = src.HeaderName
+dest.Role = src.Role
+dest.UUID = src.UUID
+dest.Body.Name = src.Body.Name
+dest.Body.Age = src.Body.Age
+dest.Paging.Page = src.Paging.Page
+dest.Paging.Size = src.Paging.Size
+dest.Vm.Ip = src.Vm.Ip
+dest.ID = src.ID
+dest.Time = src.Time
+dest.LastNamesInt = make([] int,0,len (src.LastNamesInt))
+for i := 0;i < len (src.LastNamesInt);i ++ {
+dest.LastNamesInt [i] = src.LastNamesInt [i]
+}
+dest.Vm.NetWorks = make([] nest.NetWork,0,len (src.Vm.NetWorks))
+for i := 0;i < len (src.Vm.NetWorks);i ++ {
+dest.Vm.NetWorks [i] = d.nestNetWorkToNestNetWork (src.Vm.NetWorks [i])
+}
+dest.Vm.VVMMSS = make([] nest.Vm,0,len (src.Vm.VVMMSS))
+for i := 0;i < len (src.Vm.VVMMSS);i ++ {
+dest.Vm.VVMMSS [i] = d.nestVmToNestVm (src.Vm.VVMMSS [i])
+}
+dest.VMS = make([] nest.Vm,0,len (src.VMS))
+for i := 0;i < len (src.VMS);i ++ {
+dest.VMS [i] = d.nestVmToNestVm (src.VMS [i])
+}
+dest.Namespace = make([] string,0,len (src.Namespace))
+for i := 0;i < len (src.Namespace);i ++ {
+dest.Namespace [i] = src.Namespace [i]
+}
+dest.ParentNames = make([] * string,0,len (src.ParentNames))
+for i := 0;i < len (src.ParentNames);i ++ {
+dest.ParentNames [i] = d.pStringToPString (src.ParentNames [i])
+}
+dest.LastNames = make([] string,0,len (src.LastNames))
+for i := 0;i < len (src.LastNames);i ++ {
+dest.LastNames [i] = src.LastNames [i]
+}
+dest.VMMap = make(map[string] nest.Vm,len (src.VMMap))
+for key,value := range src.VMMap {
+dest.VMMap [key] = d.nestVmToNestVm (value)
+}
+dest.ParentName = src.ParentName
+if src.FatherNames != nil {
+v := d.stringListToStringList (* src.FatherNames)
+dest.FatherNames = &v
+} else {
+dest.FatherNames = src.FatherNames
+}
+return
+} // parentPath: Vm.NetWorks:Vm.NetWorks // path: : func (d *DTO) nestNetWorkToNestNetWork (src nest.NetWork) (dest nest.NetWork) {
+dest.Mark = src.Mark
+dest.Ns = src.Ns
+return
+} // parentPath: Vm.VVMMSS:Vm.VVMMSS // path: : func (d *DTO) nestVmToNestVm (src nest.Vm) (dest nest.Vm) {
+dest.Ip = src.Ip
+dest.Port = src.Port
+dest.NetWorks = make([] nest.NetWork,0,len (src.NetWorks))
+for i := 0;i < len (src.NetWorks);i ++ {
+dest.NetWorks [i] = d.nestNetWorkToNestNetWork (src.NetWorks [i])
+}
+dest.VVMMSS = make([] nest.Vm,0,len (src.VVMMSS))
+for i := 0;i < len (src.VVMMSS);i ++ {
+dest.VVMMSS [i] = d.nestVmToNestVm (src.VVMMSS [i])
+}
+return
+} // parentPath: ParentNames:ParentNames // path: : func (d *DTO) pStringToPString (src * string) (dest * string) {
+dest = src
+return
+} // parentPath: FatherNames:FatherNames // path: FatherNames:FatherNames func (d *DTO) stringListToStringList (src [] string) (dest [] string) {
+dest = make([] string,0,len (src))
+for i := 0;i < len (src);i ++ {
+dest [i] = src [i]
+}
+return
+}

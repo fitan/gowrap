@@ -3,6 +3,7 @@ package generator
 import (
 	"bytes"
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
@@ -33,6 +34,7 @@ type Generator struct {
 	dstPackage     *packages.Package
 	genTemplates   []genTemplate
 	methods        methodsList
+	GenFn *GenFn
 	doc            *ast.CommentGroup
 	interfaceType  string
 	localPrefix    string
@@ -50,6 +52,8 @@ type TemplateInputs struct {
 	// Vars additional vars to pass to the template, see Options.Vars
 	Vars    map[string]interface{}
 	Imports []string
+
+	GenFn *GenFn
 }
 
 // Import generates an import statement using a list of imports from the source file
@@ -261,6 +265,103 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 	return gs, nil
 }
 
+func NewGeneratorFn(ops []Options) ([]*Generator, error) {
+	if len(ops) == 0 {
+		return nil, nil
+	}
+
+	globalOption = ops[0]
+
+	gs := make([]*Generator, 0, 0)
+	for _, options := range ops {
+		if options.Funcs == nil {
+			options.Funcs = make(template.FuncMap)
+		}
+
+		headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse(options.HeaderTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse header template")
+		}
+
+		bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse body template")
+		}
+
+		if options.Vars == nil {
+			options.Vars = make(map[string]interface{})
+		}
+
+		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
+
+		fs := token.NewFileSet()
+
+		//if srcPackage == nil {
+		//	srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
+		//	if err != nil {
+		//		return nil, errors.Wrap(err, "failed to load source package")
+		//	}
+		//}
+
+		dstPackagePath := filepath.Dir(options.OutputFile)
+		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
+			dstPackagePath = "./" + dstPackagePath
+		}
+
+		//if dstPackage == nil {
+		//	dstPackage, err = loadDestinationPackage(dstPackagePath)
+		//	if err != nil {
+		//		return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+		//	}
+		//}
+
+		if srcPackageAST == nil {
+			srcPackageAST, err = pkg.AST(fs, options.SourceLoadPkg)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse source package")
+			}
+		}
+
+		interfaceType := options.SourceLoadPkg.Name + "." + options.InterfaceName
+		if options.SourceLoadPkg.PkgPath == options.SourceLoadPkg.PkgPath {
+			interfaceType = options.InterfaceName
+			srcPackageAST.Name = ""
+		} else {
+			if options.SourcePackageAlias != "" {
+				srcPackageAST.Name = options.SourcePackageAlias
+			}
+
+			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
+		}
+
+
+
+		options.Imports = append(options.Imports, makeImports(importSpecs)...)
+
+		jenF := jen.NewFile("genfn")
+
+		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnDTO())
+		genFn.Parse()
+		genFn.Run()
+
+		gs = append(gs, &Generator{
+			Options:        options,
+			headerTemplate: headerTemplate,
+			bodyTemplate:   bodyTemplate,
+			srcPackage:     options.SourceLoadPkg,
+			dstPackage:     options.SourceLoadPkg,
+			interfaceType:  interfaceType,
+			methods:        methods,
+			GenFn: genFn,
+			doc:            doc,
+			localPrefix:    options.LocalPrefix,
+			genTemplates:   make([]genTemplate, 0, 0),
+		})
+
+	}
+	return gs, nil
+}
+
 //NewGenerator returns Generator initialized with options
 func NewGenerator(ops []Options) ([]*Generator, error) {
 	if len(ops) == 0 {
@@ -403,7 +504,6 @@ func makeImports(imports []*ast.ImportSpec) []string {
 		result = append(result, extra...)
 	}
 
-
 	return result
 }
 
@@ -466,7 +566,7 @@ func makeExtraImport(doc *ast.CommentGroup) (res []string) {
 	}
 	for _, c := range doc.List {
 		if strings.HasPrefix(c.Text, "// @extra ") {
-			res = append(res,strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra ")))
+			res = append(res, strings.TrimSpace(strings.TrimPrefix(c.Text, "// @extra ")))
 		}
 	}
 	return
@@ -518,6 +618,8 @@ func (g Generator) Generate(fix bool) error {
 		},
 		Imports: g.Options.Imports,
 		Vars:    g.Options.Vars,
+
+		GenFn:  g.GenFn,
 	})
 	if err != nil {
 		return err
@@ -620,10 +722,12 @@ func typeSpecs(f *ast.File) ([]*ast.TypeSpec, []*ast.CommentGroup) {
 	return result, gdDoc
 }
 
-func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
+func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, typeSpecs []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
 	if it.Methods == nil {
 		return nil, nil
 	}
+
+	//interfaceType := currentPackage.Types.Scope().Lookup(interfaceName).Type().Underlying().(*types.Interface)
 
 	methods = make(methodsList, len(it.Methods.List))
 
@@ -643,7 +747,7 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 			}
 
 			var method *Method
-			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, types, typesPrefix))
+			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, typeSpecs, typesPrefix))
 
 			if err == nil {
 
@@ -671,12 +775,17 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 					method.KitRequestDecode = kitRequest.DecodeRequest()
 				}
 
+				//if kit.Conf.HttpResponseName != "" {
+				//	response := NewResponse(currentPackage, interfaceType.Method(index), kit.Conf.HttpResponseName)
+				//	method.KitResponse = response
+				//}
+
 				methods[field.Names[0].Name] = *method
 			}
 		case *ast.SelectorExpr:
 			embeddedMethods, err = processSelector(fs, currentPackage, v, imports)
 		case *ast.Ident:
-			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, types, typesPrefix, imports)
+			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, typeSpecs, typesPrefix, imports)
 		}
 
 		if err != nil {

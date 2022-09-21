@@ -22,6 +22,7 @@ require (
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03 // indirect
 	golang.org/x/tools v0.1.11
 	google.golang.org/grpc v1.37.0
+	gorm.io/gorm v1.23.9
 )
 
 go 1.16

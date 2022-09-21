@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"strings"
 )
@@ -569,4 +570,84 @@ func (m Method) SwagFieldData() string {
 		s = append(s, "data."+v.Name + "=" + v.Type)
 	}
 	return strings.Join(s, ",")
+}
+
+
+func (m Method) ResultsExcludeErrCode() *jen.Statement {
+	var code []jen.Code
+
+	for _,v := range m.ResultsExcludeErr() {
+		code = append(code,jen.Id(v.Name).Id(v.Type))
+	}
+
+	return jen.Var().Defs(code...)
+}
+
+func (m Method) ResultsNamesCode() *jen.Statement {
+	var l jen.Statement
+	for _, v := range m.Results {
+		l = append(l,jen.Id(v.Name))
+	}
+
+	return jen.List(l...)
+}
+
+func (m Method) ParamsNamesCode() *jen.Statement {
+	var l jen.Statement
+
+	l = append(l, jen.Id("ctx"))
+	if m.KitRequest.RequestIsBody {
+		l = append(l, jen.Id("req"))
+		return jen.List(l...)
+	}
+
+	for _, v := range m.ParamsExcludeCtx() {
+		l = append(l, jen.Id("req."+m.KitRequest.ParamPath(v.Name)))
+	}
+
+	return jen.List(l...)
+}
+
+func (m Method) ReturnCode() *jen.Statement {
+	var code *jen.Statement
+	index1ResultName := m.ResultsExcludeErr()[0].Name
+	result1DataCode := jen.Id(index1ResultName)
+
+	if len(m.ResultsExcludeErr()) == 1 {
+		code = jen.Return(jen.Id("encode.Response").Values(
+			jen.Dict{
+				jen.Id("Data"): result1DataCode,
+				jen.Id("Error"): jen.Id("err"),
+			},
+		), jen.Id("err"))
+	} else {
+		valueDick := make(jen.Dict)
+		valueDick[jen.Lit(m.ResultsExcludeErr()[0].Name)] = result1DataCode
+		for _, v := range m.ResultsExcludeErr()[1:] {
+			valueDick[jen.Lit(v.Name)] = jen.Id(v.Name)
+		}
+		dataMap := jen.Map(jen.String()).Interface().Values(valueDick)
+
+		code = jen.Return(jen.Id("encode.Response").Values(
+			jen.Dict{
+				jen.Id("Data"): dataMap,
+				jen.Id("Error"): jen.Id("err"),
+			},
+		), jen.Id("err"))
+	}
+
+	return code
+
+}
+
+
+
+func (m Method) MakeEndpoint() string {
+	return jen.Func().Id("make" + upFirst(m.Name) + "Endpoint").Params(jen.Id("s").Id("Service")).Id("endpoint.Endpoint").Block(
+		jen.Return(jen.Func().Params(jen.Id("ctx").Id("context.Context"), jen.Id("request").Interface()).Params(jen.Id("response").Interface(), jen.Id("err").Error()).Block(
+			jen.Id("req").Op(":=").Id("request.").Params(jen.Id(m.KitRequest.RequestName)),
+			m.ResultsExcludeErrCode(),
+			m.ResultsNamesCode().Op("=").Id("s").Dot(m.Name).Call(m.ParamsNamesCode()),
+			m.ReturnCode(),
+		))).GoString()
 }

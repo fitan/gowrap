@@ -157,7 +157,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		}
 
 		for _, gen := range gens {
-			err := gen.Generate()
+			err := gen.Generate(true)
 			if err != nil {
 				return err
 			}

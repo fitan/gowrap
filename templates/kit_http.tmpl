@@ -4,7 +4,7 @@
 `"net/http"`
 `"strings"`
 `valid "github.com/asaskevich/govalidator"`
-`"github.com/go-kit/kit/endpoint"`
+`endpoint "github.com/go-kit/kit/endpoint"`
 `kithttp "github.com/go-kit/kit/transport/http"`
 `"github.com/gorilla/mux"`
 `"github.com/pkg/errors"`
@@ -61,7 +61,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 // @Param {{$m.KitRequest.RequestName}} body {{$m.KitRequest.RequestName}} 	true "http request body"
 {{- else}}
 {{- range $k, $v := $m.KitRequest.Body}}
-// @Param {{$v.ParamName}} body {{$v.BasicType}} true {{$v.Annotations}}
+// @Param {{$v.ParamName}} body {{$v.ParamTypeName}} true {{$v.Annotations}}
 {{- end}}
 {{- end}}
 // @Success 200 {object} encode.Response{ {{- $m.SwagFieldData}}}

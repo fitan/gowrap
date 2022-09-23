@@ -516,7 +516,7 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 
 	switch rt := requestType.(type) {
 	case *types.Named:
-		k.NamedMap[paramName] = rt.Obj().Type().String()
+		k.NamedMap[paramName] = rt.Obj().Id()
 		//k.SetParam(RequestParam{
 		//	ParamDoc:     doc,
 		//	ParamPath:    strings.Join(prefix, "."),

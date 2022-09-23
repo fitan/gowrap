@@ -16,8 +16,8 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-const ResponseTag = "dto"
-const DTOMethodName = "@dto-method"
+const ResponseTag = "copy"
+const CopyMethodName = "@copy-method"
 
 type Field struct {
 	Path []string
@@ -28,14 +28,14 @@ type Field struct {
 	Doc      *ast.CommentGroup
 }
 
-func (f Field) DTOMethod() (pkgName, methodName string) {
+func (f Field) CopyMethod() (pkgName, methodName string) {
 	if f.Doc == nil {
 		return
 	}
 	for _, v := range f.Doc.List {
 		s := DocFormat(v.Text)
-		if strings.HasPrefix(s, "// "+DTOMethodName) {
-			params := strings.TrimPrefix(s, "// "+DTOMethodName)
+		if strings.HasPrefix(s, "// "+CopyMethodName) {
+			params := strings.TrimPrefix(s, "// "+CopyMethodName)
 			paramList := strings.Fields(params)
 			if len(paramList) < 1 {
 				panic("dto method format error: " + s)
@@ -108,21 +108,44 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *as
 		Type: xtype.TypeOf(t),
 		Doc:  doc,
 	}
-
+	if name == "Cabinets" {
+		fmt.Println("print field Cabinets", f)
+	}
+	if name == "Status" {
+		fmt.Println("print field Status", f)
+	}
 	switch v := t.(type) {
 	case *types.Pointer:
+		if b,ok := d.PointerMap[name]; ok {
+			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+			return
+		}
 		d.PointerMap[name] = f
 	case *types.Basic:
+		if b,ok := d.BasicMap[name]; ok {
+			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+			return
+		}
 		d.BasicMap[name] = f
 		return
 	case *types.Map:
+		if b,ok := d.MapMap[name]; ok {
+			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+			return
+		}
 		d.MapMap[name] = f
 		return
 	case *types.Slice:
+		if b,ok := d.SliceMap[name]; ok {
+			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+			return
+		}
 		d.SliceMap[name] = f
+		return
 	case *types.Array:
 	case *types.Named:
 		d.Parse(prefix, name, v.Underlying(), doc)
+		return
 	case *types.Struct:
 		for i := 0; i < v.NumFields(); i++ {
 			field := v.Field(i)
@@ -130,6 +153,9 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *as
 				continue
 			}
 			indexName := field.Name()
+			if field.Name() == "Cabinets" {
+				fmt.Println("find struct Cabinets: ", field.Type().String())
+			}
 			tagName, ok := reflect.StructTag(v.Tag(i)).Lookup(ResponseTag)
 			if ok {
 				indexName = tagName
@@ -137,6 +163,7 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *as
 			doc = GetCommentByTokenPos(d.Pkg, field.Pos())
 			d.Parse(append(prefix[0:], field.Name()), indexName, field.Type(), doc)
 		}
+		return
 	default:
 		panic("unknown types.Type " + t.String())
 	}
@@ -159,7 +186,7 @@ func (r *Recorder) Lookup(name string) bool {
 	return ok
 }
 
-func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *DTO {
+func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *Copy {
 	fnName := f.Id()
 	src := f.Type().(*types.Signature).Results().At(0)
 	srcType := src.Type()
@@ -174,10 +201,10 @@ func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *DTO
 	//fmt.Println("names: ", pkg.Types.Scope().Names(), "path: ", pkg.Types.Path())
 	destType := pkg.Types.Scope().Lookup(responseName)
 
-	jenF := jen.NewFile("DTO")
-	jenF.Add(jen.Type().Id(fnName + "DTO").Struct())
+	jenF := jen.NewFile("Copy")
+	jenF.Add(jen.Type().Id(fnName + "Copy").Struct())
 
-	dto := DTO{
+	dto := Copy{
 		Pkg:            pkg,
 		JenF:           jenF,
 		Recorder:       NewRecorder(),
@@ -187,15 +214,15 @@ func NewResponse(pkg *packages.Package, f *types.Func, responseName string) *DTO
 		DestParentPath: []string{},
 		DestPath:       []string{},
 		Dest:           NewDataFieldMap(pkg, []string{}, "dest", xtype.TypeOf(destType.Type()), destType.Type()),
-		DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + fnName + "DTO")).
-			Id("DTO").Params(jen.Id("src").Id(srcTypeName)).Params(jen.Id("dest").Id(responseName)),
+		DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + fnName + "Copy")).
+			Id("Copy").Params(jen.Id("src").Id(srcTypeName)).Params(jen.Id("dest").Id(responseName)),
 		StructName: fnName,
 	}
 	dto.Gen()
 	return &dto
 }
 
-type DTO struct {
+type Copy struct {
 	Pkg            *packages.Package
 	JenF           *jen.File
 	Recorder       *Recorder
@@ -205,39 +232,43 @@ type DTO struct {
 	DestParentPath []string
 	DestPath       []string
 	Dest           *DataFieldMap
-	Nest           []*DTO
+	Nest           []*Copy
 	DefaultFn      *jen.Statement
 	StructName     string
 }
 
-func (d *DTO) FnName() string {
+func (d *Copy) FnName() string {
 	return d.Src.Type.ID() + "To" + upFirst(d.Dest.Type.ID())
 }
 
-func (d *DTO) SumPath() string {
+func (d *Copy) SumPath() string {
 	return strings.Join(d.SrcPath, ".") + ":" + strings.Join(d.DestPath, ".")
 }
 
-func (d *DTO) Doc() *jen.Statement {
+func (d *Copy) Doc() *jen.Statement {
 	code := make(jen.Statement, 0)
 	code = append(code, jen.Comment("parentPath: "+strings.Join(d.SrcParentPath, ".")+":"+strings.Join(d.DestParentPath, ".")))
 	code = append(code, jen.Comment("path: "+strings.Join(d.SrcPath, ".")+":"+strings.Join(d.DestPath, ".")))
 	return &code
 }
 
-func (d *DTO) SumParentPath() string {
+func (d *Copy) SumParentPath() string {
 	return strings.Join(d.SrcParentPath, ".") + ":" + strings.Join(d.DestParentPath, ".")
 }
 
-func (d *DTO) Gen() {
+func (d *Copy) Gen() {
 	has, fn := d.GenFn(d.FnName(), d.Src.Type.TypeAsJen(), d.Dest.Type.TypeAsJen())
 	if has {
 		return
 	}
 	bind := make(jen.Statement, 0)
+	bind = append(bind, jen.Comment("basic ="))
 	bind = append(bind, d.GenBasic()...)
+	bind = append(bind,jen.Comment("slice = "))
 	bind = append(bind, d.GenSlice()...)
+	bind = append(bind, jen.Comment("map = "))
 	bind = append(bind, d.GenMap()...)
+	bind = append(bind, jen.Comment("pointer = "))
 	bind = append(bind, d.GenPointer()...)
 	bind = append(bind, jen.Return())
 
@@ -249,8 +280,8 @@ func (d *DTO) Gen() {
 	}
 }
 
-func (d *DTO) GenExtraDTOMethod(bind *jen.Statement, destV, srcV Field) (has bool) {
-	pkgName, methodName := destV.DTOMethod()
+func (d *Copy) GenExtraCopyMethod(bind *jen.Statement, destV, srcV Field) (has bool) {
+	pkgName, methodName := destV.CopyMethod()
 	if pkgName == "" && methodName == "" {
 		return false
 	}
@@ -260,37 +291,54 @@ func (d *DTO) GenExtraDTOMethod(bind *jen.Statement, destV, srcV Field) (has boo
 
 }
 
-func (d *DTO) GenBasic() jen.Statement {
+func (d *Copy) GenBasic() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.BasicMap {
-		srcV := d.Src.BasicMap[v.Name]
+		if v.Name == "Cabinets" {
+			fmt.Println("find basic cabinets: ", v.DestIdPath().String(),v.Type.T.String())
+		}
+		srcV,ok := d.Src.BasicMap[v.Name]
+		if !ok {
+			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
+			continue
+		}
+
 		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 
-		if d.GenExtraDTOMethod(&bind, v, srcV) {
+		if d.GenExtraCopyMethod(&bind, v, srcV) {
 			continue
 		}
-		//dtoMethod := v.DTOMethod()
+		//dtoMethod := v.CopyMethod()
 		//if dtoMethod != nil {
 		//	bind.Add(v.DestIdPath().Op("=").Add(dtoMethod.Call(srcV.SrcIdPath())))
 		//	continue
 		//}
 		fmt.Println("xtype", "ttype", "basic", "name", v.Name, "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().GoString())
+		bind = append(bind, jen.Comment("basic = "+v.Name))
+		bind = append(bind ,jen.Comment(strings.Join(v.Path, ".")))
+		bind = append(bind, jen.Comment(v.SrcIdPath().GoString()))
+		bind = append(bind, jen.Comment(v.DestIdPath().GoString()))
+
 		bind.Add(v.DestIdPath().Op("=").Add(srcV.SrcIdPath()))
 	}
 	return bind
 }
 
-func (d *DTO) GenMap() jen.Statement {
+func (d *Copy) GenMap() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.MapMap {
-		srcV := d.Src.MapMap[v.Name]
+		srcV,ok := d.Src.MapMap[v.Name]
+		if !ok {
+			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
+			continue
+		}
 		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 
-		if d.GenExtraDTOMethod(&bind, v, srcV) {
+		if d.GenExtraCopyMethod(&bind, v, srcV) {
 			continue
 		}
 
@@ -310,7 +358,7 @@ func (d *DTO) GenMap() jen.Statement {
 			//destName := destMapValue.HashID(d.SumPath())
 			srcName := srcV.FieldName(d.SumPath())
 			destName := v.FieldName(d.SumPath())
-			nestDTO := &DTO{
+			nestCopy := &Copy{
 				JenF:           d.JenF,
 				Recorder:       d.Recorder,
 				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
@@ -319,12 +367,12 @@ func (d *DTO) GenMap() jen.Statement {
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath:       append([]string{}, v.Path...),
 				Dest:           NewDataFieldMap(d.Pkg, []string{}, destName, destMapValue, destMapValue.T),
-				Nest:           make([]*DTO, 0),
+				Nest:           make([]*Copy, 0),
 				StructName:     d.StructName,
 			}
-			d.Nest = append(d.Nest, nestDTO)
+			d.Nest = append(d.Nest, nestCopy)
 
-			block = v.DestIdPath().Index(jen.Id("key")).Op("=").Id("d." + nestDTO.FnName()).Call(jen.Id("value"))
+			block = v.DestIdPath().Index(jen.Id("key")).Op("=").Id("d." + nestCopy.FnName()).Call(jen.Id("value"))
 		}
 		bind.Add(jen.For(
 			jen.List(jen.Id("key"), jen.Id("value")).
@@ -335,15 +383,20 @@ func (d *DTO) GenMap() jen.Statement {
 	return bind
 }
 
-func (d *DTO) GenPointer() jen.Statement {
+func (d *Copy) GenPointer() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.PointerMap {
-		srcV := d.Src.PointerMap[v.Name]
+		srcV,ok := d.Src.PointerMap[v.Name]
+		if !ok {
+			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
+			continue
+		}
+
 		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 
-		if d.GenExtraDTOMethod(&bind, v, srcV) {
+		if d.GenExtraCopyMethod(&bind, v, srcV) {
 			continue
 		}
 
@@ -359,7 +412,7 @@ func (d *DTO) GenPointer() jen.Statement {
 			srcName := srcV.FieldName(d.SumPath())
 			destName := v.FieldName(d.SumPath())
 			//destName := srcLiner.HashID(d.SumPath())
-			nestDTO := &DTO{
+			nestCopy := &Copy{
 				JenF:           d.JenF,
 				Recorder:       d.Recorder,
 				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
@@ -368,14 +421,14 @@ func (d *DTO) GenPointer() jen.Statement {
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath:       append([]string{}, v.Path...),
 				Dest:           NewDataFieldMap(d.Pkg, []string{}, destName, srcLiner, destLiner.T),
-				Nest:           make([]*DTO, 0),
+				Nest:           make([]*Copy, 0),
 				StructName:     d.StructName,
 			}
-			d.Nest = append(d.Nest, nestDTO)
+			d.Nest = append(d.Nest, nestCopy)
 
 			bind.Add(
 				jen.If(srcV.SrcIdPath().Op("!=").Nil()).Block(
-					jen.Id("v").Op(":=").Id("d."+nestDTO.FnName()).Call(jen.Id("*").Add(srcV.SrcIdPath())),
+					jen.Id("v").Op(":=").Id("d."+nestCopy.FnName()).Call(jen.Id("*").Add(srcV.SrcIdPath())),
 					v.DestIdPath().Op("=").Id("&v"),
 				).Else().Block(
 					v.DestIdPath().Op("=").Add(srcV.SrcIdPath()),
@@ -386,16 +439,23 @@ func (d *DTO) GenPointer() jen.Statement {
 	return bind
 }
 
-func (d *DTO) GenSlice() jen.Statement {
+func (d *Copy) GenSlice() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.SliceMap {
-		srcV := d.Src.SliceMap[v.Name]
+		srcV,ok := d.Src.SliceMap[v.Name]
+		if v.Name == "Cabinets" {
+			fmt.Println("find genCabinets: ", v.DestIdPath().GoString(),v.Type.T.String(),  "find srcv: ", ok)
+		}
+		if !ok {
+			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
+			continue
+		}
 		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
 		//fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
 
-		if d.GenExtraDTOMethod(&bind, v, srcV) {
+		if d.GenExtraCopyMethod(&bind, v, srcV) {
 			continue
 		}
 
@@ -413,7 +473,7 @@ func (d *DTO) GenSlice() jen.Statement {
 			srcName := srcV.FieldName(d.SumPath())
 			destName := v.FieldName(d.SumPath())
 			//destName := srcLiner.HashID(d.SumPath())
-			nestDTO := &DTO{
+			nestCopy := &Copy{
 				JenF:          d.JenF,
 				Recorder:      d.Recorder,
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),
@@ -424,12 +484,12 @@ func (d *DTO) GenSlice() jen.Statement {
 				//DestPath: append([]string{}, v.Path...),
 				DestPath:   d.DestPath[0:],
 				Dest:       NewDataFieldMap(d.Pkg, []string{}, destName, destLiner, destLiner.T),
-				Nest:       make([]*DTO, 0),
+				Nest:       make([]*Copy, 0),
 				StructName: d.StructName,
 			}
-			d.Nest = append(d.Nest, nestDTO)
+			d.Nest = append(d.Nest, nestCopy)
 
-			block = v.DestIdPath().Index(jen.Id("i")).Op("=").Id("d." + nestDTO.FnName()).Call(srcV.SrcIdPath().Index(jen.Id("i")))
+			block = v.DestIdPath().Index(jen.Id("i")).Op("=").Id("d." + nestCopy.FnName()).Call(srcV.SrcIdPath().Index(jen.Id("i")))
 		}
 		bind.Add(jen.For(
 			jen.Id("i").Op(":=").Lit(0),
@@ -442,7 +502,7 @@ func (d *DTO) GenSlice() jen.Statement {
 	return bind
 }
 
-func (d *DTO) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.Statement) {
+func (d *Copy) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.Statement) {
 	if d.DefaultFn != nil {
 		return false, d.DefaultFn
 	}
@@ -458,6 +518,6 @@ func (d *DTO) GenFn(funcName string, srcId, destId jen.Code) (has bool, fn *jen.
 	}
 	d.Recorder.Reg(funcKey)
 
-	return false, jen.Func().Params(jen.Id("d").Id("*" + d.StructName + "DTO")).
+	return false, jen.Func().Params(jen.Id("d").Id(d.StructName)).
 		Id(funcName).Params(jen.Id("src").Add(srcId)).Params(jen.Id("dest").Add(destId))
 }

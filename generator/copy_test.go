@@ -51,7 +51,7 @@ func TestDTO_Parse(t *testing.T) {
 			tt.name, func(t *testing.T) {
 				jenF := jen.NewFile("DTO")
 				jenF.Add(jen.Type().Id("HelloRequestDTO").Struct())
-				dto := DTO{
+				dto := Copy{
 					StructName:     "HelloRequest",
 					JenF:           jenF,
 					Recorder:       NewRecorder(),

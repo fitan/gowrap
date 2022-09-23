@@ -334,13 +334,15 @@ func NewGeneratorFn(ops []Options) ([]*Generator, error) {
 			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
 		}
 
-
+		for _, f := range srcPackageAST.Files  {
+			importSpecs = append(importSpecs,f.Imports...)
+		}
 
 		options.Imports = append(options.Imports, makeImports(importSpecs)...)
 
 		jenF := jen.NewFile("genfn")
 
-		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnDTO())
+		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnCopy())
 		genFn.Parse()
 		genFn.Run()
 

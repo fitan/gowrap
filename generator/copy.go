@@ -101,6 +101,22 @@ func NewDataFieldMap(pkg *packages.Package, prefix []string, name string, xType 
 	return m
 }
 
+func (d *DataFieldMap) saveField(m map[string]Field, name string, field Field) {
+	var oldField Field
+	var ok bool
+	if oldField, ok = m[name]; !ok {
+		m[name] = field
+		return
+	}
+
+	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, oldField.DestIdPath().GoString(), oldField.SrcIdPath().GoString(), field.DestIdPath().GoString(), field.SrcIdPath().GoString())
+	if len(oldField.Path) > len(field.Path) {
+		m[name] = field
+	}
+
+	return
+}
+
 func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *ast.CommentGroup) {
 	f := Field{
 		Name: name,
@@ -116,31 +132,35 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *as
 	}
 	switch v := t.(type) {
 	case *types.Pointer:
-		if b,ok := d.PointerMap[name]; ok {
-			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-			return
-		}
-		d.PointerMap[name] = f
+		//if b,ok := d.PointerMap[name]; ok {
+		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+		//	return
+		//}
+		//d.PointerMap[name] = f
+		d.saveField(d.PointerMap, name, f)
 	case *types.Basic:
-		if b,ok := d.BasicMap[name]; ok {
-			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-			return
-		}
-		d.BasicMap[name] = f
+		//if b,ok := d.BasicMap[name]; ok {
+		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+		//	return
+		//}
+		//d.BasicMap[name] = f
+		d.saveField(d.PointerMap, name, f)
 		return
 	case *types.Map:
-		if b,ok := d.MapMap[name]; ok {
-			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-			return
-		}
-		d.MapMap[name] = f
+		//if b,ok := d.MapMap[name]; ok {
+		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+		//	return
+		//}
+		//d.MapMap[name] = f
+		d.saveField(d.MapMap, name, f)
 		return
 	case *types.Slice:
-		if b,ok := d.SliceMap[name]; ok {
-			fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-			return
-		}
-		d.SliceMap[name] = f
+		//if b,ok := d.SliceMap[name]; ok {
+		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
+		//	return
+		//}
+		//d.SliceMap[name] = f
+		d.saveField(d.SliceMap, name, f)
 		return
 	case *types.Array:
 	case *types.Named:

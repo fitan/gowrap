@@ -95,6 +95,7 @@ type Paging struct {
 }
 
 // @tags paas-api
+// @impl kit
 type Service interface {
 	// Hello
 	// @kit-http /hello/{id} GET

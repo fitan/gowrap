@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"go/types"
 	"golang.org/x/tools/go/packages"
@@ -14,7 +13,6 @@ type GenImpl struct {
 	Pkg      *packages.Package
 	ImplList map[string]Impl
 	Plugs    []ImplPlug
-	JenF     *jen.File
 }
 
 func NewGenImpl(pkg *packages.Package, plugs ...ImplPlug) *GenImpl {
@@ -30,13 +28,14 @@ type ImplPlug struct {
 }
 
 type Impl struct {
+	Imports []*ast.ImportSpec
 	Doc     *ast.CommentGroup
 	Methods []ImplMethod
 }
 
 type ImplMethod struct {
 	Name           string
-	Comment        []*ast.Comment
+	Comment        *ast.CommentGroup
 	Params         MethodParamSlice
 	Results        MethodParamSlice
 	ReturnsError   bool
@@ -52,10 +51,9 @@ type MethodParam struct {
 	Variadic bool
 }
 
-func (g *GenImpl) parseImpl(name string, doc *ast.CommentGroup, ti *types.Interface) {
+func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 
 	impl := Impl{
-		Doc:     doc,
 		Methods: make([]ImplMethod, 0),
 	}
 
@@ -64,9 +62,9 @@ func (g *GenImpl) parseImpl(name string, doc *ast.CommentGroup, ti *types.Interf
 		var acceptsContext bool
 		var params MethodParamSlice
 		var results MethodParamSlice
-		var comment []*ast.Comment
+		var comment *ast.CommentGroup
 		m := ti.Method(i)
-		comment = GetCommentByTokenPos(g.Pkg, m.Pos()).List
+		comment = GetCommentByTokenPos(g.Pkg, m.Pos())
 		methodName := m.Name()
 		ps := m.Type().(*types.Signature).Params()
 		for i := 0; i < ps.Len(); i++ {
@@ -97,6 +95,9 @@ func (g *GenImpl) parseImpl(name string, doc *ast.CommentGroup, ti *types.Interf
 
 			r := rs.At(i)
 			t := r.Type()
+			if _, ok := t.(*types.Named); ok {
+				t = t.Underlying()
+			}
 			rName := r.Name()
 
 			mParam.Name = rName
@@ -116,12 +117,17 @@ func (g *GenImpl) parseImpl(name string, doc *ast.CommentGroup, ti *types.Interf
 		impl.Methods = append(impl.Methods, implMethod)
 	}
 
-	g.ImplList[name] = impl
+	return impl
 }
 
 func (g *GenImpl) Parse() {
 	for _, v := range g.Pkg.Syntax {
+		recordImportSpec := make([]*ast.ImportSpec,0)
 		ast.Inspect(v, func(node ast.Node) bool {
+			if importSpec, ok := node.(*ast.ImportSpec);ok {
+				recordImportSpec = append(recordImportSpec,importSpec)
+			}
+
 			gd, ok := node.(*ast.GenDecl)
 			if !ok {
 				return true
@@ -151,7 +157,10 @@ func (g *GenImpl) Parse() {
 				return false
 			}
 
-			g.parseImpl(spec.Name.String(), gd.Doc, t.(*types.Interface))
+			impl := g.parseImpl(t.(*types.Interface))
+			impl.Doc = gd.Doc
+			impl.Imports = recordImportSpec
+			g.ImplList[spec.Name.String()] = impl
 			return false
 		})
 	}

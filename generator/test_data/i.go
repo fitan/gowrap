@@ -115,6 +115,7 @@ type Service interface {
 	// @kit-cache delete helloRequest key 1s
 	// @kit-cache put helloRequest Interface 1s
 	HelloBody(ctx context.Context, helloRequest HelloRequest) (list HelloRequest, total int64, err error)
+	nest.Nest
 }
 
 type RedisService struct {

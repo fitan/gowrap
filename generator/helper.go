@@ -3,6 +3,7 @@ package generator
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -23,4 +24,15 @@ func GetCommentByTokenPos(pkg *packages.Package, pos token.Pos) *ast.CommentGrou
 		}
 	}
 	return fieldComment
+}
+
+// 寻找非named types
+func FindNotNamedType(pkg *packages.Package, expr ast.Expr) types.Type {
+	t := pkg.TypesInfo.TypeOf(expr)
+	if _,ok := t.(*types.Named);ok {
+		return t.Underlying()
+	}
+
+	return t
+	
 }

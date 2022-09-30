@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"go/types"
 	"golang.org/x/tools/go/packages"
@@ -23,9 +24,12 @@ func NewGenImpl(pkg *packages.Package, plugs ...ImplPlug) *GenImpl {
 	}
 }
 
-type ImplPlug struct {
-	ListMethod map[string]ImplMethod
+type ImplPlug interface {
+	Name() string
+	Gen(pkg *packages.Package, name string, impl Impl)
+	JenF() *jen.File
 }
+
 
 type Impl struct {
 	Imports []*ast.ImportSpec

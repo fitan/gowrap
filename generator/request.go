@@ -516,8 +516,18 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 
 	switch rt := requestType.(type) {
 	case *types.Named:
-		//fmt.Println("paramName", paramName,"Named", rt.Obj().Name(),"obj.string", rt.String())
-		k.NamedMap[paramName] = rt.String()
+		//fmt.Println("paramName", paramName)
+		//fmt.Println("obj.name",rt.Obj().Name())
+		//fmt.Println("obj.pkg",rt.Obj().Pkg().Path())
+		//fmt.Println("obj.pos",rt.Obj().Pos())
+		//fmt.Println("obj.type",rt.Obj().Type())
+		//fmt.Println("obj.type.string",rt.Obj().Type().String())
+		//fmt.Println("obj.id",rt.Obj().Id())
+		//fmt.Println("local.pkg.pkgPath", k.pkg.PkgPath)
+		split := strings.Split(strings.TrimPrefix(rt.Obj().Type().String(), k.pkg.PkgPath+"."),"/")
+		named := split[len(split)-1]
+
+		k.NamedMap[paramName] = named
 		//k.SetParam(RequestParam{
 		//	ParamDoc:     doc,
 		//	ParamPath:    strings.Join(prefix, "."),

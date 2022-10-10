@@ -516,7 +516,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 
 	switch rt := requestType.(type) {
 	case *types.Named:
-		k.NamedMap[paramName] = rt.Obj().Id()
+		//fmt.Println("paramName", paramName,"Named", rt.Obj().Name(),"obj.string", rt.String())
+		k.NamedMap[paramName] = rt.String()
 		//k.SetParam(RequestParam{
 		//	ParamDoc:     doc,
 		//	ParamPath:    strings.Join(prefix, "."),
@@ -658,7 +659,8 @@ func CastMap(paramName, t, paramTypeName string,  code jen.Code) (res []jen.Code
 		"basic.time.Duration": "cast.ToDurationE",
 	}
 	var ok bool
-	fnStr, ok := m[t+"."+paramTypeName]
+	mKey := t+"."+paramTypeName
+	fnStr, ok := m[mKey]
 	if !ok {
 		err = fmt.Errorf("CastMap not found %s %s", t, paramTypeName)
 		return
@@ -670,6 +672,14 @@ func CastMap(paramName, t, paramTypeName string,  code jen.Code) (res []jen.Code
 	if t == "slice" {
 		paramStrCode = jen.Id("strings.Split").Call(paramStrCode, jen.Lit(","))
 	}
+
+	switch mKey {
+	case "struct.time.Time":
+		paramStrCode = jen.Id("cast.ToInt64").Call(paramStrCode)
+	case "basic.time.Duration":
+		paramStrCode = jen.Id("cast.ToInt64").Call(paramStrCode)
+	}
+
 	ifParamStr := jen.If(jen.Id(paramStr).Op("!=").Lit("")).Block(
 		jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(paramStrCode),
 		// if err != nil {

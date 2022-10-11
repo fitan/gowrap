@@ -187,7 +187,7 @@ func (k *KitRequest) ParseParamTag(fieldName, tag string) (paramSource string, p
 
 }
 
-func (k *KitRequest) DecodeRequest() (s string) {
+func (k *KitRequest) Statement() *jen.Statement {
 	listCode := make([]jen.Code, 0, 0)
 	// req := Request{}
 	listCode = append(listCode, jen.Id("req").Op(":=").Id(k.RequestName).Block())
@@ -214,7 +214,12 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	).Block(
 		LineListCode...,
 	)
-	return fn.GoString()
+
+	return fn
+}
+
+func (k *KitRequest) DecodeRequest() (s string) {
+	return k.Statement().GoString()
 }
 
 func (k *KitRequest) DefineVal() []jen.Code {

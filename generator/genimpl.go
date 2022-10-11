@@ -6,6 +6,7 @@ import (
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"log"
+	"strings"
 )
 
 const GenImplMark = "@impl"
@@ -26,8 +27,8 @@ func NewGenImpl(pkg *packages.Package, plugs ...ImplPlug) *GenImpl {
 
 type ImplPlug interface {
 	Name() string
-	Gen(pkg *packages.Package, name string, impl Impl)
-	JenF() *jen.File
+	Gen(pkg *packages.Package, name string, impl Impl) error
+	JenF(name string) *jen.File
 }
 
 
@@ -44,6 +45,55 @@ type ImplMethod struct {
 	Results        MethodParamSlice
 	ReturnsError   bool
 	AcceptsContext bool
+}
+
+
+func (m ImplMethod) ResultsExcludeErr() MethodParamSlice {
+	tmp := make(MethodParamSlice, 0, 0)
+	for _, p := range m.Results {
+		if p.Type.String() == "error" {
+			continue
+		}
+
+		tmp = append(tmp, p)
+	}
+	return tmp
+}
+
+func (m ImplMethod) ParamsExcludeCtx() MethodParamSlice {
+	tmp := make(MethodParamSlice, 0, 0)
+	for _, p := range m.Results {
+		if p.Type.String() == "context.Context" {
+			continue
+		}
+
+		tmp = append(tmp, p)
+	}
+	return tmp
+}
+
+func (m ImplMethod) SwagRespObjData() string {
+	if len(m.ResultsExcludeErr()) == 0 {
+		return "data=string"
+	}
+
+	if len(m.ResultsExcludeErr()) == 1 {
+		return "data=" + m.ResultsExcludeErr()[0].Type.String()
+	}
+
+	var s []string
+	for _,v:= range m.ResultsExcludeErr() {
+		s = append(s, "data."+v.Name + "=" + v.Type.String())
+	}
+	return strings.Join(s, ",")
+}
+
+func (m ImplMethod) ResultsMapExcludeErr() string {
+	ss := []string{}
+	for _, r := range m.ResultsExcludeErr() {
+		ss = append(ss, `"`+r.Name+`": `+r.Name)
+	}
+	return "map[string]interface{}{\n" + strings.Join(ss, ",\n ") + "}"
 }
 
 type MethodParamSlice []MethodParam

@@ -1,63 +1,308 @@
 package generator
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/dave/jennifer/jen"
+	"github.com/pkg/errors"
 	"golang.org/x/tools/go/packages"
 	"log"
+	"path"
+	"strings"
+	"text/template"
 )
 
 const name = "kitHttp"
+const implTags = "@tags"
+const implBasePath = "@basePath"
 const kitHttpRouterMark = "@kit-http"
 const kitHttpRequestMark = "@kit-http-request"
+const kitHttpSwagMark = "@swag"
+const httpJenFName = "http"
+const endpointJenFName = "endpoint"
 
 type GenImplKitHttp struct {
+	pkg *packages.Package
 	jenF *jen.File
-	jenFList []*jen.File
+	jenFM map[string]*jen.File
+	impl Impl
+	implConf *kitHttpConf
+	kitRequest *KitRequest
 }
 
 func (g *GenImplKitHttp) Name() string {
 	return name
 }
 
-func (g *GenImplKitHttp) Gen(pkg *packages.Package, name string, impl Impl) {
-
+func (g *GenImplKitHttp) Gen(pkg *packages.Package, name string, impl Impl) error {
+	g.impl = impl
+	g.pkg = pkg
+	g.implConf = NewKitHttpConf(impl)
+	return g.genJenF()
 }
 
-func (g *GenImplKitHttp) JenF() *jen.File {
-	panic("implement me")
+func (g *GenImplKitHttp) JenF(name string) *jen.File {
+	return g.jenFM[name]
+}
+
+func (g *GenImplKitHttp) genJenF() error {
+	methodNameList := make([]string, 0)
+	handlerCodeList := make([]jen.Code, 0)
+	decodeRequestCodeList := make([]jen.Code, 0)
+
+	var EndpointsConstCode jen.Code
+	var EndpointsCode jen.Code
+	var NewEndpointsCode jen.Code
+	var MakeEndpointCodeList []jen.Code
+
+
+	for _,m := range g.impl.Methods {
+		conform, err := g.implConf.MethodConform(m.Name)
+		if err != nil {
+			return err
+		}
+		if !conform {
+			log.Printf("method %s not conform", m.Name)
+			continue
+		}
+
+		methodNameList = append(methodNameList,m.Name)
+
+		methodHttpPath,_ := g.implConf.MethodHttpPath(m.Name)
+		method, _ := g.implConf.MethodHttpMethod(m.Name)
+		annotation, _ := g.implConf.MethodAnnotation(m.Name)
+		requestName, requestBody, _ := g.implConf.MethodHttpRequest(m.Name)
+		enableSwag, _ := g.implConf.EnableSwag(m.Name)
+		tags := g.implConf.implTags
+
+		handlerCodeList = append(handlerCodeList,genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, method, annotation))
+
+
+		r := NewKitRequest(g.pkg, name, requestName, requestBody)
+		r.ParseRequest()
+
+		vars := swagVars{
+			MethodName:       m.Name,
+			MethodHttpPath:   methodHttpPath,
+			MethodHttpMethod: methodHttpPath,
+			EnableSwag:       enableSwag,
+			Annotation:       annotation,
+			Tags:             tags,
+			KitRequest:       r,
+			ImplMethod:       m,
+		}
+
+		swagStr,err := g.swag(vars)
+		if err != nil {
+			return errors.Wrap(err, "swag")
+		}
+
+		decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(r.Statement()))
+
+		MakeEndpointCodeList = append(MakeEndpointCodeList,genMakeEndpoint(m, r))
+	}
+
+	h := jen.Statement(handlerCodeList)
+	makeHttpCode := genFuncMakeHTTPHandler(genFuncMakeHTTPHandlerNewEndpoint(methodNameList), &h)
+
+	httpJenF := jen.NewFile(g.pkg.Name)
+	httpJenF.Append(makeHttpCode)
+	httpJenF.Append(decodeRequestCodeList...)
+
+	EndpointsConstCode = genEndpointConst(methodNameList)
+	EndpointsCode = genEndpoints(methodNameList)
+	NewEndpointsCode = genNewEndpoint(methodNameList)
+
+	endpointJenF := jen.NewFile(g.pkg.Name)
+	endpointJenF.Append(EndpointsConstCode)
+	endpointJenF.Append(EndpointsCode)
+	endpointJenF.Append(NewEndpointsCode)
+	endpointJenF.Append(MakeEndpointCodeList...)
+
+
+	g.jenFM[httpJenFName] = httpJenF
+	g.jenFM[endpointJenFName] = endpointJenF
+
+	return nil
+}
+
+type swagVars struct {
+	MethodName string
+	MethodHttpPath string
+	MethodHttpMethod string
+	EnableSwag bool
+	Annotation string
+	Tags string
+	KitRequest *KitRequest
+	ImplMethod ImplMethod
+}
+
+func (g *GenImplKitHttp) swag(vars swagVars) (string, error){
+	doc := `
+{{if $.EnableSwag}}
+// {{$.KitRequest.ServiceName}}
+// @Summary {{$.Annotation}}
+// @Description {{$.Annotation}}
+{{$.Interface.Tags}}
+// @Accept json
+// @Produce json
+{{- range $k,$v := $.KitRequest.Path}}
+// @Param {{$v.ParamName}} path string true {{$v.Annotations}}
+{{- end}}
+{{- range $k, $v := $m.KitRequest.Query}}
+// @Param {{$v.ParamName}} query string false {{$v.Annotations}}
+{{- end}}
+{{- range $k, $v := $m.KitRequest.Header}}
+// @Param {{$v.ParamName}} header string false {{$v.Annotations}}
+{{- end}}
+{{- if $m.KitRequest.RequestIsBody}}
+// @Param {{$.KitRequest.RequestName}} body {{$.KitRequest.RequestName}} true "http request body"
+{{- else}}
+{{- range $k, $v := $.KitRequest.Body}}
+// @Param {{$v.ParamName}} body {{$v.ParamTypeName}} true {{$v.Annotations}}
+{{- end}}
+{{- end}}
+// @Success 200 {object} encode.Response{ {{- $.ImplMethod.SwagRespObjData}}}
+// @Router {{$.MethodHttpPath}} [{{$.MethodHttpMethod}}]{{end}}`
+	t,_ := template.New("doc").Parse(doc)
+	w := new(bytes.Buffer)
+	err := t.Execute(w, vars)
+	if err != nil {
+		return "", err
+	}
+
+	return w.String(), nil
+}
+
+type kitHttpConf struct {
+	impl Impl
+	implDoc *AstDocFormat
+	methodDocM map[string]*AstDocFormat
+	implBasePath string
+	implTags string
+}
+
+type MethodConf struct {
+	Method string
+	Path  string
+	Request string
+	RequestBody bool
+	EnableSwag bool
+}
+
+func NewKitHttpConf(impl Impl) *kitHttpConf {
+	return &kitHttpConf{
+		impl: impl,
+	}
+}
+
+func (k *kitHttpConf) parse() {
+	docF := NewAstDocFormat(k.impl.Doc)
+	docF.MarkValuesMapping(implTags, &k.implTags)
+	docF.MarkValuesMapping(implBasePath, &k.implBasePath)
+}
+
+func (k *kitHttpConf) getMethod(name string) (ImplMethod, error) {
+	for _, m := range k.impl.Methods {
+		if m.Name == name {
+			return m, nil
+		}
+	}
+	return ImplMethod{}, fmt.Errorf("method %s not found", name)
 }
 
 
-func (g *GenImplKitHttp) confirmMark(m ImplMethod) {
-	f := NewAstDocFormat(m.Comment)
-	var path string
-	var method string
-	var request string
-	f.MarkValuesMapping(kitHttpRouterMark, &path, &method)
-	f.MarkValuesMapping(kitHttpRequestMark, &request)
+// 方法的注释 默认取方法名后面的注释 如果没有则取注释的第一行
+func (k *kitHttpConf) MethodAnnotation(name string) (string, error) {
+	m, err := k.getMethod(name)
+	if err != nil {
+		return "", err
+	}
 
-	if path == "" || method == "" || request == "" {
-		log.Printf("method %s not found mark %s", m.Name, kitHttpRouterMark)
+	docF := NewAstDocFormat(m.Comment)
+	var annotation string
+	docF.MarkValuesMapping(name, &annotation)
+	if annotation == "" {
+		annotation = strings.TrimPrefix(docF.doc.List[0].Text, "// ")
+	}
+	return annotation, nil
+}
+
+func (k *kitHttpConf) MethodConform(name string) (bool,error) {
+	conf, err := k.MethodConf(name)
+	if err != nil {
+		return false, err
+	}
+
+	if conf.Path == "" || conf.Method == "" || conf.Request == "" {
+		return false, fmt.Errorf("method %s not found param path: %s, method: %s, request %s", name, conf.Path, conf.Method, conf.Request)
+	}
+
+	return true, nil
+}
+
+func (k *kitHttpConf) MethodConf(name string) (res MethodConf,err error) {
+	m, err := k.getMethod(name)
+	if err != nil {
 		return
 	}
 
+	var path string
+	var method string
+	var request string
+	var requestBody string
+	var enableSwag string
+	docF := NewAstDocFormat(m.Comment)
+	docF.MarkValuesMapping(kitHttpRouterMark, &path, &method)
+	docF.MarkValuesMapping(kitHttpRequestMark, &request, &requestBody)
+	docF.MarkValuesMapping(kitHttpSwagMark, &enableSwag)
+
+	return MethodConf{
+		Method:  strings.ToUpper(method),
+		Path:    path,
+		Request: request,
+		RequestBody: requestBody != "",
+		EnableSwag: enableSwag != "false",
+	}, nil
+}
+
+func (k *kitHttpConf) MethodHttpPath(name string) (string, error) {
+	conf, err := k.MethodConf(name)
+	if err != nil {
+		return "", err
+	}
+	
+	return path.Join(k.implBasePath, conf.Path), nil
+}
+
+func (k *kitHttpConf) MethodHttpMethod(name string) (string, error) {
+	conf, err := k.MethodConf(name)
+	if err != nil {
+		return "", err
+	}
+	
+	return conf.Method, nil
 
 }
 
-func (g *GenImplKitHttp) makeHttpHandler() {
-	g.jenF.ImportAlias("github.com/go-kit/kit/transport/http","kithttp")
-	g.jenF.ImportName("github.com/go-kit/kit/endpoint", "")
-
-	jen.Func().Id("MakeHTTPHandler").
-		Params(
-			jen.Id("s").Id("Service"),
-			jen.Id("dmw").Id("[]endpoint.Middleware"),
-			jen.Id("opts").Id("[]kithttp.ServerOption"),
-		).Params(jen.Id("http.Handler")).
-		Block(
-			jen.Var().Id("ems").Id("[]endpoint.Middleware"),
-			jen.Id("r").Op(":=").Id("mux.NewRouter()"),
-		)
+func (k *kitHttpConf) MethodHttpRequest(name string) (string, bool, error) {
+	conf, err := k.MethodConf(name)
+	if err != nil {
+		return "", false ,err
+	}
+	
+	return conf.Request,conf.RequestBody, nil
 }
 
+func (k *kitHttpConf) EnableSwag(name string) (bool, error) {
+	conf, err := k.MethodConf(name)
+	if err != nil {
+		return false, err
+	}
 
+	return conf.EnableSwag, nil
+}
+
+func (k *kitHttpConf) Tags() string {
+	return k.implTags
+}

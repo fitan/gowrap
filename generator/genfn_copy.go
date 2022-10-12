@@ -8,24 +8,42 @@ import (
 	"strings"
 )
 
+const copyGenFName = "copy"
+
 type GenFnCopy struct {
 	recorder map[string]struct{}
-	jenF *jen.File
+	jenFM map[string]*jen.File
+	genFn *GenFn
 }
 
-func NewGenFnCopy() *GenFnCopy {
-	return &GenFnCopy{recorder: map[string]struct{}{}, jenF: jen.NewFile("Copy")}
+func NewGenFnCopy(fn *GenFn) *GenFnCopy {
+	return &GenFnCopy{recorder: map[string]struct{}{}, genFn: fn, jenFM: map[string]*jen.File{}}
 }
 
 func (g *GenFnCopy) Name() string {
 	return "copy"
 }
 
-func (g *GenFnCopy) JenF() *jen.File {
-	return g.jenF
+func (g *GenFnCopy) JenF(name string) *jen.File {
+	return g.jenFM[name]
 }
 
-func (g *GenFnCopy) Gen(pkg *packages.Package , name string, fn Func) error {
+func (g *GenFnCopy) Gen() error {
+
+	jenF := jen.NewFile("copy")
+
+	for fnName,fn := range g.genFn.FuncList {
+		err := g.gen(jenF,g.genFn.GenOption.Pkg, fnName, fn)
+		if err != nil {
+			return err
+		}
+	}
+
+	g.jenFM[copyGenFName] = jenF
+	return nil
+}
+
+func (g *GenFnCopy) gen(jenF *jen.File, pkg *packages.Package , name string, fn Func) error {
 
 	if !(len(fn.MarkParam) >0 && fn.MarkParam[0] == "copy") {
 		return nil
@@ -65,18 +83,19 @@ func (g *GenFnCopy) Gen(pkg *packages.Package , name string, fn Func) error {
 	srcTypeID := strings.TrimPrefix(srcTypeString.ID(), TypeString(pkg.ID).ID()+".")
 	destTypeID := strings.TrimPrefix(destTypeElemString.ID(), TypeString(pkg.Name).ID()+".")
 
-	g.jenF.Func().Id(name).Params(jen.Id("src").Id(srcTypeID)).Params(jen.Id("dest").Id(destTypeID)).Block(
+
+	jenF.Func().Id(name).Params(jen.Id("src").Id(srcTypeID)).Params(jen.Id("dest").Id(destTypeID)).Block(
 		jen.Id("dest").Op(":=").Id(objName).Block().Dot("Copy").Call(jen.Id("src")),
 		jen.Return(),
 	)
 
-	g.jenF.Type().Id(objName).Struct()
+	jenF.Type().Id(objName).Struct()
 
 
 	dto := Copy{
 		Pkg: pkg,
 		StructName: objName,
-		JenF: g.jenF,
+		JenF: jenF,
 		Recorder: NewRecorder(),
 		SrcParentPath: []string{},
 		SrcPath: []string{},

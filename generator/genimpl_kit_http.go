@@ -20,6 +20,8 @@ const kitHttpRequestMark = "@kit-http-request"
 const kitHttpSwagMark = "@swag"
 const httpJenFName = "http"
 const endpointJenFName = "endpoint"
+const logJenFName = "log"
+const tracingJenFName = "tracing"
 
 type GenImplKitHttp struct {
 	pkg *packages.Package
@@ -28,6 +30,7 @@ type GenImplKitHttp struct {
 	impl Impl
 	implConf *kitHttpConf
 	kitRequest *KitRequest
+	genOption GenOption
 }
 
 func (g *GenImplKitHttp) Name() string {
@@ -54,6 +57,10 @@ func (g *GenImplKitHttp) genJenF() error {
 	var EndpointsCode jen.Code
 	var NewEndpointsCode jen.Code
 	var MakeEndpointCodeList []jen.Code
+
+	var LoggingFuncCodeList []jen.Code
+
+	var TracingFuncCodeList []jen.Code
 
 
 	for _,m := range g.impl.Methods {
@@ -100,6 +107,10 @@ func (g *GenImplKitHttp) genJenF() error {
 		decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(r.Statement()))
 
 		MakeEndpointCodeList = append(MakeEndpointCodeList,genMakeEndpoint(m, r))
+
+		LoggingFuncCodeList = append(LoggingFuncCodeList,genLoggingFunc(m))
+
+		TracingFuncCodeList = append(TracingFuncCodeList,genTracingFunc(g.genOption.CutLast2DirName(),m))
 	}
 
 	h := jen.Statement(handlerCodeList)
@@ -119,9 +130,22 @@ func (g *GenImplKitHttp) genJenF() error {
 	endpointJenF.Append(NewEndpointsCode)
 	endpointJenF.Append(MakeEndpointCodeList...)
 
+	logJenF := jen.NewFile(g.pkg.Name)
+	logJenF.Append(genLoggingStruct())
+	logJenF.Append(LoggingFuncCodeList...)
+	logJenF.Append(genNewLogging(g.genOption.CutLast2DirName()))
+
+	tracingJenF := jen.NewFile(g.pkg.Name)
+	tracingJenF.Append(genTracingStruct())
+	tracingJenF.Append(TracingFuncCodeList...)
+	tracingJenF.Append(genNewTracing())
+
+
 
 	g.jenFM[httpJenFName] = httpJenF
 	g.jenFM[endpointJenFName] = endpointJenF
+	g.jenFM[logJenFName] = logJenF
+	g.jenFM[tracingJenFName] = tracingJenF
 
 	return nil
 }

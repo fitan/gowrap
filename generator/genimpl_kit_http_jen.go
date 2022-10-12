@@ -116,22 +116,39 @@ func genMakeEndpoint(method ImplMethod, request *KitRequest) jen.Code {
 
 // logging
 
-func genLogging() jen.Code {
+func genLoggingStruct() jen.Code {
 	return jen.Null().Type().Id("logging").Struct(jen.Id("logger").Id("log").Dot("Logger"), jen.Id("next").Id("Service"), jen.Id("traceId").Id("string"))
 }
-func genFuncQueryRange() jen.Code {
+func genLoggingFunc(method ImplMethod) jen.Code {
+
+	methodParamCode := make([]jen.Code, 0)
+	methodResultCode := make([]jen.Code, 0)
+
+	logParamCode := make([]jen.Code, 0)
+	nextMethodParamCode := make([]jen.Code, 0)
+
+	for _, param := range method.Params {
+		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.Type.String()))
+		nextMethodParamCode = append(nextMethodParamCode, jen.Id(param.Name))
+	}
+
+	for _, param := range method.ParamsExcludeCtx() {
+		logParamCode = append(logParamCode, jen.Lit(param.Name), jen.Id(param.Name))
+	}
+
+	logParamSatement := jen.Statement(logParamCode)
+
+	for _, param := range method.Results {
+		methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.Type.String()))
+	}
+
+
+
 	return jen.Func().Params(
-		jen.Id("s").Op("*").Id("logging")).Id("QueryRange").Params(
-			jen.Id("ctx").Qual("context", "Context"),
-			jen.Id("exportName").Id("string"),
-			jen.Id("metricName").Id("string"),
-			jen.Id("start").Qual("time", "Time"),
-			jen.Id("end").Qual("time", "Time"),
-			jen.Id("step").Qual("time", "Duration"),
-			jen.Id("vars").Map(jen.Id("string")).Interface()
+		jen.Id("s").Op("*").Id("logging")).Id(method.Name).Params(
+			methodParamCode...,
 		).Params(
-			jen.Id("v1").Id("model").Dot("Value"),
-			jen.Id("err").Id("error"),
+			methodResultCode...,
 		).Block(
 			jen.Defer().Func().Params(
 				jen.Id("begin").Qual("time", "Time")).
@@ -139,28 +156,16 @@ func genFuncQueryRange() jen.Code {
 				jen.Id("_").Op("=").Id("s").Dot("logger").Dot("Log").Call(
 					jen.Id("s").Dot("traceId"),
 					jen.Id("ctx").Dot("Value").Call(jen.Id("s").Dot("traceId")),
-					jen.Lit("method"), jen.Lit("QueryRange"), jen.Lit("exportName"),
-					jen.Id("exportName"), jen.Lit("metricName"),
-					jen.Id("metricName"), jen.Lit("start"),
-					jen.Id("start"), jen.Lit("end"),
-					jen.Id("end"), jen.Lit("step"),
-					jen.Id("step"), jen.Lit("vars"),
-					jen.Id("vars"), jen.Lit("took"),
-					jen.Qual("time", "Since").Call(jen.Id("begin")), jen.Lit("err"),
+					jen.Lit("method"), jen.Lit(method.Name),
+					&logParamSatement,
+					jen.Lit("took"), jen.Qual("time", "Since").Call(jen.Id("begin")), jen.Lit("err"),
 					jen.Id("err"))).Call(jen.Qual("time", "Now").Call(),
 			),
-			jen.Return().Id("s").Dot("next").Dot("QueryRange").Call(
-				jen.Id("ctx"),
-				jen.Id("exportName"),
-				jen.Id("metricName"),
-				jen.Id("start"),
-				jen.Id("end"),
-				jen.Id("step"),
-				jen.Id("vars")))
+			jen.Return().Id("s").Dot("next").Dot(method.Name).Call(
+				nextMethodParamCode...,
+			))
 }
-func genFuncReceive() jen.Code {
-	return jen.Func().Params(jen.Id("s").Op("*").Id("logging")).Id("Receive").Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("receiveRequest").Id("ReceiveRequest")).Params(jen.Id("res").Id("bool"), jen.Id("err").Id("error")).Block(jen.Defer().Func().Params(jen.Id("begin").Qual("time", "Time")).Block(jen.Id("_").Op("=").Id("s").Dot("logger").Dot("Log").Call(jen.Id("s").Dot("traceId"), jen.Id("ctx").Dot("Value").Call(jen.Id("s").Dot("traceId")), jen.Lit("method"), jen.Lit("Receive"), jen.Lit("receiveRequest"), jen.Id("receiveRequest"), jen.Lit("took"), jen.Qual("time", "Since").Call(jen.Id("begin")), jen.Lit("err"), jen.Id("err"))).Call(jen.Qual("time", "Now").Call()), jen.Return().Id("s").Dot("next").Dot("Receive").Call(jen.Id("ctx"), jen.Id("receiveRequest")))
-}
+
 func genNewLogging(logPrefix string) jen.Code {
 	return jen.Func().Id("NewLogging").Params(jen.Id("logger").Id("log").Dot("Logger"), jen.Id("traceId").Id("string")).Params(jen.Id("Middleware")).Block(
 		jen.Id("logger").Op("=").Id("log").Dot("With").Call(
@@ -175,12 +180,54 @@ func genNewLogging(logPrefix string) jen.Code {
 		),
 	)
 }
-func genFile() *jen.File {
-	ret := jen.NewFile("prometheus")
-	ret.Add(genDeclAt21())
-	ret.Add(genDeclAt155())
-	ret.Add(genFuncQueryRange())
-	ret.Add(genFuncReceive())
-	ret.Add(genFuncNewLogging())
-	return ret
+
+// tracing
+
+func genTracingStruct() jen.Code {
+	return jen.Null().Type().Id("tracing").Struct(jen.Id("next").Id("Service"), jen.Id("tracer").Id("opentracing").Dot("Tracer"))
+}
+func genTracingFunc(tracingPrefix string,method ImplMethod) jen.Code {
+	methodParamCode := make([]jen.Code, 0)
+	methodResultCode := make([]jen.Code, 0)
+
+	tracingParamCode := make([]jen.Code, 0)
+	nextMethodParamCode := make([]jen.Code, 0)
+	for _, param := range method.Params {
+		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.Type.String()))
+		nextMethodParamCode = append(nextMethodParamCode, jen.Id(param.Name))
+	}
+
+	for _, param := range method.ParamsExcludeCtx() {
+		tracingParamCode = append(tracingParamCode, jen.Lit(param.Name), jen.Id(param.Name))
+	}
+	tracingParamSatement := jen.Statement(tracingParamCode)
+
+	for _, param := range method.Results {
+		methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.Type.String()))
+	}
+
+	return jen.Func().Params(jen.Id("s").Op("*").Id("tracing")).Id(method.Name).Params(
+		methodParamCode...,
+	).Params(
+		methodResultCode...,
+	).Block(
+		jen.List(jen.Id("span"), jen.Id("ctx")).Op(":=").Id("opentracing").Dot("StartSpanFromContextWithTracer").Call(
+			jen.Id("ctx"),
+			jen.Id("s").Dot("tracer"),
+			jen.Lit(method.Name),
+			jen.Id("opentracing").Dot("Tag").Values(jen.Id("Key").Op(":").Id("string").Call(
+				jen.Id("ext").Dot("Component")),
+				jen.Id("Value").Op(":").Lit(tracingPrefix),
+			),
+		),
+		jen.Defer().Func().Params().Block(jen.Id("span").Dot("LogKV").Call(
+			&tracingParamSatement,
+			jen.Lit("err"), jen.Id("err")),
+			jen.Id("span").Dot("SetTag").Call(jen.Id("string").Call(jen.Id("ext").Dot("Error")), jen.Id("err").Op("!=").Id("nil")), jen.Id("span").Dot("Finish").Call()).Call(),
+		jen.Return().Id("s").Dot("next").Dot(method.Name).Call(
+			nextMethodParamCode...,
+		))
+}
+func genNewTracing() jen.Code {
+	return jen.Func().Id("NewTracing").Params(jen.Id("otTracer").Id("opentracing").Dot("Tracer")).Params(jen.Id("Middleware")).Block(jen.Return().Func().Params(jen.Id("next").Id("Service")).Params(jen.Id("Service")).Block(jen.Return().Op("&").Id("tracing").Values(jen.Id("next").Op(":").Id("next"), jen.Id("tracer").Op(":").Id("otTracer"))))
 }

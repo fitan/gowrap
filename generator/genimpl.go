@@ -1,10 +1,8 @@
 package generator
 
 import (
-	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"log"
 	"strings"
 )
@@ -12,25 +10,22 @@ import (
 const GenImplMark = "@impl"
 
 type GenImpl struct {
-	Pkg      *packages.Package
+	GenOption GenOption
 	ImplList map[string]Impl
-	Plugs    []ImplPlug
+	Plugs    map[string]GenPlug
 }
 
-func NewGenImpl(pkg *packages.Package, plugs ...ImplPlug) *GenImpl {
+func (g *GenImpl) AddPlug(plug GenPlug) {
+	g.Plugs[plug.Name()] = plug
+}
+
+func NewGenImpl(genOption GenOption) *GenImpl {
 	return &GenImpl{
-		Pkg:      pkg,
+		GenOption: genOption,
 		ImplList: make(map[string]Impl),
-		Plugs:    plugs,
+		Plugs:    make(map[string]GenPlug),
 	}
 }
-
-type ImplPlug interface {
-	Name() string
-	Gen(pkg *packages.Package, name string, impl Impl) error
-	JenF(name string) *jen.File
-}
-
 
 type Impl struct {
 	Imports []*ast.ImportSpec
@@ -105,6 +100,18 @@ type MethodParam struct {
 	Variadic bool
 }
 
+func (g *GenImpl) Run() error {
+	g.parse()
+
+	for _, plug := range g.Plugs {
+		err := plug.Gen()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 
 	impl := Impl{
@@ -118,7 +125,7 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 		var results MethodParamSlice
 		var comment *ast.CommentGroup
 		m := ti.Method(i)
-		comment = GetCommentByTokenPos(g.Pkg, m.Pos())
+		comment = GetCommentByTokenPos(g.GenOption.Pkg, m.Pos())
 		methodName := m.Name()
 		ps := m.Type().(*types.Signature).Params()
 		for i := 0; i < ps.Len(); i++ {
@@ -174,8 +181,8 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 	return impl
 }
 
-func (g *GenImpl) Parse() {
-	for _, v := range g.Pkg.Syntax {
+func (g *GenImpl) parse() {
+	for _, v := range g.GenOption.Pkg.Syntax {
 		recordImportSpec := make([]*ast.ImportSpec,0)
 		ast.Inspect(v, func(node ast.Node) bool {
 			if importSpec, ok := node.(*ast.ImportSpec);ok {
@@ -205,7 +212,7 @@ func (g *GenImpl) Parse() {
 				return false
 			}
 
-			t := g.Pkg.TypesInfo.TypeOf(spec.Type)
+			t := g.GenOption.Pkg.TypesInfo.TypeOf(spec.Type)
 			if t == nil {
 				log.Printf("genimpl: %s is not a type", spec.Name)
 				return false

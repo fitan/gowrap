@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
@@ -340,11 +339,11 @@ func NewGeneratorFn(ops []Options) ([]*Generator, error) {
 
 		options.Imports = append(options.Imports, makeImports(importSpecs)...)
 
-		jenF := jen.NewFile("genfn")
+		//jenF := jen.NewFile("genfn")
 
-		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnCopy())
-		genFn.Parse()
-		genFn.Run()
+		//genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnCopy())
+		//genFn.Parse()
+		//genFn.Run()
 
 		gs = append(gs, &Generator{
 			Options:        options,
@@ -354,7 +353,7 @@ func NewGeneratorFn(ops []Options) ([]*Generator, error) {
 			dstPackage:     options.SourceLoadPkg,
 			interfaceType:  interfaceType,
 			methods:        methods,
-			GenFn: genFn,
+			//GenFn: genFn,
 			doc:            doc,
 			localPrefix:    options.LocalPrefix,
 			genTemplates:   make([]genTemplate, 0, 0),

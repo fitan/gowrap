@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
 	"github.com/pkg/errors"
-	"golang.org/x/tools/go/packages"
 	"log"
 	"path"
 	"strings"
@@ -24,23 +23,27 @@ const logJenFName = "log"
 const tracingJenFName = "tracing"
 
 type GenImplKitHttp struct {
-	pkg *packages.Package
-	jenF *jen.File
+	genImpl *GenImpl
+	//jenF *jen.File
 	jenFM map[string]*jen.File
-	impl Impl
-	implConf *kitHttpConf
-	kitRequest *KitRequest
+	//impl Impl
+	implConf map[string]*kitHttpConf
 	genOption GenOption
+}
+
+func NewGenImplKitHttp(impl *GenImpl) *GenImplKitHttp {
+	return &GenImplKitHttp{
+		genImpl:       impl,
+		jenFM:      make(map[string]*jen.File,0),
+		implConf:   make(map[string]*kitHttpConf,0),
+	}
 }
 
 func (g *GenImplKitHttp) Name() string {
 	return name
 }
 
-func (g *GenImplKitHttp) Gen(pkg *packages.Package, name string, impl Impl) error {
-	g.impl = impl
-	g.pkg = pkg
-	g.implConf = NewKitHttpConf(impl)
+func (g *GenImplKitHttp) Gen() error {
 	return g.genJenF()
 }
 
@@ -63,60 +66,65 @@ func (g *GenImplKitHttp) genJenF() error {
 	var TracingFuncCodeList []jen.Code
 
 
-	for _,m := range g.impl.Methods {
-		conform, err := g.implConf.MethodConform(m.Name)
-		if err != nil {
-			return err
+	for implName, impl := range g.genImpl.ImplList {
+		g.implConf[implName] = NewKitHttpConf(impl)
+
+		for _, m := range impl.Methods {
+			conform, err := g.implConf[implName].MethodConform(m.Name)
+			if err != nil {
+				return err
+			}
+			if !conform {
+				log.Printf("method %s not conform", m.Name)
+				continue
+			}
+
+			methodNameList = append(methodNameList, m.Name)
+
+			methodHttpPath, _ := g.implConf[implName].MethodHttpPath(m.Name)
+			method, _ := g.implConf[implName].MethodHttpMethod(m.Name)
+			annotation, _ := g.implConf[implName].MethodAnnotation(m.Name)
+			requestName, requestBody, _ := g.implConf[implName].MethodHttpRequest(m.Name)
+			enableSwag, _ := g.implConf[implName].EnableSwag(m.Name)
+			tags := g.implConf[implName].implTags
+
+			handlerCodeList = append(
+				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, method, annotation),
+			)
+
+			r := NewKitRequest(g.genImpl.GenOption.Pkg, m.Name, requestName, requestBody)
+			r.ParseRequest()
+
+			vars := swagVars{
+				MethodName:       m.Name,
+				MethodHttpPath:   methodHttpPath,
+				MethodHttpMethod: methodHttpPath,
+				EnableSwag:       enableSwag,
+				Annotation:       annotation,
+				Tags:             tags,
+				KitRequest:       r,
+				ImplMethod:       m,
+			}
+
+			swagStr, err := g.swag(vars)
+			if err != nil {
+				return errors.Wrap(err, "swag")
+			}
+
+			decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(r.Statement()))
+
+			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(m, r))
+
+			LoggingFuncCodeList = append(LoggingFuncCodeList, genLoggingFunc(m))
+
+			TracingFuncCodeList = append(TracingFuncCodeList, genTracingFunc(g.genOption.CutLast2DirName(), m))
 		}
-		if !conform {
-			log.Printf("method %s not conform", m.Name)
-			continue
-		}
-
-		methodNameList = append(methodNameList,m.Name)
-
-		methodHttpPath,_ := g.implConf.MethodHttpPath(m.Name)
-		method, _ := g.implConf.MethodHttpMethod(m.Name)
-		annotation, _ := g.implConf.MethodAnnotation(m.Name)
-		requestName, requestBody, _ := g.implConf.MethodHttpRequest(m.Name)
-		enableSwag, _ := g.implConf.EnableSwag(m.Name)
-		tags := g.implConf.implTags
-
-		handlerCodeList = append(handlerCodeList,genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, method, annotation))
-
-
-		r := NewKitRequest(g.pkg, name, requestName, requestBody)
-		r.ParseRequest()
-
-		vars := swagVars{
-			MethodName:       m.Name,
-			MethodHttpPath:   methodHttpPath,
-			MethodHttpMethod: methodHttpPath,
-			EnableSwag:       enableSwag,
-			Annotation:       annotation,
-			Tags:             tags,
-			KitRequest:       r,
-			ImplMethod:       m,
-		}
-
-		swagStr,err := g.swag(vars)
-		if err != nil {
-			return errors.Wrap(err, "swag")
-		}
-
-		decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(r.Statement()))
-
-		MakeEndpointCodeList = append(MakeEndpointCodeList,genMakeEndpoint(m, r))
-
-		LoggingFuncCodeList = append(LoggingFuncCodeList,genLoggingFunc(m))
-
-		TracingFuncCodeList = append(TracingFuncCodeList,genTracingFunc(g.genOption.CutLast2DirName(),m))
 	}
 
 	h := jen.Statement(handlerCodeList)
 	makeHttpCode := genFuncMakeHTTPHandler(genFuncMakeHTTPHandlerNewEndpoint(methodNameList), &h)
 
-	httpJenF := jen.NewFile(g.pkg.Name)
+	httpJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	httpJenF.Append(makeHttpCode)
 	httpJenF.Append(decodeRequestCodeList...)
 
@@ -124,18 +132,18 @@ func (g *GenImplKitHttp) genJenF() error {
 	EndpointsCode = genEndpoints(methodNameList)
 	NewEndpointsCode = genNewEndpoint(methodNameList)
 
-	endpointJenF := jen.NewFile(g.pkg.Name)
+	endpointJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	endpointJenF.Append(EndpointsConstCode)
 	endpointJenF.Append(EndpointsCode)
 	endpointJenF.Append(NewEndpointsCode)
 	endpointJenF.Append(MakeEndpointCodeList...)
 
-	logJenF := jen.NewFile(g.pkg.Name)
+	logJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	logJenF.Append(genLoggingStruct())
 	logJenF.Append(LoggingFuncCodeList...)
 	logJenF.Append(genNewLogging(g.genOption.CutLast2DirName()))
 
-	tracingJenF := jen.NewFile(g.pkg.Name)
+	tracingJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	tracingJenF.Append(genTracingStruct())
 	tracingJenF.Append(TracingFuncCodeList...)
 	tracingJenF.Append(genNewTracing())

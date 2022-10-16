@@ -28,14 +28,13 @@ type GenImplKitHttp struct {
 	jenFM map[string]*jen.File
 	//impl Impl
 	implConf map[string]*kitHttpConf
-	genOption GenOption
 }
 
 func NewGenImplKitHttp(impl *GenImpl) *GenImplKitHttp {
 	return &GenImplKitHttp{
-		genImpl:       impl,
-		jenFM:      make(map[string]*jen.File,0),
-		implConf:   make(map[string]*kitHttpConf,0),
+		genImpl:  impl,
+		jenFM:    make(map[string]*jen.File, 0),
+		implConf: make(map[string]*kitHttpConf, 0),
 	}
 }
 
@@ -65,7 +64,6 @@ func (g *GenImplKitHttp) genJenF() error {
 
 	var TracingFuncCodeList []jen.Code
 
-
 	for implName, impl := range g.genImpl.ImplList {
 		g.implConf[implName] = NewKitHttpConf(impl)
 
@@ -75,21 +73,21 @@ func (g *GenImplKitHttp) genJenF() error {
 				return err
 			}
 			if !conform {
-				log.Printf("method %s not conform", m.Name)
+				log.Printf("methodHttpMethod %s not conform", m.Name)
 				continue
 			}
 
 			methodNameList = append(methodNameList, m.Name)
 
 			methodHttpPath, _ := g.implConf[implName].MethodHttpPath(m.Name)
-			method, _ := g.implConf[implName].MethodHttpMethod(m.Name)
+			methodHttpMethod, _ := g.implConf[implName].MethodHttpMethod(m.Name)
 			annotation, _ := g.implConf[implName].MethodAnnotation(m.Name)
 			requestName, requestBody, _ := g.implConf[implName].MethodHttpRequest(m.Name)
 			enableSwag, _ := g.implConf[implName].EnableSwag(m.Name)
 			tags := g.implConf[implName].implTags
 
 			handlerCodeList = append(
-				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, method, annotation),
+				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, methodHttpMethod, annotation),
 			)
 
 			r := NewKitRequest(g.genImpl.GenOption.Pkg, m.Name, requestName, requestBody)
@@ -98,7 +96,7 @@ func (g *GenImplKitHttp) genJenF() error {
 			vars := swagVars{
 				MethodName:       m.Name,
 				MethodHttpPath:   methodHttpPath,
-				MethodHttpMethod: methodHttpPath,
+				MethodHttpMethod: methodHttpMethod,
 				EnableSwag:       enableSwag,
 				Annotation:       annotation,
 				Tags:             tags,
@@ -113,11 +111,11 @@ func (g *GenImplKitHttp) genJenF() error {
 
 			decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(r.Statement()))
 
-			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(m, r))
+			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(requestName, m, r))
 
 			LoggingFuncCodeList = append(LoggingFuncCodeList, genLoggingFunc(m))
 
-			TracingFuncCodeList = append(TracingFuncCodeList, genTracingFunc(g.genOption.CutLast2DirName(), m))
+			TracingFuncCodeList = append(TracingFuncCodeList, genTracingFunc(g.genImpl.GenOption.CutLast2DirName(), m))
 		}
 	}
 
@@ -125,30 +123,28 @@ func (g *GenImplKitHttp) genJenF() error {
 	makeHttpCode := genFuncMakeHTTPHandler(genFuncMakeHTTPHandlerNewEndpoint(methodNameList), &h)
 
 	httpJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
-	httpJenF.Append(makeHttpCode)
-	httpJenF.Append(decodeRequestCodeList...)
+	httpJenF.Add(makeHttpCode)
+	httpJenF.Add(decodeRequestCodeList...)
 
 	EndpointsConstCode = genEndpointConst(methodNameList)
 	EndpointsCode = genEndpoints(methodNameList)
 	NewEndpointsCode = genNewEndpoint(methodNameList)
 
 	endpointJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
-	endpointJenF.Append(EndpointsConstCode)
-	endpointJenF.Append(EndpointsCode)
-	endpointJenF.Append(NewEndpointsCode)
-	endpointJenF.Append(MakeEndpointCodeList...)
+	endpointJenF.Add(EndpointsConstCode)
+	endpointJenF.Add(EndpointsCode)
+	endpointJenF.Add(NewEndpointsCode)
+	endpointJenF.Add(MakeEndpointCodeList...)
 
 	logJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
-	logJenF.Append(genLoggingStruct())
-	logJenF.Append(LoggingFuncCodeList...)
-	logJenF.Append(genNewLogging(g.genOption.CutLast2DirName()))
+	logJenF.Add(genLoggingStruct())
+	logJenF.Add(LoggingFuncCodeList...)
+	logJenF.Add(genNewLogging(g.genImpl.GenOption.CutLast2DirName()))
 
 	tracingJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
-	tracingJenF.Append(genTracingStruct())
-	tracingJenF.Append(TracingFuncCodeList...)
-	tracingJenF.Append(genNewTracing())
-
-
+	tracingJenF.Add(genTracingStruct())
+	tracingJenF.Add(TracingFuncCodeList...)
+	tracingJenF.Add(genNewTracing())
 
 	g.jenFM[httpJenFName] = httpJenF
 	g.jenFM[endpointJenFName] = endpointJenF
@@ -159,35 +155,35 @@ func (g *GenImplKitHttp) genJenF() error {
 }
 
 type swagVars struct {
-	MethodName string
-	MethodHttpPath string
+	MethodName       string
+	MethodHttpPath   string
 	MethodHttpMethod string
-	EnableSwag bool
-	Annotation string
-	Tags string
-	KitRequest *KitRequest
-	ImplMethod ImplMethod
+	EnableSwag       bool
+	Annotation       string
+	Tags             string
+	KitRequest       *KitRequest
+	ImplMethod       ImplMethod
 }
 
-func (g *GenImplKitHttp) swag(vars swagVars) (string, error){
+func (g *GenImplKitHttp) swag(vars swagVars) (string, error) {
 	doc := `
 {{if $.EnableSwag}}
 // {{$.KitRequest.ServiceName}}
 // @Summary {{$.Annotation}}
 // @Description {{$.Annotation}}
-{{$.Interface.Tags}}
+// {{$.Tags}}
 // @Accept json
 // @Produce json
 {{- range $k,$v := $.KitRequest.Path}}
 // @Param {{$v.ParamName}} path string true {{$v.Annotations}}
 {{- end}}
-{{- range $k, $v := $m.KitRequest.Query}}
+{{- range $k, $v := $.KitRequest.Query}}
 // @Param {{$v.ParamName}} query string false {{$v.Annotations}}
 {{- end}}
-{{- range $k, $v := $m.KitRequest.Header}}
+{{- range $k, $v := $.KitRequest.Header}}
 // @Param {{$v.ParamName}} header string false {{$v.Annotations}}
 {{- end}}
-{{- if $m.KitRequest.RequestIsBody}}
+{{- if $.KitRequest.RequestIsBody}}
 // @Param {{$.KitRequest.RequestName}} body {{$.KitRequest.RequestName}} true "http request body"
 {{- else}}
 {{- range $k, $v := $.KitRequest.Body}}
@@ -196,9 +192,12 @@ func (g *GenImplKitHttp) swag(vars swagVars) (string, error){
 {{- end}}
 // @Success 200 {object} encode.Response{ {{- $.ImplMethod.SwagRespObjData}}}
 // @Router {{$.MethodHttpPath}} [{{$.MethodHttpMethod}}]{{end}}`
-	t,_ := template.New("doc").Parse(doc)
-	w := new(bytes.Buffer)
-	err := t.Execute(w, vars)
+	t, err := template.New("doc").Parse(doc)
+	if err != nil {
+		return "", err
+	}
+	w := bytes.NewBuffer([]byte{})
+	err = t.Execute(w, vars)
 	if err != nil {
 		return "", err
 	}
@@ -207,19 +206,19 @@ func (g *GenImplKitHttp) swag(vars swagVars) (string, error){
 }
 
 type kitHttpConf struct {
-	impl Impl
-	implDoc *AstDocFormat
-	methodDocM map[string]*AstDocFormat
+	impl         Impl
+	implDoc      *AstDocFormat
+	methodDocM   map[string]*AstDocFormat
 	implBasePath string
-	implTags string
+	implTags     string
 }
 
 type MethodConf struct {
-	Method string
-	Path  string
-	Request string
+	Method      string
+	Path        string
+	Request     string
 	RequestBody bool
-	EnableSwag bool
+	EnableSwag  bool
 }
 
 func NewKitHttpConf(impl Impl) *kitHttpConf {
@@ -243,7 +242,6 @@ func (k *kitHttpConf) getMethod(name string) (ImplMethod, error) {
 	return ImplMethod{}, fmt.Errorf("method %s not found", name)
 }
 
-
 // 方法的注释 默认取方法名后面的注释 如果没有则取注释的第一行
 func (k *kitHttpConf) MethodAnnotation(name string) (string, error) {
 	m, err := k.getMethod(name)
@@ -260,7 +258,7 @@ func (k *kitHttpConf) MethodAnnotation(name string) (string, error) {
 	return annotation, nil
 }
 
-func (k *kitHttpConf) MethodConform(name string) (bool,error) {
+func (k *kitHttpConf) MethodConform(name string) (bool, error) {
 	conf, err := k.MethodConf(name)
 	if err != nil {
 		return false, err
@@ -273,7 +271,7 @@ func (k *kitHttpConf) MethodConform(name string) (bool,error) {
 	return true, nil
 }
 
-func (k *kitHttpConf) MethodConf(name string) (res MethodConf,err error) {
+func (k *kitHttpConf) MethodConf(name string) (res MethodConf, err error) {
 	m, err := k.getMethod(name)
 	if err != nil {
 		return
@@ -290,11 +288,11 @@ func (k *kitHttpConf) MethodConf(name string) (res MethodConf,err error) {
 	docF.MarkValuesMapping(kitHttpSwagMark, &enableSwag)
 
 	return MethodConf{
-		Method:  strings.ToUpper(method),
-		Path:    path,
-		Request: request,
+		Method:      strings.ToUpper(method),
+		Path:        path,
+		Request:     request,
 		RequestBody: requestBody != "",
-		EnableSwag: enableSwag != "false",
+		EnableSwag:  enableSwag != "false",
 	}, nil
 }
 
@@ -303,7 +301,7 @@ func (k *kitHttpConf) MethodHttpPath(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return path.Join(k.implBasePath, conf.Path), nil
 }
 
@@ -312,7 +310,7 @@ func (k *kitHttpConf) MethodHttpMethod(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return conf.Method, nil
 
 }
@@ -320,10 +318,10 @@ func (k *kitHttpConf) MethodHttpMethod(name string) (string, error) {
 func (k *kitHttpConf) MethodHttpRequest(name string) (string, bool, error) {
 	conf, err := k.MethodConf(name)
 	if err != nil {
-		return "", false ,err
+		return "", false, err
 	}
-	
-	return conf.Request,conf.RequestBody, nil
+
+	return conf.Request, conf.RequestBody, nil
 }
 
 func (k *kitHttpConf) EnableSwag(name string) (bool, error) {

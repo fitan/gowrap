@@ -6,10 +6,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
+	"log"
 	"text/template"
 )
 
-//go:embed ../templates/*
+//go:embed  templates/*
 var templateDir embed.FS
 
 func getTemplate(name string) (string, error) {
@@ -22,7 +23,7 @@ func getTemplate(name string) (string, error) {
 }
 
 func GenToTemplate(templateName string, toFileName string, value Gen) error {
-	templateFile,err := getTemplate(templateName)
+	templateFile, err := getTemplate(templateName)
 	if err != nil {
 		return errors.Wrap(err, "getTemplate")
 	}
@@ -40,12 +41,13 @@ func GenToTemplate(templateName string, toFileName string, value Gen) error {
 		return err
 	}
 
-
 	processedSource, err := imports.Process(toFileName, buf.Bytes(), nil)
 	if err != nil {
+		//log.Println(buf.String())
 		err = errors.Wrap(err, "imports.Process")
-		return err
+		log.Println(err.Error())
 	}
+
 	buf = bytes.NewBuffer([]byte{})
 	_, err = buf.Write(processedSource)
 

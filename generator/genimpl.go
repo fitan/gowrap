@@ -11,8 +11,12 @@ const GenImplMark = "@impl"
 
 type GenImpl struct {
 	GenOption GenOption
-	ImplList map[string]Impl
-	Plugs    map[string]GenPlug
+	ImplList  map[string]Impl
+	Plugs     map[string]GenPlug
+}
+
+func (g *GenImpl) GetFile(plugName, jenFName string) string {
+	return g.Plugs[plugName].JenF(jenFName).GoString()
 }
 
 func (g *GenImpl) AddPlug(plug GenPlug) {
@@ -22,8 +26,8 @@ func (g *GenImpl) AddPlug(plug GenPlug) {
 func NewGenImpl(genOption GenOption) *GenImpl {
 	return &GenImpl{
 		GenOption: genOption,
-		ImplList: make(map[string]Impl),
-		Plugs:    make(map[string]GenPlug),
+		ImplList:  make(map[string]Impl),
+		Plugs:     make(map[string]GenPlug),
 	}
 }
 
@@ -42,7 +46,6 @@ type ImplMethod struct {
 	AcceptsContext bool
 }
 
-
 func (m ImplMethod) ResultsExcludeErr() MethodParamSlice {
 	tmp := make(MethodParamSlice, 0, 0)
 	for _, p := range m.Results {
@@ -57,7 +60,7 @@ func (m ImplMethod) ResultsExcludeErr() MethodParamSlice {
 
 func (m ImplMethod) ParamsExcludeCtx() MethodParamSlice {
 	tmp := make(MethodParamSlice, 0, 0)
-	for _, p := range m.Results {
+	for _, p := range m.Params {
 		if p.Type.String() == "context.Context" {
 			continue
 		}
@@ -77,8 +80,8 @@ func (m ImplMethod) SwagRespObjData() string {
 	}
 
 	var s []string
-	for _,v:= range m.ResultsExcludeErr() {
-		s = append(s, "data."+v.Name + "=" + v.Type.String())
+	for _, v := range m.ResultsExcludeErr() {
+		s = append(s, "data."+v.Name+"="+v.Type.String())
 	}
 	return strings.Join(s, ",")
 }
@@ -97,6 +100,7 @@ type MethodParam struct {
 	Comment  []*ast.Comment
 	Name     string
 	Type     types.Type
+	ID       string
 	Variadic bool
 }
 
@@ -164,6 +168,9 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			mParam.Name = rName
 			mParam.Type = t
 
+			idSplit := strings.Split(strings.TrimPrefix(r.Id(), g.GenOption.Pkg.PkgPath+"."), "/")
+			mParam.ID = idSplit[len(idSplit)-1]
+
 			results = append(results, mParam)
 		}
 
@@ -183,10 +190,10 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 
 func (g *GenImpl) parse() {
 	for _, v := range g.GenOption.Pkg.Syntax {
-		recordImportSpec := make([]*ast.ImportSpec,0)
+		recordImportSpec := make([]*ast.ImportSpec, 0)
 		ast.Inspect(v, func(node ast.Node) bool {
-			if importSpec, ok := node.(*ast.ImportSpec);ok {
-				recordImportSpec = append(recordImportSpec,importSpec)
+			if importSpec, ok := node.(*ast.ImportSpec); ok {
+				recordImportSpec = append(recordImportSpec, importSpec)
 			}
 
 			gd, ok := node.(*ast.GenDecl)

@@ -109,7 +109,7 @@ func (g *GenImplKitHttp) genJenF() error {
 				return errors.Wrap(err, "swag")
 			}
 
-			decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(r.Statement()))
+			decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(jen.Line()).Add(r.Statement().Line()))
 
 			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(requestName, m, r))
 
@@ -168,30 +168,30 @@ type swagVars struct {
 func (g *GenImplKitHttp) swag(vars swagVars) (string, error) {
 	doc := `
 {{if $.EnableSwag}}
-// {{$.KitRequest.ServiceName}}
-// @Summary {{$.Annotation}}
-// @Description {{$.Annotation}}
-// {{$.Tags}}
-// @Accept json
-// @Produce json
+{{$.KitRequest.ServiceName}}
+@Summary {{$.Annotation}}
+@Description {{$.Annotation}}
+{{$.Tags}}
+@Accept json
+@Produce json
 {{- range $k,$v := $.KitRequest.Path}}
-// @Param {{$v.ParamName}} path string true {{$v.Annotations}}
+@Param {{$v.ParamName}} path string true {{$v.Annotations}}
 {{- end}}
 {{- range $k, $v := $.KitRequest.Query}}
-// @Param {{$v.ParamName}} query string false {{$v.Annotations}}
+@Param {{$v.ParamName}} query string false {{$v.Annotations}}
 {{- end}}
 {{- range $k, $v := $.KitRequest.Header}}
-// @Param {{$v.ParamName}} header string false {{$v.Annotations}}
+@Param {{$v.ParamName}} header string false {{$v.Annotations}}
 {{- end}}
 {{- if $.KitRequest.RequestIsBody}}
-// @Param {{$.KitRequest.RequestName}} body {{$.KitRequest.RequestName}} true "http request body"
+@Param {{$.KitRequest.RequestName}} body {{$.KitRequest.RequestName}} true "http request body"
 {{- else}}
 {{- range $k, $v := $.KitRequest.Body}}
-// @Param {{$v.ParamName}} body {{$v.ParamTypeName}} true {{$v.Annotations}}
+@Param {{$v.ParamName}} body {{$v.ParamTypeName}} true {{$v.Annotations}}
 {{- end}}
 {{- end}}
-// @Success 200 {object} encode.Response{ {{- $.ImplMethod.SwagRespObjData}}}
-// @Router {{$.MethodHttpPath}} [{{$.MethodHttpMethod}}]{{end}}`
+@Success 200 {object} encode.Response{ {{- $.ImplMethod.SwagRespObjData}}}
+@Router {{$.MethodHttpPath}} [{{$.MethodHttpMethod}}]{{end}}`
 	t, err := template.New("doc").Parse(doc)
 	if err != nil {
 		return "", err

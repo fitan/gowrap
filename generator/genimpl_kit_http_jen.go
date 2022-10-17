@@ -10,16 +10,18 @@ func genFuncMakeHTTPHandlerNewEndpoint(methodNameList []string) jen.Code {
 		l = append(l, jen.Id(methodName).Op(":").Id("ems"))
 	}
 	return jen.Id("eps").Op(":=").Id("NewEndpoint").Call(jen.Id("s"), jen.Map(jen.Id("string")).Index().Qual("github.com/go-kit/kit/endpoint", "Middleware").Values(
-		l...,
+	//l...,
 	))
 }
 
 func genFuncMakeHTTPHandlerHandler(name, path, method, annotation string) jen.Code {
-	return jen.Id("r").Dot("Handle").Call(jen.Lit(path), jen.Qual("github.com/go-kit/kit/transport/http", "NewServer").Call(
-		jen.Id("eps").Dot(name+"Endpoint"),
-		jen.Id("decode"+name),
-		jen.Id("encode").Dot("JsonResponse"),
-		jen.Id("opts").Op("..."))).Dot("Methods").Call(jen.Lit(method)).Dot("Name").Call(jen.Lit(annotation)).Line()
+	return jen.Id("r").Dot("Handle").Call(
+		jen.Lit(path),
+		jen.Qual("github.com/go-kit/kit/transport/http", "NewServer").Call(
+			jen.Id("eps").Dot(name+"Endpoint"),
+			jen.Id("decode"+name+"Request"),
+			jen.Qual("github.com/go-kit/kit/transport/http", "EncodeJSONResponse"),
+			jen.Id("opts").Op("..."))).Dot("Methods").Call(jen.Lit(method)).Dot("Name").Call(jen.Lit(annotation)).Line()
 }
 
 func genFuncMakeHTTPHandler(newEndpoint jen.Code, HandlerList jen.Code) jen.Code {

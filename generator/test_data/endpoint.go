@@ -34,9 +34,7 @@ func makeHelloEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HelloRequest)
 		res, err := s.Hello(ctx, req.ID, req.Namespace, req.Paging.Page, req.Paging.Size, req.LastNames)
-		return Response{Data: map[string]interface{}{
-			"res": res,
-			"err": err}, Error: err}, err
+		return Response{Data: res, Error: err}, err
 	}
 }
 func makeHelloBodyEndpoint(s Service) endpoint.Endpoint {
@@ -45,16 +43,13 @@ func makeHelloBodyEndpoint(s Service) endpoint.Endpoint {
 		list, total, err := s.HelloBody(ctx, req)
 		return Response{Data: map[string]interface{}{
 			"list":  list,
-			"total": total,
-			"err":   err}, Error: err}, err
+			"total": total}, Error: err}, err
 	}
 }
 func makeSayHelloEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HelloRequest)
 		res, err := s.SayHello(ctx, req.UUID, req.Vm.Ip, req.Vm.Port, req.HeaderName)
-		return Response{Data: map[string]interface{}{
-			"res": res,
-			"err": err}, Error: err}, err
+		return Response{Data: res, Error: err}, err
 	}
 }

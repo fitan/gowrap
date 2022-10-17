@@ -14,6 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cast v1.3.1
+	github.com/spf13/cobra v1.6.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/twitchtv/twirp v5.8.0+incompatible
 	go.opencensus.io v0.23.0
@@ -22,7 +23,6 @@ require (
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03 // indirect
 	golang.org/x/tools v0.1.11
 	google.golang.org/grpc v1.37.0
-	gorm.io/gorm v1.23.9
 )
 
 go 1.16

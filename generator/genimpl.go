@@ -49,7 +49,7 @@ type ImplMethod struct {
 func (m ImplMethod) ResultsExcludeErr() MethodParamSlice {
 	tmp := make(MethodParamSlice, 0, 0)
 	for _, p := range m.Results {
-		if p.Type.String() == "error" {
+		if p.ID == "error" {
 			continue
 		}
 
@@ -159,16 +159,13 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			}
 
 			r := rs.At(i)
-			t := r.Type()
-			if _, ok := t.(*types.Named); ok {
-				t = t.Underlying()
-			}
 			rName := r.Name()
-
 			mParam.Name = rName
+
+			t := r.Type()
 			mParam.Type = t
 
-			idSplit := strings.Split(strings.TrimPrefix(r.Id(), g.GenOption.Pkg.PkgPath+"."), "/")
+			idSplit := strings.Split(strings.TrimPrefix(r.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
 			mParam.ID = idSplit[len(idSplit)-1]
 
 			results = append(results, mParam)

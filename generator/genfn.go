@@ -32,6 +32,7 @@ func (g *GenFn) AddPlug(plug GenPlug) {
 }
 
 func (g *GenFn) Run() error {
+	g.parse()
 	for _, plug := range g.Plugs {
 		err := plug.Gen()
 		if err != nil {
@@ -41,7 +42,7 @@ func (g *GenFn) Run() error {
 	return nil
 }
 
-func (g *GenFn) Parse() {
+func (g *GenFn) parse() {
 	for _, v := range g.GenOption.Pkg.Syntax {
 		astutil.Apply(v, func(c *astutil.Cursor) bool {
 			if call, ok := c.Node().(*ast.CallExpr); ok {

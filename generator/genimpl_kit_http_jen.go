@@ -7,10 +7,10 @@ import jen "github.com/dave/jennifer/jen"
 func genFuncMakeHTTPHandlerNewEndpoint(methodNameList []string) jen.Code {
 	l := make([]jen.Code, 0, len(methodNameList))
 	for _, methodName := range methodNameList {
-		l = append(l, jen.Id(methodName).Op(":").Id("ems"))
+		l = append(l, jen.Id(methodName + "MethodName").Op(":").Id("ems"))
 	}
 	return jen.Id("eps").Op(":=").Id("NewEndpoint").Call(jen.Id("s"), jen.Map(jen.Id("string")).Index().Qual("github.com/go-kit/kit/endpoint", "Middleware").Values(
-	//l...,
+	l...,
 	))
 }
 

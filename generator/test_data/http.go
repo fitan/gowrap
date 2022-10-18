@@ -20,7 +20,9 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []http.ServerOpt
 		return ctx
 	}))
 	ems = append(ems, dmw...)
-	eps := NewEndpoint(s, map[string][]endpoint.Middleware{})
+	eps := NewEndpoint(s, map[string][]endpoint.Middleware{
+		HelloBodyMethodName: ems,
+	})
 	r := mux.NewRouter()
 	r.Handle("/hello/{id}", http.NewServer(eps.HelloEndpoint, decodeHelloRequest, http.EncodeJSONResponse, opts...)).Methods("GET").Name("Hello")
 	r.Handle("/hello/body", http.NewServer(eps.HelloBodyEndpoint, decodeHelloBodyRequest, http.EncodeJSONResponse, opts...)).Methods("GET").Name("HelloBody")

@@ -566,7 +566,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		var paramTypeName string
 		var ok bool
 		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
-			paramTypeName = rt.Elem().Underlying().String()
+			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."),"/")
+			paramTypeName = "[]" + split[len(split)-1]
 		}
 		k.SetParam(RequestParam{
 			FieldName:   requestName,
@@ -584,7 +585,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		var paramTypeName string
 		var ok bool
 		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
-			paramTypeName = rt.Elem().Underlying().String()
+			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."),"/")
+			paramTypeName = split[len(split)-1]
 		}
 		k.SetParam(RequestParam{
 			FieldName:   requestName,

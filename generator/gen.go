@@ -3,6 +3,7 @@ package generator
 import (
 	"github.com/dave/jennifer/jen"
 	"github.com/pkg/errors"
+	"go/ast"
 	"golang.org/x/tools/go/packages"
 	"strings"
 )
@@ -16,6 +17,9 @@ type GenPlug interface {
 type GenOption struct {
 	// 当前目录
 	Pkg *packages.Package
+	// main.go 文件中默认引用的import
+	Imports []*ast.ImportSpec
+
 }
 
 // 最后n目录转换为 dirName.dirName

@@ -16,7 +16,21 @@ type GenImpl struct {
 }
 
 func (g *GenImpl) GetFile(plugName, jenFName string) string {
-	return g.Plugs[plugName].JenF(jenFName).GoString()
+	f := g.Plugs[plugName].JenF(jenFName)
+	for _, i := range g.GenOption.Imports {
+		var importPath string
+		var importName string
+
+		if i.Name != nil {
+			importName = i.Name.Name
+		}
+
+		importPath = i.Path.Value
+
+		f.ImportAlias(importPath, importName)
+
+	}
+	return f.GoString()
 }
 
 func (g *GenImpl) AddPlug(plug GenPlug) {

@@ -17,17 +17,16 @@ type GenImpl struct {
 
 func (g *GenImpl) GetFile(plugName, jenFName string) string {
 	f := g.Plugs[plugName].JenF(jenFName)
-	for _, i := range g.GenOption.Imports {
+	for _, i := range g.GenOption.ExtraImports() {
 		var importPath string
 		var importName string
 
-		if i.Name != nil {
-			importName = i.Name.Name
-		}
-
-		importPath = i.Path.Value
+		importName = i[0]
+		importPath = i[1]
+		log.Printf("extra import: %s, %s", importName, importPath)
 
 		f.ImportAlias(importPath, importName)
+		f.ImportName(importPath, importName)
 
 	}
 	return f.GoString()

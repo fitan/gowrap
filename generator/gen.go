@@ -1,10 +1,12 @@
 package generator
 
 import (
+	"fmt"
 	"github.com/dave/jennifer/jen"
 	"github.com/pkg/errors"
 	"go/ast"
 	"golang.org/x/tools/go/packages"
+	"log"
 	"strings"
 )
 
@@ -19,7 +21,44 @@ type GenOption struct {
 	Pkg *packages.Package
 	// main.go 文件中默认引用的import
 	Imports []*ast.ImportSpec
+}
 
+func (g GenOption) ExtraImportsStr() string {
+	var res []string
+	for _, i := range g.ExtraImports() {
+		pathName := i[0]
+		path := i[1]
+		res = append(res, fmt.Sprintf(`import "%s" "%s"`, pathName, path))
+	}
+	return strings.Join(res, "\n")
+}
+func (g GenOption) ExtraImports() (res [][]string) {
+
+	for _, i := range g.Imports {
+		docF := NewAstDocFormat(i.Doc)
+		log.Printf("doc: %s", i.Doc.Text())
+		var v1, v2 string
+		docF.MarkValuesMapping("@extra", &v1, &v2)
+		if v1 == "" && v2 == "" {
+			continue
+		}
+
+		var pathName, path string
+		if v1 != "" && v2 != "" {
+			pathName = v1
+			path = v2
+			res = append(res, []string{pathName, path})
+			continue
+		}
+
+		if v1 != "" {
+			pathName = ""
+			path = v1
+			res = append(res, []string{pathName, path})
+			continue
+		}
+	}
+	return
 }
 
 // 最后n目录转换为 dirName.dirName

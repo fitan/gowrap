@@ -28,7 +28,7 @@ to quickly create a Cobra application.`,
 			log.Fatalf("load package error: %v", err)
 		}
 
-		imports,err := generator.LoadMainImports()
+		imports, err := generator.LoadMainImports()
 		if err != nil {
 			log.Fatalf("load main imports error: %v", err)
 		}

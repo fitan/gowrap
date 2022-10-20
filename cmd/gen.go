@@ -33,7 +33,13 @@ to quickly create a Cobra application.`,
 			log.Fatalf("load main imports error: %v", err)
 		}
 
-		gen, err := generator.NewGen(generator.GenOption{Pkg: p, Imports: imports})
+		option := generator.GenOption{
+			Pkg:     p,
+			Imports: imports,
+		}
+		(&option).ExtraImports()
+
+		gen, err := generator.NewGen(option)
 		if err != nil {
 			log.Fatalf("new generator error: %v", err)
 		}

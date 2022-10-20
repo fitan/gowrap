@@ -80,7 +80,7 @@ func genNewEndpoint(methodNameList []string) jen.Code {
 		jen.Return().Id("eps"),
 	)
 }
-func genMakeEndpoint(requestName string, method ImplMethod, request *KitRequest) jen.Code {
+func genMakeEndpoint(requestName string, method ImplMethod, request *KitRequest, option GenOption) jen.Code {
 	paramList := make([]jen.Code, 0, len(method.ParamsExcludeCtx()))
 	paramList = append(paramList, jen.Id("ctx"))
 	resultNameList := make([]jen.Code, 0, len(method.Results))
@@ -108,7 +108,7 @@ func genMakeEndpoint(requestName string, method ImplMethod, request *KitRequest)
 		jen.List(resultNameList...).Op(":=").Id("s").Dot(method.Name).Call(
 			paramList...,
 		),
-		jen.Return().List(jen.Id("encode").Dot("Response").Values(
+		jen.Return().List(jen.Qual(option.ImportByName("encode"), "Response").Values(
 			jen.Id("Data").Op(":").Id(responseDataID),
 			jen.Id("Error").Op(":").Id("err"),
 		),

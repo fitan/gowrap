@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"github.com/dave/jennifer/jen"
 	"github.com/pkg/errors"
 	"go/ast"
@@ -20,19 +19,24 @@ type GenOption struct {
 	// 当前目录
 	Pkg *packages.Package
 	// main.go 文件中默认引用的import
-	Imports []*ast.ImportSpec
+	Imports         []*ast.ImportSpec
+	MainExtraImport [][]string
 }
 
-func (g GenOption) ExtraImportsStr() string {
-	var res []string
-	for _, i := range g.ExtraImports() {
-		pathName := i[0]
-		path := i[1]
-		res = append(res, fmt.Sprintf(`import "%s" "%s"`, pathName, path))
+func (g GenOption) ImportByName(name string) (path string) {
+	log.Printf("import by name: %s", name, g.MainExtraImport)
+	for _, i := range g.MainExtraImport {
+		importName, imposrtPath := i[0], i[1]
+		if importName == name {
+			log.Printf("import by name: %s, %s", importName, imposrtPath)
+			return imposrtPath
+		}
 	}
-	return strings.Join(res, "\n")
+	return ""
 }
-func (g GenOption) ExtraImports() (res [][]string) {
+
+func (g *GenOption) ExtraImports() {
+	res := make([][]string, 0)
 
 	for _, i := range g.Imports {
 		docF := NewAstDocFormat(i.Doc)
@@ -58,6 +62,8 @@ func (g GenOption) ExtraImports() (res [][]string) {
 			continue
 		}
 	}
+	g.MainExtraImport = res
+
 	return
 }
 
@@ -89,11 +95,11 @@ func NewGen(option GenOption) (Gen, error) {
 		return Gen{}, errors.Wrap(err, "gen impl run")
 	}
 
-	return Gen{
+	g := Gen{
 		GenOption: option,
 		GenFn:     fn,
 		GenImpl:   impl,
 		GenType:   nil,
-	}, nil
-
+	}
+	return g, nil
 }

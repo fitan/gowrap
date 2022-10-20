@@ -111,7 +111,7 @@ func (g *GenImplKitHttp) genJenF() error {
 
 			decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(jen.Line()).Add(r.Statement().Line()))
 
-			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(requestName, m, r))
+			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(requestName, m, r, g.genImpl.GenOption))
 
 			LoggingFuncCodeList = append(LoggingFuncCodeList, genLoggingFunc(m))
 

@@ -13,14 +13,22 @@ const GenTypeMark = "// @type"
 type GenType struct {
 	Pkg      *packages.Package
 	TypeList map[string]Type
-	Plugs    []TypePlug
-	JenF *jen.File
+	Plugs    map[string]GenPlug
+}
+
+func (g *GenType) AddPlug(plug GenPlug) {
+	g.Plugs[plug.Name()] = plug
+}
+
+func (g *GenType) Run() error {
+	g.parse()
+	return nil
 }
 
 type TypePlug interface {
 	Name() string
 	Gen(pkg *packages.Package, name string, t Type) error
-	JenF() *jen.File
+	JenF(name string) *jen.File
 }
 
 type Type struct {
@@ -28,7 +36,14 @@ type Type struct {
 	T types.Type
 }
 
-func (g *GenType) Parse() {
+func (g *GenType) GetFile(plugName, jenFName string) string {
+	f := g.Plugs[plugName].JenF(jenFName)
+	return f.GoString()
+}
+
+
+
+func (g *GenType) parse() {
 	for _, v := range g.Pkg.Syntax {
 		ast.Inspect(v, func(node ast.Node) bool {
 			if genDecl, ok := node.(*ast.GenDecl);ok {

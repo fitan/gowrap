@@ -42,6 +42,8 @@ func (g *GenFn) Run() error {
 	return nil
 }
 
+
+
 func (g *GenFn) parse() {
 	for _, v := range g.GenOption.Pkg.Syntax {
 		astutil.Apply(v, func(c *astutil.Cursor) bool {

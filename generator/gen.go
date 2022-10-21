@@ -15,6 +15,12 @@ type GenPlug interface {
 	JenF(name string) *jen.File
 }
 
+type GenObjType interface {
+	GetFile(plugName, jenFName string) string
+	AddPlug(plug GenPlug)
+	Run() error
+}
+
 type GenOption struct {
 	// 当前目录
 	Pkg *packages.Package

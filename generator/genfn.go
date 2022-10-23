@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"go/types"
 	"golang.org/x/tools/go/ast/astutil"
@@ -12,8 +13,8 @@ const GenFnMark = "// @fn"
 
 type GenFn struct {
 	GenOption GenOption
-	FuncList map[string]Func
-	Plugs    map[string]GenPlug
+	FuncList  map[string]Func
+	Plugs     map[string]GenPlug
 }
 
 func NewGenFn(genOption GenOption) *GenFn {
@@ -24,7 +25,16 @@ func NewGenFn(genOption GenOption) *GenFn {
 type Func struct {
 	MarkParam []string
 	Args      []types.Type
-	Lhs []types.Type
+	Lhs       []types.Type
+}
+
+func (g *GenFn) GetFile(plugName, jenFName string) string {
+	f := g.Plugs[plugName].JenF(jenFName)
+	return f.GoString()
+}
+
+func (g *GenFn) JenF(name string) *jen.File {
+	return g.Plugs[name].JenF(name)
 }
 
 func (g *GenFn) AddPlug(plug GenPlug) {
@@ -41,8 +51,6 @@ func (g *GenFn) Run() error {
 	}
 	return nil
 }
-
-
 
 func (g *GenFn) parse() {
 	for _, v := range g.GenOption.Pkg.Syntax {

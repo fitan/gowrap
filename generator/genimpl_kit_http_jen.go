@@ -1,6 +1,8 @@
 package generator
 
-import jen "github.com/dave/jennifer/jen"
+import (
+	jen "github.com/dave/jennifer/jen"
+)
 
 // http
 
@@ -122,7 +124,7 @@ func genMakeEndpoint(requestName string, method ImplMethod, request *KitRequest,
 // logging
 
 func genLoggingStruct() jen.Code {
-	return jen.Null().Type().Id("logging").Struct(jen.Id("logger").Id("log").Dot("Logger"), jen.Id("next").Id("Service"), jen.Id("traceId").Id("string"))
+	return jen.Null().Type().Id("logging").Struct(jen.Id("logger").Qual("github.com/go-kit/kit/log", "Logger"), jen.Id("next").Id("Service"), jen.Id("traceId").Id("string"))
 }
 func genLoggingFunc(method ImplMethod) jen.Code {
 
@@ -133,7 +135,7 @@ func genLoggingFunc(method ImplMethod) jen.Code {
 	nextMethodParamCode := make([]jen.Code, 0)
 
 	for _, param := range method.Params {
-		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.Type.String()))
+		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
 		nextMethodParamCode = append(nextMethodParamCode, jen.Id(param.Name))
 	}
 
@@ -141,10 +143,10 @@ func genLoggingFunc(method ImplMethod) jen.Code {
 		logParamCode = append(logParamCode, jen.Lit(param.Name), jen.Id(param.Name))
 	}
 
-	logParamSatement := jen.Statement(logParamCode)
+	logParamSatement := jen.List(logParamCode...)
 
 	for _, param := range method.Results {
-		methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.Type.String()))
+		methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.ID))
 	}
 
 	return jen.Func().Params(
@@ -160,12 +162,12 @@ func genLoggingFunc(method ImplMethod) jen.Code {
 					jen.Id("s").Dot("traceId"),
 					jen.Id("ctx").Dot("Value").Call(jen.Id("s").Dot("traceId")),
 					jen.Lit("method"), jen.Lit(method.Name),
-					&logParamSatement,
+					logParamSatement,
 					jen.Lit("took"), jen.Qual("time", "Since").Call(jen.Id("begin")), jen.Lit("err"),
 					jen.Id("err"))).Call(jen.Qual("time", "Now").Call()),
 		jen.Return().Id("s").Dot("next").Dot(method.Name).Call(
 			nextMethodParamCode...,
-		))
+		)).Line()
 }
 
 func genNewLogging(logPrefix string) jen.Code {
@@ -186,26 +188,26 @@ func genNewLogging(logPrefix string) jen.Code {
 // tracing
 
 func genTracingStruct() jen.Code {
-	return jen.Null().Type().Id("tracing").Struct(jen.Id("next").Id("Service"), jen.Id("tracer").Id("opentracing").Dot("Tracer"))
+	return jen.Null().Type().Id("tracing").Struct(jen.Id("next").Id("Service"), jen.Id("tracer").Qual("github.com/opentracing/opentracing-go", "Tracer"))
 }
 func genTracingFunc(tracingPrefix string, method ImplMethod) jen.Code {
 	methodParamCode := make([]jen.Code, 0)
+	methodParamCode = append(methodParamCode, jen.Id("ctx").Qual("context", "Context"))
 	methodResultCode := make([]jen.Code, 0)
 
 	tracingParamCode := make([]jen.Code, 0)
 	nextMethodParamCode := make([]jen.Code, 0)
 	for _, param := range method.Params {
-		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.Type.String()))
 		nextMethodParamCode = append(nextMethodParamCode, jen.Id(param.Name))
 	}
 
 	for _, param := range method.ParamsExcludeCtx() {
+		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
 		tracingParamCode = append(tracingParamCode, jen.Lit(param.Name), jen.Id(param.Name))
 	}
-	tracingParamSatement := jen.Statement(tracingParamCode)
 
 	for _, param := range method.Results {
-		methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.Type.String()))
+		methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.ID))
 	}
 
 	return jen.Func().Params(jen.Id("s").Op("*").Id("tracing")).Id(method.Name).Params(
@@ -218,17 +220,17 @@ func genTracingFunc(tracingPrefix string, method ImplMethod) jen.Code {
 			jen.Id("s").Dot("tracer"),
 			jen.Lit(method.Name),
 			jen.Id("opentracing").Dot("Tag").Values(jen.Id("Key").Op(":").Id("string").Call(
-				jen.Id("ext").Dot("Component")),
+				jen.Qual("github.com/opentracing/opentracing-go/ext", "Component")),
 				jen.Id("Value").Op(":").Lit(tracingPrefix),
 			),
 		),
 		jen.Defer().Func().Params().Block(jen.Id("span").Dot("LogKV").Call(
-			&tracingParamSatement,
+			jen.List(tracingParamCode...),
 			jen.Lit("err"), jen.Id("err")),
 			jen.Id("span").Dot("SetTag").Call(jen.Id("string").Call(jen.Id("ext").Dot("Error")), jen.Id("err").Op("!=").Id("nil")), jen.Id("span").Dot("Finish").Call()).Call(),
 		jen.Return().Id("s").Dot("next").Dot(method.Name).Call(
 			nextMethodParamCode...,
-		))
+		)).Line()
 }
 func genNewTracing() jen.Code {
 	return jen.Func().Id("NewTracing").Params(jen.Id("otTracer").Id("opentracing").Dot("Tracer")).Params(jen.Id("Middleware")).Block(jen.Return().Func().Params(jen.Id("next").Id("Service")).Params(jen.Id("Service")).Block(jen.Return().Op("&").Id("tracing").Values(jen.Id("next").Op(":").Id("next"), jen.Id("tracer").Op(":").Id("otTracer"))))

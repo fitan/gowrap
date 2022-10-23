@@ -1,10 +1,13 @@
 module github.com/fitan/gowrap
 
 require (
+	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/dave/jennifer v1.5.0
 	github.com/davecgh/go-spew v1.1.1
+	github.com/go-kit/kit v0.9.0
 	github.com/gojuno/minimock/v3 v3.0.10
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/gorilla/mux v1.8.0
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1

@@ -3,25 +3,26 @@ package generator
 import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
-	"github.com/fitan/gowrap/xtype"
+	"github.com/pkg/errors"
 	"go/types"
-	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 	"reflect"
 	"strings"
 )
 
 var queryMap map[string]string = map[string]string{
-	"eq": "= ?",
-	"ne": "!= ?",
-	"gt": "> ?",
-	"ge": ">= ?",
-	"lt": "< ?",
-	"le": "<= ?",
-	"like": "like ?",
-	"nlike": "not like ?",
-	"ilike": "ilike ?",
+	"eq":     "= ?",
+	"ne":     "!= ?",
+	"gt":     "> ?",
+	"ge":     ">= ?",
+	"lt":     "< ?",
+	"le":     "<= ?",
+	"like":   "like ?",
+	"nlike":  "not like ?",
+	"ilike":  "ilike ?",
 	"nilike": "not ilike ?",
+	"in":     "in ?",
+	"nin":    "not in ?",
 	//"regexp": "regexp ",
 	//"nregexp": "not regexp",
 	//"iregexp": "iregexp",
@@ -31,7 +32,7 @@ var queryMap map[string]string = map[string]string{
 	//"contained_by": "<@",
 	//"any": "any",
 	//"all": "all",
-	"between": "between ? and ?",
+	"between":  "between ? and ?",
 	"nbetween": "not between ? and ?",
 	//"null": "is null",
 	//"not_null": "is not null",
@@ -41,8 +42,8 @@ var queryMap map[string]string = map[string]string{
 
 type GenFnQuery struct {
 	recorder map[string]struct{}
-	jenFM map[string]*jen.File
-	genFn *GenFn
+	jenFM    map[string]*jen.File
+	genFn    *GenFn
 }
 
 func (g *GenFnQuery) Name() string {
@@ -50,19 +51,31 @@ func (g *GenFnQuery) Name() string {
 }
 
 func (g *GenFnQuery) Gen() error {
-	jen.NewFile("query")
-	for _, fn := range g.genFn.FuncList {
-		if !(len(fn.MarkParam) >0 && fn.MarkParam[0] == "query") {
+	jenF := jen.NewFile(g.genFn.GenOption.Pkg.Name)
+	for name, fn := range g.genFn.FuncList {
+		if !(len(fn.MarkParam) > 0 && fn.MarkParam[0] == "query") {
 			continue
 		}
+
+		err := g.parse(jenF, name, fn)
+		if err != nil {
+			err = errors.Wrap(err, "g.parse")
+			return err
+		}
 	}
+
+	g.jenFM["query"] = jenF
 
 	return nil
 }
 
+type QueryMsg struct {
+	Point bool
+	PATH  string
+}
 
-func (g *GenFnQuery) parseField(path []string, v *types.Var, tag string, m map[string]string) {
-	tagQuery,ok := reflect.StructTag(tag).Lookup("query")
+func (g *GenFnQuery) parseField(path []string, v *types.Var, tag string, m map[string]QueryMsg) {
+	tagQuery, ok := reflect.StructTag(tag).Lookup("query")
 	if !ok {
 		if structType, ok := v.Type().(*types.Struct); ok {
 			for i := 0; i < structType.NumFields(); i++ {
@@ -70,22 +83,26 @@ func (g *GenFnQuery) parseField(path []string, v *types.Var, tag string, m map[s
 				if !field.Exported() {
 					continue
 				}
-				g.parseField(path,field, structType.Tag(i), m)
+				g.parseField(append(path, v.Name()), field, structType.Tag(i), m)
 			}
 		}
 		return
 	}
 
+	_, hasPoint := v.Type().(*types.Pointer)
 	FiledName := v.Name()
 	op := queryMap[tagQuery]
 	column := schema.ParseTagSetting(reflect.StructTag(tag).Get("gorm"), ";")["COLUMN"]
 
-	m[column + " " + op] = strings.Join(append(path, FiledName), ".")
+	m[column+" "+op] = QueryMsg{
+		Point: hasPoint,
+		PATH:  strings.Join(append(path, FiledName), "."),
+	}
 }
 
-func (g *GenFnQuery) parse(jenF *jen.File,name string, fn Func) error {
+func (g *GenFnQuery) parse(jenF *jen.File, name string, fn Func) error {
 
-	if _, ok := g.recorder[name];ok {
+	if _, ok := g.recorder[name]; ok {
 		return nil
 	}
 
@@ -101,40 +118,43 @@ func (g *GenFnQuery) parse(jenF *jen.File,name string, fn Func) error {
 		arg = v.Elem()
 	}
 
-	argStruct, ok := arg.(*types.Struct)
+	argStruct, ok := arg.Underlying().(*types.Struct)
 	if !ok {
 		return fmt.Errorf("plug query: %s fn args must be struct", name)
 	}
-
-	queryM := map[string]string{}
+	queryM := map[string]QueryMsg{}
 
 	for i := 0; i < argStruct.NumFields(); i++ {
 		g.parseField([]string{"v"}, argStruct.Field(i), argStruct.Tag(i), queryM)
 	}
 
+	s := strings.Replace(arg.String(), g.genFn.GenOption.Pkg.PkgPath+".", "", -1)
+	sSplit := strings.Split(s, "/")
+	s = sSplit[len(sSplit)-1]
 
+	setM := jen.Null().Line()
 
-	jenF.Add(jen.Func().Id(name).Params(jen.Id(arg.String())).Params(jen.Map(jen.String()).Interface()).Block(
-	//	dict := jen.Dict{
-	//		jen.Lit("v"): jen.Id("v"),
-	//}
-	//	jen.Return(jen.Map(jen.String()).Interface().ValuesFunc(func(g *jen.Group) {
-	//		for k, v := range queryM {
-	//			.Dict(jen.Lit(k), jen.Id(v.(string)))
-	//		}
-	//	}
+	for k, v := range queryM {
+		if v.Point {
+			setM.If(jen.Id(v.PATH).Op("!=").Nil()).Block(jen.Id("res").Index(jen.Lit(k)).Op("=").Op("*").Id(v.PATH)).Line()
+		} else {
+			setM.Id("res").Index(jen.Lit(k)).Op("=").Id(v.PATH).Line()
+		}
+	}
+
+	jenF.Add(jen.Func().Id(name).Params(jen.Id("v").Id(s)).Parens(jen.Id("res").Map(jen.String()).Interface()).Block(
+		jen.Id("res").Op("=").Make(jen.Map(jen.String()).Interface()).Line(),
+		setM,
+		jen.Return(),
 	))
 
-
+	return nil
 }
-
-
 
 func (g *GenFnQuery) JenF(name string) *jen.File {
 	return g.jenFM[name]
 }
 
-func NewGenFnQuery(fn *GenFn) *GenFnCopy {
-	return &GenFnCopy{recorder: map[string]struct{}{}, genFn: fn, jenFM: map[string]*jen.File{}}
+func NewGenFnQuery(fn *GenFn) *GenFnQuery {
+	return &GenFnQuery{recorder: map[string]struct{}{}, genFn: fn, jenFM: map[string]*jen.File{}}
 }
-

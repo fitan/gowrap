@@ -78,6 +78,15 @@ type HelloRequest struct {
 	//Role string `param:"ctx,role"`
 }
 
+type Query struct {
+	Name string `json:"name" query:"eq" gorm:"column:name"`
+	Age  *int   `json:"age" query:"gt" gorm:"column:age"`
+	Ids  []int  `json:"ids" query:"in" gorm:"column:id"`
+	VM   struct {
+		Ip string `json:"ip" query:"eq" gorm:"column:ip"`
+	}
+}
+
 func RoleToRole(s string) string {
 	return s
 }
@@ -91,6 +100,8 @@ type Paging struct {
 	Size int64 `param:"query,size"`
 }
 
+type Middleware func(service Service) Service
+
 // @tags paas-api
 // @impl
 type Service interface {
@@ -103,7 +114,7 @@ type Service interface {
 	// @kit-http /hello/say GET
 	// @kit-http-request HelloRequest
 	// @kit-http-response HelloRequest
-	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res HelloRequest, err error)
+	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res map[string][]nest.NetWork, err error)
 
 	// HelloBody
 	// @kit-http /hello/body GET
@@ -130,6 +141,11 @@ func (r RedisService) SayHello(
 ) (res HelloRequest, err error) {
 	//src := HelloRequest{}
 	//apiDTO(src, &res)
+
+	q := Query{}
+
+	// @fn query
+	queryM = queryDTO(q)
 	panic("implement me")
 }
 

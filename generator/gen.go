@@ -89,6 +89,7 @@ type Gen struct {
 func NewGen(option GenOption) (Gen, error) {
 	fn := NewGenFn(option)
 	fn.AddPlug(NewGenFnCopy(fn))
+	fn.AddPlug(NewGenFnQuery(fn))
 	err := fn.Run()
 	if err != nil {
 		return Gen{}, errors.Wrap(err, "gen fn run")

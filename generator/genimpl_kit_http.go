@@ -142,6 +142,8 @@ func (g *GenImplKitHttp) genJenF() error {
 	logJenF.Add(genNewLogging(g.genImpl.GenOption.CutLast2DirName()))
 
 	tracingJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	tracingJenF.Anon("github.com/fitan/gowrap/generator/test_data/nest")
+	tracingJenF.ImportAlias("github.com/opentracing/opentracing-go", "opentracing")
 	tracingJenF.Add(genTracingStruct())
 	tracingJenF.Add(TracingFuncCodeList...)
 	tracingJenF.Add(genNewTracing())

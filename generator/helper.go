@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
+	"strings"
 )
 
 // 获取struct字段里的注释
@@ -29,10 +30,15 @@ func GetCommentByTokenPos(pkg *packages.Package, pos token.Pos) *ast.CommentGrou
 // 寻找非named types
 func FindNotNamedType(pkg *packages.Package, expr ast.Expr) types.Type {
 	t := pkg.TypesInfo.TypeOf(expr)
-	if _,ok := t.(*types.Named);ok {
+	if _, ok := t.(*types.Named); ok {
 		return t.Underlying()
 	}
 
 	return t
-	
+
+}
+
+func IdByType(pkg packages.Package, t types.Type) string {
+	s := strings.Replace(t.String(), pkg.PkgPath, "", -1)
+	return s
 }

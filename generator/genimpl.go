@@ -147,6 +147,9 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			mParam.Name = pName
 			mParam.Type = t
 
+			idSplit := strings.Split(strings.TrimPrefix(p.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
+			mParam.ID = idSplit[len(idSplit)-1]
+
 			params = append(params, mParam)
 		}
 

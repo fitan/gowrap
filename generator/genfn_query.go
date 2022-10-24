@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
+	"github.com/gobeam/stringy"
 	"github.com/pkg/errors"
 	"go/types"
 	"gorm.io/gorm/schema"
@@ -93,6 +94,9 @@ func (g *GenFnQuery) parseField(path []string, v *types.Var, tag string, m map[s
 	FiledName := v.Name()
 	op := queryMap[tagQuery]
 	column := schema.ParseTagSetting(reflect.StructTag(tag).Get("gorm"), ";")["COLUMN"]
+	if column == "" {
+		column = stringy.New(FiledName).SnakeCase().ToLower()
+	}
 
 	m[column+" "+op] = QueryMsg{
 		Point: hasPoint,

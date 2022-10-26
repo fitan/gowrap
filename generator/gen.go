@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 	"github.com/pkg/errors"
 	"go/ast"
 	"golang.org/x/tools/go/packages"
@@ -30,11 +30,9 @@ type GenOption struct {
 }
 
 func (g GenOption) ImportByName(name string) (path string) {
-	log.Printf("import by name: %s", name, g.MainExtraImport)
 	for _, i := range g.MainExtraImport {
 		importName, imposrtPath := i[0], i[1]
 		if importName == name {
-			log.Printf("import by name: %s, %s", importName, imposrtPath)
 			return imposrtPath
 		}
 	}

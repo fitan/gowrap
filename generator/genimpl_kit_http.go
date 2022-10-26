@@ -3,7 +3,7 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 	"github.com/pkg/errors"
 	"log"
 	"path"
@@ -123,6 +123,7 @@ func (g *GenImplKitHttp) genJenF() error {
 	makeHttpCode := genFuncMakeHTTPHandler(genFuncMakeHTTPHandlerNewEndpoint(methodNameList), &h)
 
 	httpJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	JenFAddImports(g.genImpl.GenOption.Pkg, httpJenF)
 	httpJenF.Add(makeHttpCode)
 	httpJenF.Add(decodeRequestCodeList...)
 
@@ -131,19 +132,21 @@ func (g *GenImplKitHttp) genJenF() error {
 	NewEndpointsCode = genNewEndpoint(methodNameList)
 
 	endpointJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	JenFAddImports(g.genImpl.GenOption.Pkg, endpointJenF)
 	endpointJenF.Add(EndpointsConstCode)
 	endpointJenF.Add(EndpointsCode)
 	endpointJenF.Add(NewEndpointsCode)
 	endpointJenF.Add(MakeEndpointCodeList...)
 
 	logJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	JenFAddImports(g.genImpl.GenOption.Pkg, logJenF)
 	logJenF.Add(genLoggingStruct())
 	logJenF.Add(LoggingFuncCodeList...)
 	logJenF.Add(genNewLogging(g.genImpl.GenOption.CutLast2DirName()))
 
 	tracingJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
-	tracingJenF.Anon("github.com/fitan/gowrap/generator/test_data/nest")
-	tracingJenF.ImportAlias("github.com/opentracing/opentracing-go", "opentracing")
+	tracingJenF.ImportName("github.com/opentracing/opentracing-go", "opentracing")
+	JenFAddImports(g.genImpl.GenOption.Pkg, tracingJenF)
 	tracingJenF.Add(genTracingStruct())
 	tracingJenF.Add(TracingFuncCodeList...)
 	tracingJenF.Add(genNewTracing())

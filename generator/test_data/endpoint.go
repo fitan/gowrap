@@ -2,6 +2,7 @@ package test_data
 
 import (
 	"context"
+
 	encode "github.com/fitan/gowrap/generator/test_data/encode"
 	endpoint "github.com/go-kit/kit/endpoint"
 )
@@ -49,7 +50,7 @@ func makeHelloBodyEndpoint(s Service) endpoint.Endpoint {
 func makeSayHelloEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HelloRequest)
-		res, err := s.SayHello(ctx, req.UUID, req.Vm.Ip, req.Vm.Port, req.HeaderName)
-		return encode.Response{Data: res, Error: err}, err
+		m, err := s.SayHello(ctx, req.UUID, req.Vm.Ip, req.Vm.Port, req.HeaderName)
+		return encode.Response{Data: m, Error: err}, err
 	}
 }

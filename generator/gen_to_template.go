@@ -3,8 +3,11 @@ package generator
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"github.com/pkg/errors"
+	"golang.org/x/tools/imports"
 	"io/ioutil"
+	"log"
 	"text/template"
 )
 
@@ -39,15 +42,17 @@ func GenToTemplate(templateName string, toFileName string, value Gen) error {
 		return err
 	}
 
-	//processedSource, err := imports.Process(toFileName, buf.Bytes(), nil)
-	//if err != nil {
-	//	//log.Println(buf.String())
-	//	err = errors.Wrap(err, "imports.Process")
-	//	log.Println(err.Error())
-	//}
+	fmt.Println(buf.String())
 
-	//buf = bytes.NewBuffer([]byte{})
-	//_, err = buf.Write(processedSource)
+	processedSource, err := imports.Process(toFileName, buf.Bytes(), nil)
+	if err != nil {
+		//log.Println(buf.String())
+		err = errors.Wrap(err, "imports.Process")
+		log.Println(err.Error())
+	}
+
+	buf = bytes.NewBuffer([]byte{})
+	_, err = buf.Write(processedSource)
 	//_,err = buf.Write(buf.Bytes())
 
 	err = ioutil.WriteFile(toFileName, buf.Bytes(), 0664)

@@ -7,7 +7,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 )
 
 // ThisVar is used as name for the reference to the converter interface.

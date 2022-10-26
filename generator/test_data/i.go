@@ -114,7 +114,7 @@ type Service interface {
 	// @kit-http /hello/say GET
 	// @kit-http-request HelloRequest
 	// @kit-http-response HelloRequest
-	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res map[string][]nest.NetWork, err error)
+	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (m map[string][]nest.NetWork, err error)
 
 	// HelloBody
 	// @kit-http /hello/body GET

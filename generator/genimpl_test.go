@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/tools/go/packages"
 	"testing"

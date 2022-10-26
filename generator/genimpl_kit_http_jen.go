@@ -1,7 +1,7 @@
 package generator
 
 import (
-	jen "github.com/dave/jennifer/jen"
+	jen "github.com/fitan/jennifer/jen"
 )
 
 // http
@@ -135,7 +135,11 @@ func genLoggingFunc(method ImplMethod) jen.Code {
 	nextMethodParamCode := make([]jen.Code, 0)
 
 	for _, param := range method.Params {
-		methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
+		if param.ID == "context.Context" {
+			methodParamCode = append(methodParamCode, jen.Id(param.Name).Qual("context","Context"))
+		} else {
+			methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
+		}
 		nextMethodParamCode = append(nextMethodParamCode, jen.Id(param.Name))
 	}
 
@@ -177,7 +181,7 @@ func genNewLogging(logPrefix string) jen.Code {
 			jen.Lit(logPrefix),
 			jen.Lit("logging"),
 		), jen.Return().Func().Params(jen.Id("next").Id("Service")).Params(jen.Id("Service")).Block(
-			jen.Return().Op("&").Id("logging").Values(jen.Id("logger").Op(":").Id("level").Dot("Info").Call(
+			jen.Return().Op("&").Id("logging").Values(jen.Id("logger").Op(":").Qual("github.com/go-kit/kit/log/level","Info").Call(
 				jen.Id("logger")),
 				jen.Id("next").Op(":").Id("next"),
 				jen.Id("traceId").Op(":").Id("traceId")),

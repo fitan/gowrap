@@ -2,7 +2,8 @@ package test_data
 
 import (
 	"context"
-	_ "github.com/fitan/gowrap/generator/test_data/nest"
+
+	"github.com/fitan/gowrap/generator/test_data/nest"
 	opentracing "github.com/opentracing/opentracing-go"
 	ext "github.com/opentracing/opentracing-go/ext"
 )
@@ -30,7 +31,7 @@ func (s *tracing) HelloBody(ctx context.Context, helloRequest HelloRequest) (lis
 	}()
 	return s.next.HelloBody(ctx, helloRequest)
 }
-func (s *tracing) SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res nest.NetWork, err error) {
+func (s *tracing) SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (m map[string][]nest.NetWork, err error) {
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "SayHello", opentracing.Tag{Key: string(ext.Component), Value: "generator"})
 	defer func() {
 		span.LogKV("uuid", uuid, "ip", ip, "port", port, "headerName", headerName, "err", err)

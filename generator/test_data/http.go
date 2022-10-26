@@ -2,11 +2,16 @@ package test_data
 
 import (
 	"context"
+	"encoding/json"
+	http1 "net/http"
+	"strings"
+
 	govalidator "github.com/asaskevich/govalidator"
 	endpoint "github.com/go-kit/kit/endpoint"
 	http "github.com/go-kit/kit/transport/http"
 	mux "github.com/gorilla/mux"
-	http1 "net/http"
+	errors "github.com/pkg/errors"
+	cast "github.com/spf13/cast"
 )
 
 func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []http.ServerOption) http1.Handler {
@@ -45,7 +50,7 @@ Hello
 @Param size query string false " "
 @Param headerName header string false "@dto-method fmt Sprintf"
 @Param user body  true " "
-@Success 200 {object} encode.Response{data=github.com/fitan/gowrap/generator/test_data.HelloRequest}
+@Success 200 {object} encode.Response{data=HelloRequest}
 @Router /hello/{id} [GET]
 */
 func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{}, err error) {
@@ -62,6 +67,8 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	var namespace []string
 
+	var time int64
+
 	var ip string
 
 	var port int
@@ -69,8 +76,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 	var id int
 
 	var uuid string
-
-	var time int64
 
 	var headerName string
 
@@ -98,6 +103,17 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 		return
 	}
 
+	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
+
+	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
+
+	if lastNamesIntStr != "" {
+		lastNamesInt, err = cast.ToIntSliceE(strings.Split(lastNamesIntStr, ","))
+		if err != nil {
+			return
+		}
+	}
+
 	pageStr := r.URL.Query().Get("page")
 
 	if pageStr != "" {
@@ -118,17 +134,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
-	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
-
-	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
-
-	if lastNamesIntStr != "" {
-		lastNamesInt, err = cast.ToIntSliceE(strings.Split(lastNamesIntStr, ","))
-		if err != nil {
-			return
-		}
-	}
-
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req.Body)
@@ -138,17 +143,15 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 		return
 	}
 
-	req.Vm.Ip = ip
-
-	req.Vm.Port = port
-
 	req.ID = id
 
 	req.UUID = uuid
 
 	req.Time = time
 
-	req.Paging.Size = size
+	req.Vm.Ip = ip
+
+	req.Vm.Port = port
 
 	req.Namespace = namespace
 
@@ -157,6 +160,8 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 	req.LastNamesInt = lastNamesInt
 
 	req.Paging.Page = page
+
+	req.Paging.Size = size
 
 	req.HeaderName = headerName
 
@@ -196,14 +201,12 @@ HelloBody
 @Param size query string false " "
 @Param headerName header string false "@dto-method fmt Sprintf"
 @Param HelloRequest body HelloRequest true "http request body"
-@Success 200 {object} encode.Response{data.list=github.com/fitan/gowrap/generator/test_data.HelloRequest,data.total=int64}
+@Success 200 {object} encode.Response{data.list=HelloRequest,data.total=int64}
 @Router /hello/body [GET]
 */
 func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interface{}, err error) {
 
 	req := HelloRequest{}
-
-	var page int64
 
 	var size int64
 
@@ -213,9 +216,7 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	var lastNamesInt []int
 
-	var ip string
-
-	var port int
+	var page int64
 
 	var id int
 
@@ -223,15 +224,13 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	var time int64
 
+	var ip string
+
+	var port int
+
 	var headerName string
 
 	vars := mux.Vars(r)
-
-	id, err = cast.ToIntE(vars["id"])
-
-	if err != nil {
-		return
-	}
 
 	uuid = vars["uuid"]
 
@@ -248,6 +247,14 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 	if err != nil {
 		return
 	}
+
+	id, err = cast.ToIntE(vars["id"])
+
+	if err != nil {
+		return
+	}
+
+	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
 
 	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
 
@@ -278,8 +285,6 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
-	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
-
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req)
@@ -289,15 +294,15 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 		return
 	}
 
+	req.Vm.Ip = ip
+
+	req.Vm.Port = port
+
 	req.ID = id
 
 	req.UUID = uuid
 
 	req.Time = time
-
-	req.Vm.Ip = ip
-
-	req.Vm.Port = port
 
 	req.LastNames = lastNames
 
@@ -347,14 +352,12 @@ SayHello
 @Param size query string false " "
 @Param headerName header string false "@dto-method fmt Sprintf"
 @Param user body  true " "
-@Success 200 {object} encode.Response{data=map[string][]github.com/fitan/gowrap/generator/test_data/nest.NetWork}
+@Success 200 {object} encode.Response{data=map[string][]nest.NetWork}
 @Router /hello/say [GET]
 */
 func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface{}, err error) {
 
 	req := HelloRequest{}
-
-	var namespace []string
 
 	var lastNames []string
 
@@ -364,7 +367,7 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	var size int64
 
-	var port int
+	var namespace []string
 
 	var id int
 
@@ -373,6 +376,8 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 	var time int64
 
 	var ip string
+
+	var port int
 
 	var headerName string
 
@@ -440,15 +445,15 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 		return
 	}
 
+	req.ID = id
+
+	req.UUID = uuid
+
 	req.Time = time
 
 	req.Vm.Ip = ip
 
 	req.Vm.Port = port
-
-	req.ID = id
-
-	req.UUID = uuid
 
 	req.LastNames = lastNames
 

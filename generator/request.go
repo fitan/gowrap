@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -245,11 +245,11 @@ func (k *KitRequest) Validate() []jen.Code {
 		list,
 		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Qual("github.com/asaskevich/govalidator", "ValidateStruct").Call(jen.Id("req")),
 		jen.If(jen.Err().Op("!=").Nil()).Block(
-			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("govalidator.ValidateStruct")),
+			jen.Err().Op("=").Qual("github.com/pkg/errors", "Wrap").Call(jen.Id("err"), jen.Lit("govalidator.ValidateStruct")),
 			jen.Return(),
 		),
 		jen.If(jen.Id("!validReq")).Block(
-			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid false")),
+			jen.Err().Op("=").Qual("github.com/pkg/errors", "Wrap").Call(jen.Id("err"), jen.Lit("valid false")),
 			jen.Return(),
 		),
 	)
@@ -262,12 +262,12 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 		return listCode
 	}
 	returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
-		jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("json.Decode")),
+		jen.Err().Op("=").Qual("github.com/pkg/errors", "Wrap").Call(jen.Id("err"), jen.Lit("json.Decode")),
 		jen.Return(),
 	)
 	if k.RequestIsBody {
 		// err = json.NewDecoder(r.Body).Decode(&req)
-		decode := jen.Id("err").Op("=").Id("json.NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req"))
+		decode := jen.Id("err").Op("=").Qual("encoding/json","NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req"))
 		listCode = append(listCode, decode, returnCode)
 
 		return listCode
@@ -282,7 +282,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 	}
 
 	for _, v := range k.Body {
-		decode := jen.Id("err").Op("=").Id("json.NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
+		decode := jen.Id("err").Op("=").Qual("encoding/json","NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
 		listCode = append(listCode, decode, returnCode)
 	}
 
@@ -632,34 +632,34 @@ func upFirst(s string) string {
 
 func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
 	if t == "slice" && paramTypeName == "string" {
-		res = append(res, jen.Id(paramName).Op("=").Id("strings.Split").Call(code, jen.Lit(",")))
+		res = append(res, jen.Id(paramName).Op("=").Qual("strings","Split").Call(code, jen.Lit(",")))
 		return
 	}
 	var m = map[string]string{
-		"basic.int":     "cast.ToIntE",
-		"basic.int8":    "cast.ToInt8E",
-		"basic.int16":   "cast.ToInt16E",
-		"basic.int32":   "cast.ToInt32E",
-		"basic.int64":   "cast.ToInt64E",
-		"basic.uint":    "cast.ToUintE",
-		"basic.uint8":   "cast.ToUint8E",
-		"basic.uint16":  "cast.ToUint16E",
-		"basic.uint32":  "cast.ToUint32E",
-		"basic.uint64":  "cast.ToUint64E",
-		"basic.float32": "cast.ToFloat32E",
-		"basic.float64": "cast.ToFloat64E",
-		"basic.string":  "cast.ToStringE",
-		"basic.bool":    "cast.ToBoolE",
+		"basic.int":     "ToIntE",
+		"basic.int8":    "ToInt8E",
+		"basic.int16":   "ToInt16E",
+		"basic.int32":   "ToInt32E",
+		"basic.int64":   "ToInt64E",
+		"basic.uint":    "ToUintE",
+		"basic.uint8":   "ToUint8E",
+		"basic.uint16":  "ToUint16E",
+		"basic.uint32":  "ToUint32E",
+		"basic.uint64":  "ToUint64E",
+		"basic.float32": "ToFloat32E",
+		"basic.float64": "ToFloat64E",
+		"basic.string":  "ToStringE",
+		"basic.bool":    "ToBoolE",
 
-		"slice.int":  "cast.ToIntSliceE",
-		"slice.bool": "cast.ToBoolSliceE",
+		"slice.int":  "ToIntSliceE",
+		"slice.bool": "ToBoolSliceE",
 
-		"map.int":   "cast.ToStringMapIntE",
-		"map.int64": "cast.ToStringMapInt64E",
-		"map.bool":  "cast.ToStringMapBoolE",
+		"map.int":   "ToStringMapIntE",
+		"map.int64": "ToStringMapInt64E",
+		"map.bool":  "ToStringMapBoolE",
 
-		"struct.time.Time":    "cast.ToTimeE",
-		"basic.time.Duration": "cast.ToDurationE",
+		"struct.time.Time":    "ToTimeE",
+		"basic.time.Duration": "ToDurationE",
 	}
 	var ok bool
 	fnStr, ok := m[t+"."+paramTypeName]
@@ -672,10 +672,10 @@ func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code,
 	varParamStr := jen.Id(paramStr).Op(":=").Add(code)
 	paramStrCode := jen.Id(paramStr)
 	if t == "slice" {
-		paramStrCode = jen.Id("strings.Split").Call(paramStrCode, jen.Lit(","))
+		paramStrCode = jen.Qual("strings","Split").Call(paramStrCode, jen.Lit(","))
 	}
 	ifParamStr := jen.If(jen.Id(paramStr).Op("!=").Lit("")).Block(
-		jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(paramStrCode),
+		jen.List(jen.Id(paramName), jen.Err()).Op("=").Qual("github.com/spf13/cast", fnStr).Call(paramStrCode),
 		// if err != nil {
 		// 	return err
 		// }

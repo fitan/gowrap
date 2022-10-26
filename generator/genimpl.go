@@ -77,12 +77,12 @@ func (m ImplMethod) SwagRespObjData() string {
 	}
 
 	if len(m.ResultsExcludeErr()) == 1 {
-		return "data=" + m.ResultsExcludeErr()[0].Type.String()
+		return "data=" + m.ResultsExcludeErr()[0].ID
 	}
 
 	var s []string
 	for _, v := range m.ResultsExcludeErr() {
-		s = append(s, "data."+v.Name+"="+v.Type.String())
+		s = append(s, "data."+v.Name+"="+v.ID)
 	}
 	return strings.Join(s, ",")
 }
@@ -147,8 +147,15 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			mParam.Name = pName
 			mParam.Type = t
 
-			idSplit := strings.Split(strings.TrimPrefix(p.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
-			mParam.ID = idSplit[len(idSplit)-1]
+			for k, v := range g.GenOption.Pkg.TypesInfo.Types {
+				if t.String() == v.Type.String() && v.IsType() {
+					mParam.ID = Node2String(g.GenOption.Pkg.Fset, k)
+					break
+				}
+			}
+
+			//idSplit := strings.Split(strings.TrimPrefix(p.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
+			//mParam.ID = idSplit[len(idSplit)-1]
 
 			params = append(params, mParam)
 		}
@@ -166,11 +173,23 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			rName := r.Name()
 			mParam.Name = rName
 
+
+
 			t := r.Type()
 			mParam.Type = t
 
-			idSplit := strings.Split(strings.TrimPrefix(r.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
-			mParam.ID = idSplit[len(idSplit)-1]
+
+			//fmt.Println("param: ",r.Name(), r.Type().String())
+			for k, v := range g.GenOption.Pkg.TypesInfo.Types {
+				if t.String() == v.Type.String() && v.IsType() {
+					mParam.ID = Node2String(g.GenOption.Pkg.Fset, k)
+					break
+				}
+			}
+
+
+			//idSplit := strings.Split(strings.TrimPrefix(r.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
+			//mParam.ID = idSplit[len(idSplit)-1]
 
 			results = append(results, mParam)
 		}

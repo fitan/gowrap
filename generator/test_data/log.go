@@ -1,8 +1,12 @@
 package test_data
 
 import (
-	log "github.com/go-kit/kit/log"
+	"context"
 	"time"
+
+	"github.com/fitan/gowrap/generator/test_data/nest"
+	log "github.com/go-kit/kit/log"
+	level "github.com/go-kit/kit/log/level"
 )
 
 type logging struct {
@@ -23,7 +27,7 @@ func (s *logging) HelloBody(ctx context.Context, helloRequest HelloRequest) (lis
 	}(time.Now())
 	return s.next.HelloBody(ctx, helloRequest)
 }
-func (s *logging) SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (res nest.NetWork, err error) {
+func (s *logging) SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (m map[string][]nest.NetWork, err error) {
 	defer func(begin time.Time) {
 		_ = s.logger.Log(s.traceId, ctx.Value(s.traceId), "method", "SayHello", "uuid", uuid, "ip", ip, "port", port, "headerName", headerName, "took", time.Since(begin), "err", err)
 	}(time.Now())

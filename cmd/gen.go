@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"log"
 	"strings"
+	"sync"
+	"time"
 )
 
 // genCmd represents the gen command
@@ -44,6 +46,8 @@ to quickly create a Cobra application.`,
 			log.Fatalf("new generator error: %v", err)
 		}
 
+		w := sync.WaitGroup{}
+
 		for _, v := range genTo {
 			ss := strings.Split(v, ":")
 			if len(ss) != 2 {
@@ -52,12 +56,22 @@ to quickly create a Cobra application.`,
 
 			templateName, outputDir := ss[0], ss[1]
 
-			err = generator.GenToTemplate(templateName, outputDir, gen)
-			if err != nil {
-				log.Fatalf("gen to %s error: %v", v, err)
-				return
-			}
+
+			w.Add(1)
+			go func(templateName, outputDir string, gen generator.Gen) {
+				defer w.Done()
+				t1 := time.Now()
+				log.Println("gen to start: ", templateName)
+				err = generator.GenToTemplate(templateName, outputDir, gen)
+				log.Println("gen to end", templateName, "useTime: ", time.Since(t1).String())
+				if err != nil {
+					log.Fatalf("gen to %s error: %v", v, err)
+					return
+				}
+			} (templateName, outputDir, gen)
 		}
+
+		w.Wait()
 	},
 }
 

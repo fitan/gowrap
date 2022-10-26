@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 	"github.com/fitan/gowrap/xtype"
 	"go/types"
 	"golang.org/x/tools/go/packages"

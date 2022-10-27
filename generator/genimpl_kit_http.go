@@ -21,6 +21,7 @@ const httpJenFName = "http"
 const endpointJenFName = "endpoint"
 const logJenFName = "log"
 const tracingJenFName = "tracing"
+const myTracingJenFName = "myTracing"
 
 type GenImplKitHttp struct {
 	genImpl *GenImpl
@@ -151,10 +152,23 @@ func (g *GenImplKitHttp) genJenF() error {
 	tracingJenF.Add(TracingFuncCodeList...)
 	tracingJenF.Add(genNewTracing())
 
+
+	myTracingJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	JenFAddImports(g.genImpl.GenOption.Pkg, myTracingJenF)
+	var methodList []ImplMethod
+	for _, impl := range g.genImpl.ImplList {
+		for _, m := range impl.Methods {
+			methodList = append(methodList, m)
+		}
+	}
+	myTracingJenF.Add(genMyKitTrace(g.genImpl.GenOption.CutLast2DirName(), methodList))
+
+
 	g.jenFM[httpJenFName] = httpJenF
 	g.jenFM[endpointJenFName] = endpointJenF
 	g.jenFM[logJenFName] = logJenF
 	g.jenFM[tracingJenFName] = tracingJenF
+	g.jenFM[myTracingJenFName] = myTracingJenF
 
 	return nil
 }

@@ -62,7 +62,7 @@ to quickly create a Cobra application.`,
 				defer w.Done()
 				t1 := time.Now()
 				log.Println("gen to start: ", templateName)
-				err = generator.GenToTemplate(templateName, outputDir, gen)
+				err = generator.GenToTemplate(templateName, outputDir, gen, process)
 				log.Println("gen to end", templateName, "useTime: ", time.Since(t1).String())
 				if err != nil {
 					log.Fatalf("gen to %s error: %v", v, err)
@@ -77,12 +77,14 @@ to quickly create a Cobra application.`,
 
 var genTo []string
 var pkgDir string
+var process bool
 
 func init() {
 	rootCmd.AddCommand(genCmd)
 
 	genCmd.Flags().StringSliceVarP(&genTo, "to", "g", []string{}, "generate to")
-	genCmd.Flags().StringVarP(&pkgDir, "pkg dir", "p", "./", "package dir")
+	genCmd.Flags().StringVarP(&pkgDir, "pkg dir", "d", "./", "package dir")
+	genCmd.Flags().BoolVarP(&process, "process", "p", false, "process")
 
 	// Here you will define your flags and configuration settings.
 

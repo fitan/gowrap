@@ -3,7 +3,6 @@ package generator
 import (
 	"bytes"
 	"embed"
-	"fmt"
 	"github.com/pkg/errors"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
@@ -23,7 +22,7 @@ func getTemplate(name string) (string, error) {
 	return string(file), nil
 }
 
-func GenToTemplate(templateName string, toFileName string, value Gen) error {
+func GenToTemplate(templateName string, toFileName string, value Gen, process bool) error {
 	templateFile, err := getTemplate(templateName)
 	if err != nil {
 		return errors.Wrap(err, "getTemplate")
@@ -42,17 +41,19 @@ func GenToTemplate(templateName string, toFileName string, value Gen) error {
 		return err
 	}
 
-	fmt.Println(buf.String())
 
-	processedSource, err := imports.Process(toFileName, buf.Bytes(), nil)
-	if err != nil {
-		//log.Println(buf.String())
-		err = errors.Wrap(err, "imports.Process")
-		log.Println(err.Error())
+	if process {
+
+		processedSource, err := imports.Process(toFileName, buf.Bytes(), nil)
+		if err != nil {
+			//log.Println(buf.String())
+			err = errors.Wrap(err, "imports.Process")
+			log.Println(err.Error())
+		}
+
+		buf = bytes.NewBuffer([]byte{})
+		_, err = buf.Write(processedSource)
 	}
-
-	buf = bytes.NewBuffer([]byte{})
-	_, err = buf.Write(processedSource)
 	//_,err = buf.Write(buf.Bytes())
 
 	err = ioutil.WriteFile(toFileName, buf.Bytes(), 0664)

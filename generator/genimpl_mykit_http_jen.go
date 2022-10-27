@@ -2,11 +2,43 @@ package generator
 
 import "github.com/fitan/jennifer/jen"
 
-// Mytrace
+// myEndpoint
+
+func myExtraEndpoint(methodList []ImplMethod) jen.Code {
+	return jen.Type().Id("Mws").Map(jen.String()).Index().Id("endpoint.Middleware").Line().
+		Func().Id("AllMethodAddEmw").Params(jen.Id("mw").Id("map[string][]endpoint.Middleware"), jen.Id("m").Id("endpoint.Middleware")).Block(
+		jen.Id("methods").Op(":=").Index().String().ValuesFunc(
+			func(group *jen.Group) {
+				for _, m := range methodList {
+					group.Id(m.Name + "MethodName")
+				}
+			}),
+		jen.For(jen.List(jen.Id("_"), jen.Id("v")).Op(":=").Range().Id("methods")).Block(
+			jen.Id("mw").Index(jen.Id("v")).Op("=").Append(jen.Id("mw").Index(jen.Id("v")), jen.Id("m")),
+		),
+	)
+}
+
+// myHttp
+func myExtraHttp(methodList []ImplMethod) jen.Code {
+	return jen.Type().Id("Ops").Map(jen.String()).Index().Id("http.ServerOption").Line().
+		Func().Id("AllMethodAddOps").Params(jen.Id("options").Id("map[string][]http.ServerOption"), jen.Id("option").Id("http.ServerOption")).Block(
+		jen.Id("methods").Op(":=").Index().String().ValuesFunc(
+			func(group *jen.Group) {
+				for _, m := range methodList {
+					group.Id(m.Name + "MethodName")
+				}
+			}),
+		jen.For(jen.List(jen.Id("_"), jen.Id("v")).Op(":=").Range().Id("methods")).Block(
+			jen.Id("options").Index(jen.Id("v")).Op("=").Append(jen.Id("options").Index(jen.Id("v")), jen.Id("option")),
+		),
+	)
+}
+
+// myTrace
 func genMyKitTrace(tracingPrefix string, methodList []ImplMethod) jen.Code {
 	code := jen.Null()
 	code.Type().Id("tracing").Struct(jen.Id("next").Id("Service")).Line()
-
 
 	for _, method := range methodList {
 
@@ -28,8 +60,6 @@ func genMyKitTrace(tracingPrefix string, methodList []ImplMethod) jen.Code {
 		for _, param := range method.Results {
 			methodResultCode = append(methodResultCode, jen.Id(param.Name).Id(param.ID))
 		}
-
-
 
 		code.Line()
 
@@ -67,15 +97,11 @@ func genMyKitTrace(tracingPrefix string, methodList []ImplMethod) jen.Code {
 					return c
 				}(),
 				jen.Id("span").Dot("End").Call(),
-				).Call().Line(),
+			).Call().Line(),
 			jen.Return().Id("s").Dot("next").Dot(method.Name).Call(nextMethodParamCode...),
 		)
 
 	}
-
-
-
-
 
 	code.Line()
 

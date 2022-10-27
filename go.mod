@@ -2,8 +2,9 @@ module github.com/fitan/gowrap
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
+	github.com/dave/jennifer v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/fitan/jennifer v0.0.0-20221025094417-113be729db13 // indirect
+	github.com/fitan/jennifer v0.0.0-20221025094417-113be729db13
 	github.com/go-kit/kit v0.9.0
 	github.com/gobeam/stringy v0.0.5
 	github.com/gojuno/minimock/v3 v3.0.10

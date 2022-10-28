@@ -8,6 +8,7 @@ import (
 	"github.com/fitan/gowrap/generator/test_data/nest"
 )
 
+
 type NestAccount struct {
 	Slice []nest.Account
 }
@@ -144,7 +145,7 @@ func (r RedisService) SayHello(
 
 	q := Query{}
 
-	// @fn query
+	// @call query
 	queryM = queryDTO(q)
 	panic("implement me")
 }

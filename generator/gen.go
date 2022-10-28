@@ -86,11 +86,18 @@ type Gen struct {
 
 func NewGen(option GenOption) (Gen, error) {
 	fn := NewGenFn(option)
-	fn.AddPlug(NewGenFnCopy(fn))
-	fn.AddPlug(NewGenFnQuery(fn))
+	fn.AddPlug(NewGenFnWire(fn))
 	err := fn.Run()
 	if err != nil {
 		return Gen{}, errors.Wrap(err, "gen fn run")
+	}
+
+	call := NewGenCall(option)
+	call.AddPlug(NewGenCallCopy(call))
+	call.AddPlug(NewGenCallQuery(call))
+	err = call.Run()
+	if err != nil {
+		return Gen{}, errors.Wrap(err, "gen call run")
 	}
 
 	impl := NewGenImpl(option)

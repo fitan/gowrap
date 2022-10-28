@@ -2,38 +2,38 @@ package generator
 
 import (
 	"fmt"
-	"github.com/fitan/jennifer/jen"
 	"github.com/fitan/gowrap/xtype"
+	"github.com/fitan/jennifer/jen"
 	"golang.org/x/tools/go/packages"
 	"strings"
 )
 
 const copyGenFName = "copy"
 
-type GenFnCopy struct {
+type GenCallCopy struct {
 	recorder map[string]struct{}
 	jenFM map[string]*jen.File
-	genFn *GenFn
+	genCall *GenCall
 }
 
-func NewGenFnCopy(fn *GenFn) *GenFnCopy {
-	return &GenFnCopy{recorder: map[string]struct{}{}, genFn: fn, jenFM: map[string]*jen.File{}}
+func NewGenCallCopy(call *GenCall) *GenCallCopy {
+	return &GenCallCopy{recorder: map[string]struct{}{}, genCall: call, jenFM: map[string]*jen.File{}}
 }
 
-func (g *GenFnCopy) Name() string {
+func (g *GenCallCopy) Name() string {
 	return "copy"
 }
 
-func (g *GenFnCopy) JenF(name string) *jen.File {
+func (g *GenCallCopy) JenF(name string) *jen.File {
 	return g.jenFM[name]
 }
 
-func (g *GenFnCopy) Gen() error {
+func (g *GenCallCopy) Gen() error {
 
 	jenF := jen.NewFile("copy")
 
-	for fnName,fn := range g.genFn.FuncList {
-		err := g.gen(jenF,g.genFn.GenOption.Pkg, fnName, fn)
+	for callName,call := range g.genCall.FuncList {
+		err := g.gen(jenF,g.genCall.GenOption.Pkg, callName, call)
 		if err != nil {
 			return err
 		}
@@ -43,9 +43,13 @@ func (g *GenFnCopy) Gen() error {
 	return nil
 }
 
-func (g *GenFnCopy) gen(jenF *jen.File, pkg *packages.Package , name string, fn Func) error {
+func (g *GenCallCopy) gen(jenF *jen.File, pkg *packages.Package , name string, call Func) error {
 
-	if !(len(fn.MarkParam) >0 && fn.MarkParam[0] == "copy") {
+	var copyMark string
+
+	format := &AstDocFormat{call.Doc}
+	format.MarkValuesMapping(GenCallMark, &copyMark)
+	if copyMark != copyGenFName {
 		return nil
 	}
 
@@ -53,12 +57,12 @@ func (g *GenFnCopy) gen(jenF *jen.File, pkg *packages.Package , name string, fn 
 		return nil
 	}
 
-	if len(fn.Args) != 1 {
-		return fmt.Errorf("plug Copy: fn %s args count must be 1",name)
+	if len(call.Args) != 1 {
+		return fmt.Errorf("plug Copy: call %s args count must be 1",name)
 	}
 
-	if len(fn.Lhs) != 1 {
-		return fmt.Errorf("plug Copy: fn %s lhs count must be 1",name)
+	if len(call.Lhs) != 1 {
+		return fmt.Errorf("plug Copy: call %s lhs count must be 1",name)
 	}
 
 
@@ -66,8 +70,8 @@ func (g *GenFnCopy) gen(jenF *jen.File, pkg *packages.Package , name string, fn 
 	g.recorder[name] = struct{}{}
 	objName := name + "Obj"
 
-	srcType := fn.Args[0]
-	destType := fn.Lhs[0]
+	srcType := call.Args[0]
+	destType := call.Lhs[0]
 
 	//destTypePoinit, ok := destType.(*types.Pointer);
 	//if !ok {

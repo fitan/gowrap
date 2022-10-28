@@ -11,6 +11,9 @@ import (
 	"strings"
 )
 
+const queryGenFName = "copy"
+
+
 var queryMap map[string]string = map[string]string{
 	"eq":     "= ?",
 	"ne":     "!= ?",
@@ -41,20 +44,23 @@ var queryMap map[string]string = map[string]string{
 	//"not_empty": "is not empty",
 }
 
-type GenFnQuery struct {
+type GenCallQuery struct {
 	recorder map[string]struct{}
 	jenFM    map[string]*jen.File
-	genFn    *GenFn
+	genCall    *GenCall
 }
 
-func (g *GenFnQuery) Name() string {
+func (g *GenCallQuery) Name() string {
 	return "query"
 }
 
-func (g *GenFnQuery) Gen() error {
-	jenF := jen.NewFile(g.genFn.GenOption.Pkg.Name)
-	for name, fn := range g.genFn.FuncList {
-		if !(len(fn.MarkParam) > 0 && fn.MarkParam[0] == "query") {
+func (g *GenCallQuery) Gen() error {
+	jenF := jen.NewFile(g.genCall.GenOption.Pkg.Name)
+	for name, fn := range g.genCall.FuncList {
+		var queryMark string
+		format := &AstDocFormat{fn.Doc}
+		format.MarkValuesMapping(GenCallMark, &queryMark)
+		if queryMark != queryGenFName {
 			continue
 		}
 
@@ -75,7 +81,7 @@ type QueryMsg struct {
 	PATH  string
 }
 
-func (g *GenFnQuery) parseField(path []string, v *types.Var, tag string, m map[string]QueryMsg) {
+func (g *GenCallQuery) parseField(path []string, v *types.Var, tag string, m map[string]QueryMsg) {
 	tagQuery, ok := reflect.StructTag(tag).Lookup("query")
 	if !ok {
 		if structType, ok := v.Type().(*types.Struct); ok {
@@ -104,7 +110,7 @@ func (g *GenFnQuery) parseField(path []string, v *types.Var, tag string, m map[s
 	}
 }
 
-func (g *GenFnQuery) parse(jenF *jen.File, name string, fn Func) error {
+func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 
 	if _, ok := g.recorder[name]; ok {
 		return nil
@@ -132,7 +138,7 @@ func (g *GenFnQuery) parse(jenF *jen.File, name string, fn Func) error {
 		g.parseField([]string{"v"}, argStruct.Field(i), argStruct.Tag(i), queryM)
 	}
 
-	s := strings.Replace(arg.String(), g.genFn.GenOption.Pkg.PkgPath+".", "", -1)
+	s := strings.Replace(arg.String(), g.genCall.GenOption.Pkg.PkgPath+".", "", -1)
 	sSplit := strings.Split(s, "/")
 	s = sSplit[len(sSplit)-1]
 
@@ -155,10 +161,10 @@ func (g *GenFnQuery) parse(jenF *jen.File, name string, fn Func) error {
 	return nil
 }
 
-func (g *GenFnQuery) JenF(name string) *jen.File {
+func (g *GenCallQuery) JenF(name string) *jen.File {
 	return g.jenFM[name]
 }
 
-func NewGenFnQuery(fn *GenFn) *GenFnQuery {
-	return &GenFnQuery{recorder: map[string]struct{}{}, genFn: fn, jenFM: map[string]*jen.File{}}
+func NewGenCallQuery(fn *GenCall) *GenCallQuery {
+	return &GenCallQuery{recorder: map[string]struct{}{}, genCall: fn, jenFM: map[string]*jen.File{}}
 }

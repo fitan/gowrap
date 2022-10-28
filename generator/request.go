@@ -81,13 +81,13 @@ type RequestParam struct {
 
 func (r RequestParam) Annotations() string {
 	if r.ParamDoc == nil {
-		return `" "`
+		return ""
 	}
-	for _, v := range r.ParamDoc.List {
-		docFormat := DocFormat(v.Text)
-		if strings.HasPrefix(docFormat, "// "+r.FieldName) {
-			return fmt.Sprintf(`"%s"`, strings.TrimPrefix(docFormat, "// "+r.FieldName))
-		}
+	var annotations string
+	format := &AstDocFormat{r.ParamDoc}
+	format.MarkValuesMapping(r.FieldName, &annotations)
+	if annotations != "" {
+		return annotations
 	}
 	return fmt.Sprintf(`"%s"`, strings.TrimPrefix(r.ParamDoc.List[0].Text, "// "))
 }

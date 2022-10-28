@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"github.com/fitan/gowrap/generator"
-	"github.com/fitan/gowrap/pkg"
 	"github.com/spf13/cobra"
 	"log"
 	"strings"
@@ -25,7 +24,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		p, err := pkg.Load(pkgDir, true)
+		p, err := generator.Load(pkgDir, true)
 		if err != nil {
 			log.Fatalf("load package error: %v", err)
 		}

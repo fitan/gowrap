@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/fitan/jennifer/jen"
 	"github.com/fitan/gowrap/xtype"
+	"github.com/fitan/jennifer/jen"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -29,28 +29,18 @@ type Field struct {
 }
 
 func (f Field) CopyMethod() (pkgName, methodName string) {
-	if f.Doc == nil {
+
+	format := AstDocFormat{doc: f.Doc}
+	format.MarkValuesMapping(CopyMethodName,&pkgName, &methodName )
+	if pkgName == "" && methodName == "" {
 		return
 	}
-	for _, v := range f.Doc.List {
-		s := DocFormat(v.Text)
-		if strings.HasPrefix(s, "// "+CopyMethodName) {
-			params := strings.TrimPrefix(s, "// "+CopyMethodName)
-			paramList := strings.Fields(params)
-			if len(paramList) < 1 {
-				panic("dto method format error: " + s)
-			}
-			if len(paramList) == 1 {
-				methodName = paramList[0]
-				//pkgName = paramList[0]
-			} else {
-				pkgName = paramList[0]
-				methodName = paramList[1]
-			}
-			return
 
-		}
+	if methodName == "" {
+		methodName = pkgName
+		pkgName = ""
 	}
+
 	return
 }
 

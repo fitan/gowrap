@@ -5,10 +5,9 @@ import (
 	"go/ast"
 	"go/types"
 	"golang.org/x/tools/go/packages"
-	"strings"
 )
 
-const GenTypeMark = "// @type"
+const GenTypeMark = "@type"
 
 type GenType struct {
 	Pkg      *packages.Package
@@ -32,7 +31,7 @@ type TypePlug interface {
 }
 
 type Type struct {
-	MarkParam []string
+	Doc *ast.CommentGroup
 	T types.Type
 }
 
@@ -48,22 +47,17 @@ func (g *GenType) parse() {
 		ast.Inspect(v, func(node ast.Node) bool {
 			if genDecl, ok := node.(*ast.GenDecl);ok {
 				var t Type
-				if genDecl.Doc == nil {
+
+				format := AstDocFormat{doc: genDecl.Doc}
+				if !format.ContainsMark(GenTypeMark) {
 					return false
 				}
 
-				for _, l := range genDecl.Doc.List {
-					if strings.HasPrefix(DocFormat(l.Text), GenTypeMark) {
-						t.MarkParam = strings.Fields(strings.TrimPrefix(DocFormat(l.Text),GenTypeMark))
-
-						typeSpec, ok := genDecl.Specs[0].(*ast.TypeSpec)
-						if ok {
-							t.T = g.Pkg.TypesInfo.TypeOf(typeSpec.Type)
-							g.TypeList[typeSpec.Name.Name] = t
-							return true
-						}
-						panic("not type: " + genDecl.Doc.Text())
-					}
+				typeSpec, ok := genDecl.Specs[0].(*ast.TypeSpec)
+				if ok {
+					t.T = g.Pkg.TypesInfo.TypeOf(typeSpec.Type)
+					g.TypeList[typeSpec.Name.Name] = t
+					return true
 				}
 			}
 

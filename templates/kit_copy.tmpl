@@ -1,7 +1,0 @@
-{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
-{{$.Import}}
-{{range $.GenFn.Plugs}}
-	{{if .Name | eq "copy"}}
-		{{.JenF.Group.GoString}}
-	{{end}}
-{{end}}

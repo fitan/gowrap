@@ -14,6 +14,7 @@ import (
 	cast "github.com/spf13/cast"
 )
 
+// @fn wire set
 func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []http.ServerOption) http1.Handler {
 	var ems []endpoint.Middleware
 	opts = append(opts, http.ServerBefore(func(ctx context.Context, request *http1.Request) context.Context {
@@ -57,15 +58,19 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	req := HelloRequest{}
 
-	var lastNames []string
-
-	var lastNamesInt []int
-
 	var page int64
 
 	var size int64
 
 	var namespace []string
+
+	var lastNames []string
+
+	var lastNamesInt []int
+
+	var id int
+
+	var uuid string
 
 	var time int64
 
@@ -73,19 +78,9 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	var port int
 
-	var id int
-
-	var uuid string
-
 	var headerName string
 
 	vars := mux.Vars(r)
-
-	id, err = cast.ToIntE(vars["id"])
-
-	if err != nil {
-		return
-	}
 
 	uuid = vars["uuid"]
 
@@ -102,6 +97,23 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 	if err != nil {
 		return
 	}
+
+	id, err = cast.ToIntE(vars["id"])
+
+	if err != nil {
+		return
+	}
+
+	sizeStr := r.URL.Query().Get("size")
+
+	if sizeStr != "" {
+		size, err = cast.ToInt64E(sizeStr)
+		if err != nil {
+			return
+		}
+	}
+
+	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
 	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
 
@@ -123,17 +135,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 		}
 	}
 
-	sizeStr := r.URL.Query().Get("size")
-
-	if sizeStr != "" {
-		size, err = cast.ToInt64E(sizeStr)
-		if err != nil {
-			return
-		}
-	}
-
-	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
-
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req.Body)
@@ -153,8 +154,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	req.Vm.Port = port
 
-	req.Namespace = namespace
-
 	req.LastNames = lastNames
 
 	req.LastNamesInt = lastNamesInt
@@ -162,6 +161,8 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 	req.Paging.Page = page
 
 	req.Paging.Size = size
+
+	req.Namespace = namespace
 
 	req.HeaderName = headerName
 
@@ -208,15 +209,19 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	req := HelloRequest{}
 
-	var size int64
-
-	var namespace []string
-
 	var lastNames []string
 
 	var lastNamesInt []int
 
 	var page int64
+
+	var size int64
+
+	var namespace []string
+
+	var ip string
+
+	var port int
 
 	var id int
 
@@ -224,21 +229,9 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	var time int64
 
-	var ip string
-
-	var port int
-
 	var headerName string
 
 	vars := mux.Vars(r)
-
-	uuid = vars["uuid"]
-
-	time, err = cast.ToInt64E(vars["time"])
-
-	if err != nil {
-		return
-	}
 
 	ip = vars["ip"]
 
@@ -254,15 +247,12 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 		return
 	}
 
-	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
+	uuid = vars["uuid"]
 
-	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
+	time, err = cast.ToInt64E(vars["time"])
 
-	if lastNamesIntStr != "" {
-		lastNamesInt, err = cast.ToIntSliceE(strings.Split(lastNamesIntStr, ","))
-		if err != nil {
-			return
-		}
+	if err != nil {
+		return
 	}
 
 	pageStr := r.URL.Query().Get("page")
@@ -285,6 +275,17 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
+	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
+
+	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
+
+	if lastNamesIntStr != "" {
+		lastNamesInt, err = cast.ToIntSliceE(strings.Split(lastNamesIntStr, ","))
+		if err != nil {
+			return
+		}
+	}
+
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req)
@@ -294,15 +295,15 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 		return
 	}
 
-	req.Vm.Ip = ip
-
-	req.Vm.Port = port
-
 	req.ID = id
 
 	req.UUID = uuid
 
 	req.Time = time
+
+	req.Vm.Ip = ip
+
+	req.Vm.Port = port
 
 	req.LastNames = lastNames
 
@@ -369,6 +370,8 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	var namespace []string
 
+	var port int
+
 	var id int
 
 	var uuid string
@@ -377,13 +380,9 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	var ip string
 
-	var port int
-
 	var headerName string
 
 	vars := mux.Vars(r)
-
-	uuid = vars["uuid"]
 
 	time, err = cast.ToInt64E(vars["time"])
 
@@ -405,7 +404,7 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 		return
 	}
 
-	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
+	uuid = vars["uuid"]
 
 	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
 
@@ -436,6 +435,8 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
+	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
+
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req.Body)
@@ -455,15 +456,15 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	req.Vm.Port = port
 
+	req.Paging.Size = size
+
+	req.Namespace = namespace
+
 	req.LastNames = lastNames
 
 	req.LastNamesInt = lastNamesInt
 
 	req.Paging.Page = page
-
-	req.Paging.Size = size
-
-	req.Namespace = namespace
 
 	req.HeaderName = headerName
 

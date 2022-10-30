@@ -136,7 +136,7 @@ func genLoggingFunc(method ImplMethod) jen.Code {
 
 	for _, param := range method.Params {
 		if param.ID == "context.Context" {
-			methodParamCode = append(methodParamCode, jen.Id(param.Name).Qual("context","Context"))
+			methodParamCode = append(methodParamCode, jen.Id(param.Name).Qual("context", "Context"))
 		} else {
 			methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
 		}
@@ -181,7 +181,7 @@ func genNewLogging(logPrefix string) jen.Code {
 			jen.Lit(logPrefix),
 			jen.Lit("logging"),
 		), jen.Return().Func().Params(jen.Id("next").Id("Service")).Params(jen.Id("Service")).Block(
-			jen.Return().Op("&").Id("logging").Values(jen.Id("logger").Op(":").Qual("github.com/go-kit/kit/log/level","Info").Call(
+			jen.Return().Op("&").Id("logging").Values(jen.Id("logger").Op(":").Qual("github.com/go-kit/kit/log/level", "Info").Call(
 				jen.Id("logger")),
 				jen.Id("next").Op(":").Id("next"),
 				jen.Id("traceId").Op(":").Id("traceId")),

@@ -267,7 +267,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 	)
 	if k.RequestIsBody {
 		// err = json.NewDecoder(r.Body).Decode(&req)
-		decode := jen.Id("err").Op("=").Qual("encoding/json","NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req"))
+		decode := jen.Id("err").Op("=").Qual("encoding/json", "NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req"))
 		listCode = append(listCode, decode, returnCode)
 
 		return listCode
@@ -282,7 +282,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 	}
 
 	for _, v := range k.Body {
-		decode := jen.Id("err").Op("=").Qual("encoding/json","NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
+		decode := jen.Id("err").Op("=").Qual("encoding/json", "NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
 		listCode = append(listCode, decode, returnCode)
 	}
 
@@ -632,7 +632,7 @@ func upFirst(s string) string {
 
 func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
 	if t == "slice" && paramTypeName == "string" {
-		res = append(res, jen.Id(paramName).Op("=").Qual("strings","Split").Call(code, jen.Lit(",")))
+		res = append(res, jen.Id(paramName).Op("=").Qual("strings", "Split").Call(code, jen.Lit(",")))
 		return
 	}
 	var m = map[string]string{
@@ -672,7 +672,7 @@ func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code,
 	varParamStr := jen.Id(paramStr).Op(":=").Add(code)
 	paramStrCode := jen.Id(paramStr)
 	if t == "slice" {
-		paramStrCode = jen.Qual("strings","Split").Call(paramStrCode, jen.Lit(","))
+		paramStrCode = jen.Qual("strings", "Split").Call(paramStrCode, jen.Lit(","))
 	}
 	ifParamStr := jen.If(jen.Id(paramStr).Op("!=").Lit("")).Block(
 		jen.List(jen.Id(paramName), jen.Err()).Op("=").Qual("github.com/spf13/cast", fnStr).Call(paramStrCode),

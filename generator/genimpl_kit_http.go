@@ -18,10 +18,12 @@ const kitHttpRouterMark = "@kit-http"
 const kitHttpRequestMark = "@kit-http-request"
 const kitHttpSwagMark = "@swag"
 const httpJenFName = "http"
+const myHttpJenFName = "myHttp"
 const endpointJenFName = "endpoint"
 const logJenFName = "log"
+const myLogJenFName = "myLog"
 const tracingJenFName = "tracing"
-const myTracingJenFName = "myTracing"
+const myTracingJenFName = "myTrace"
 const myEndpointJenFName = "myEndpoint"
 
 type GenImplKitHttp struct {
@@ -55,6 +57,7 @@ func (g *GenImplKitHttp) JenF(name string) *jen.File {
 func (g *GenImplKitHttp) genJenF() error {
 	methodNameList := make([]string, 0)
 	handlerCodeList := make([]jen.Code, 0)
+	myHandlerCodeList := make([]jen.Code, 0)
 	decodeRequestCodeList := make([]jen.Code, 0)
 
 	var EndpointsConstCode jen.Code
@@ -90,6 +93,9 @@ func (g *GenImplKitHttp) genJenF() error {
 
 			handlerCodeList = append(
 				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, methodHttpMethod, annotation),
+			)
+			myHandlerCodeList = append(
+				myHandlerCodeList, genFuncMyMakeHTTPHandlerHandler(m.Name, methodHttpPath, methodHttpMethod, annotation),
 			)
 
 			r := NewKitRequest(g.genImpl.GenOption.Pkg, m.Name, requestName, requestBody)
@@ -136,6 +142,12 @@ func (g *GenImplKitHttp) genJenF() error {
 	httpJenF.Add(makeHttpCode)
 	httpJenF.Add(decodeRequestCodeList...)
 
+	myHttpJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	JenFAddImports(g.genImpl.GenOption.Pkg, myHttpJenF)
+	myH := jen.Statement(myHandlerCodeList)
+	myHttpJenF.Add(myExtraHttp(methodList, &myH))
+	myHttpJenF.Add(decodeRequestCodeList...)
+
 	EndpointsConstCode = genEndpointConst(methodNameList)
 	EndpointsCode = genEndpoints(methodNameList)
 	NewEndpointsCode = genNewEndpoint(methodNameList)
@@ -154,13 +166,16 @@ func (g *GenImplKitHttp) genJenF() error {
 	myEndpointJenF.Add(NewEndpointsCode)
 	myEndpointJenF.Add(MakeEndpointCodeList...)
 	myEndpointJenF.Add(myExtraEndpoint(methodList))
-	myEndpointJenF.Add(myExtraHttp(methodList))
 
 	logJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	JenFAddImports(g.genImpl.GenOption.Pkg, logJenF)
 	logJenF.Add(genLoggingStruct())
 	logJenF.Add(LoggingFuncCodeList...)
 	logJenF.Add(genNewLogging(g.genImpl.GenOption.CutLast2DirName()))
+
+	myLogJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
+	JenFAddImports(g.genImpl.GenOption.Pkg, myLogJenF)
+	myLogJenF.Add(genMyLogging(methodList))
 
 	tracingJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	tracingJenF.ImportName("github.com/opentracing/opentracing-go", "opentracing")
@@ -179,6 +194,8 @@ func (g *GenImplKitHttp) genJenF() error {
 	g.jenFM[tracingJenFName] = tracingJenF
 	g.jenFM[myTracingJenFName] = myTracingJenF
 	g.jenFM[myEndpointJenFName] = myEndpointJenF
+	g.jenFM[myHttpJenFName] = myHttpJenF
+	g.jenFM[myLogJenFName] = myLogJenF
 
 	return nil
 }

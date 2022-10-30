@@ -11,8 +11,7 @@ import (
 	"strings"
 )
 
-const queryGenFName = "copy"
-
+const queryGenFName = "query"
 
 var queryMap map[string]string = map[string]string{
 	"eq":     "= ?",
@@ -47,7 +46,7 @@ var queryMap map[string]string = map[string]string{
 type GenCallQuery struct {
 	recorder map[string]struct{}
 	jenFM    map[string]*jen.File
-	genCall    *GenCall
+	genCall  *GenCall
 }
 
 func (g *GenCallQuery) Name() string {

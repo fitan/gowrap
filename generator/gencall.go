@@ -22,9 +22,9 @@ func NewGenCall(genOption GenOption) *GenCall {
 }
 
 type Func struct {
-	Args      []types.Type
-	Lhs       []types.Type
-	Doc *ast.CommentGroup
+	Args []types.Type
+	Lhs  []types.Type
+	Doc  *ast.CommentGroup
 	Name string
 }
 
@@ -69,12 +69,12 @@ func (g *GenCall) parse() {
 				fn.Doc = comment
 
 				if as, ok := c.Parent().(*ast.AssignStmt); ok {
-					if as.Tok.String() == "=" {
+					if as.Tok.String() == "=" || as.Tok.String() == ":=" {
 						for _, l := range as.Lhs {
 							fn.Lhs = append(fn.Lhs, g.GenOption.Pkg.TypesInfo.TypeOf(l))
 						}
 					} else {
-						panic(fmt.Sprintf("fn %s tok must be =", callName))
+						panic(fmt.Sprintf("fn %s tok must be = or :=", callName))
 					}
 				} else {
 					panic(fmt.Sprintf("fn %s must be assignStmt", callName))

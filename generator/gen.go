@@ -82,6 +82,7 @@ type Gen struct {
 	*GenFn
 	*GenImpl
 	*GenType
+	*GenCall
 }
 
 func NewGen(option GenOption) (Gen, error) {
@@ -112,6 +113,7 @@ func NewGen(option GenOption) (Gen, error) {
 		GenFn:     fn,
 		GenImpl:   impl,
 		GenType:   nil,
+		GenCall:   call,
 	}
 	return g, nil
 }

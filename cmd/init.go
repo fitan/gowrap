@@ -25,7 +25,24 @@ to quickly create a Cobra application.`,
 	},
 }
 
+var initType string
+var initName string
+var outputDir string
+
+var m map[string]map[string]string = map[string]map[string]string{
+	"service": map[string]string{
+		"service": "service.go",
+		"new":     "new.go",
+	},
+	"repo": map[string]string{
+		"service": "service.go",
+	},
+}
+
 func init() {
+	initCmd.Flags().StringVarP(&initType, "type", "t", "app", "init type")
+	initCmd.Flags().StringVarP(&initName, "name", "n", "app", "init name")
+	initCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "output dir")
 	rootCmd.AddCommand(initCmd)
 
 	// Here you will define your flags and configuration settings.

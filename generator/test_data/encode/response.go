@@ -8,3 +8,10 @@ type Response struct {
 	Message string      `json:"message"`
 	TraceId string      `json:"traceId"`
 }
+
+func WrapResponse(data interface{}, err error) (interface{}, error)  {
+	return Response{
+		Data: data,
+		Error: err,
+	}, err
+}

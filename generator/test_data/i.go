@@ -114,12 +114,14 @@ type Service interface {
 	// SayHello
 	// @kit-http /hello/say GET
 	// @kit-http-request HelloRequest
+	// @kit-http-endpoint-wrap false
 	// @kit-http-response HelloRequest
 	SayHello(ctx context.Context, uuid string, ip string, port int, headerName string) (m map[string][]nest.NetWork, err error)
 
 	// HelloBody
 	// @kit-http /hello/body GET
 	// @kit-http-request HelloRequest body
+	// @kit-http-endpoint-wrap NopEndpointWrap
 	// @kit-http-response HelloRequest
 	// @kit-cache get helloRequest method GetRedisKey 1s
 	// @kit-cache delete helloRequest key 1s

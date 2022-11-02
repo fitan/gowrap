@@ -1,10 +1,62 @@
 package generator
 
 import (
+	"fmt"
 	"github.com/fitan/jennifer/jen"
 )
 
 // myEndpoint
+func genMyMakeEndpoint(method ImplMethod, methodConf MethodConf, request *KitRequest, option GenOption) jen.Code {
+	paramList := make([]jen.Code, 0, len(method.ParamsExcludeCtx()))
+	paramList = append(paramList, jen.Id("ctx"))
+	resultNameList := make([]jen.Code, 0, len(method.Results))
+	endpointVarList := jen.Null()
+	for _, param := range method.ParamsExcludeCtx() {
+		paramList = append(paramList, jen.Id("req"+request.ParamPath(param.Name)))
+	}
+
+	for _, result := range method.Results {
+		//endpointVarList.Var().Id(result.Name).Id(result.).Line()
+		resultNameList = append(resultNameList, jen.Id(result.Name))
+	}
+
+	var responseDataID string
+
+	if len(method.ResultsExcludeErr()) == 1 {
+		responseDataID = method.ResultsExcludeErr()[0].Name
+	} else {
+		responseDataID = method.ResultsMapExcludeErr()
+	}
+
+	return jen.Func().Id("make" + method.Name + "Endpoint").Params(jen.Id("s").Id("Service")).Params(jen.Qual("github.com/go-kit/kit/endpoint", "Endpoint")).Block(jen.Return().Func().Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("request").Interface()).Params(jen.Id("response").Interface(), jen.Id("err").Id("error")).Block(
+		func() jen.Code {
+			if len(paramList) > 1 {
+				return jen.Id("req").Op(":=").Id("request").Assert(jen.Id(methodConf.Request))
+			}
+			return jen.Null()
+		}(),
+		endpointVarList,
+		jen.List(resultNameList...).Op(":=").Id("s").Dot(method.Name).Call(
+			paramList...,
+		),
+		func() jen.Code {
+			fmt.Println(methodConf.EndpointWrap)
+			if methodConf.EndpointWrap == "" {
+				return jen.Return().List(jen.Qual(option.ImportByName("encode"), "WrapResponse").Call(
+					jen.Id(responseDataID),
+					jen.Id("err"),
+				)).Line()
+			}
+
+			if methodConf.EndpointWrap == "false" {
+				return jen.Return().List(jen.Id(responseDataID), jen.Id("err")).Line()
+			}
+
+			return jen.Return().Id(methodConf.EndpointWrap).Call(jen.Id(responseDataID), jen.Id("err")).Line()
+		}(),
+	)).Line()
+}
+
 
 func myExtraEndpoint(methodList []ImplMethod) jen.Code {
 	return jen.Type().Id("Mws").Map(jen.String()).Index().Id("endpoint.Middleware").Line().
@@ -22,15 +74,25 @@ func myExtraEndpoint(methodList []ImplMethod) jen.Code {
 }
 
 // myHttp
-func genFuncMyMakeHTTPHandlerHandler(name, path, method, annotation string) jen.Code {
+func genFuncMyMakeHTTPHandlerHandler(name string,methodConf MethodConf) jen.Code {
+	decode := jen.Id(methodConf.Decode)
+	encode := jen.Id(methodConf.Encode)
+
+	if methodConf.Decode == "" {
+		decode = jen.Id("decode"+name+"Request")
+	}
+	if methodConf.Encode == "" {
+		encode = jen.Qual("github.com/go-kit/kit/transport/http", "EncodeJSONResponse")
+	}
 	return jen.Id("r").Dot("Handle").Call(
-		jen.Lit(path),
+		jen.Lit(methodConf.Path),
 		jen.Qual("github.com/go-kit/kit/transport/http", "NewServer").Call(
 			jen.Id("eps").Dot(name+"Endpoint"),
-			jen.Id("decode"+name+"Request"),
-			jen.Qual("github.com/go-kit/kit/transport/http", "EncodeJSONResponse"),
-			jen.Id("ops").Index(jen.Id(name+"MethodName")).Op("..."))).Dot("Methods").Call(jen.Lit(method)).Dot("Name").Call(jen.Lit(annotation)).Line()
+			decode,
+			encode,
+			jen.Id("ops").Index(jen.Id(name+"MethodName")).Op("..."))).Dot("Methods").Call(jen.Lit(methodConf.Method)).Dot("Name").Call(jen.Lit(methodConf.Annotation)).Line()
 }
+
 
 func myExtraHttp(methodList []ImplMethod, handlerList jen.Code) jen.Code {
 	code := jen.Null()
@@ -162,12 +224,12 @@ func genMyLogging(methodList []ImplMethod) jen.Code {
 	code := jen.Null()
 	code.Type().Id("logging").Struct(jen.Id("logger").Op("*").Qual("go.uber.org/zap", "SugaredLogger"), jen.Id("next").Id("Service")).Line()
 
-	methodParamCode := make([]jen.Code, 0)
-	methodResultCode := make([]jen.Code, 0)
-
-	logParamCode := make([]jen.Code, 0)
-	nextMethodParamCode := make([]jen.Code, 0)
 	for _, method := range methodList {
+		methodParamCode := make([]jen.Code, 0)
+		methodResultCode := make([]jen.Code, 0)
+
+		logParamCode := make([]jen.Code, 0)
+		nextMethodParamCode := make([]jen.Code, 0)
 
 		for _, param := range method.Params {
 			if param.ID == "context.Context" {

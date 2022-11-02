@@ -16,6 +16,11 @@ const implTags = "@tags"
 const implBasePath = "@basePath"
 const kitHttpRouterMark = "@kit-http"
 const kitHttpRequestMark = "@kit-http-request"
+const kitHttpEndpointMark = "@kit-http-endpoint"
+const kitHttpEndpointWrapMark = "@kit-http-endpoint-wrap"
+const kitHttpEncodeMark = "@kit-http-encode"
+const kitHttpDecodeMark = "@kit-http-decode"
+
 const kitHttpSwagMark = "@swag"
 const httpJenFName = "http"
 const myHttpJenFName = "myHttp"
@@ -64,6 +69,7 @@ func (g *GenImplKitHttp) genJenF() error {
 	var EndpointsCode jen.Code
 	var NewEndpointsCode jen.Code
 	var MakeEndpointCodeList []jen.Code
+	var MakeMyEndpointCodeList []jen.Code
 
 	var LoggingFuncCodeList []jen.Code
 
@@ -90,12 +96,13 @@ func (g *GenImplKitHttp) genJenF() error {
 			requestName, requestBody, _ := g.implConf[implName].MethodHttpRequest(m.Name)
 			enableSwag, _ := g.implConf[implName].EnableSwag(m.Name)
 			tags := g.implConf[implName].implTags
+			methodConf,_ := g.implConf[implName].MethodConf(m.Name)
 
 			handlerCodeList = append(
-				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodHttpPath, methodHttpMethod, annotation),
+				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodConf),
 			)
 			myHandlerCodeList = append(
-				myHandlerCodeList, genFuncMyMakeHTTPHandlerHandler(m.Name, methodHttpPath, methodHttpMethod, annotation),
+				myHandlerCodeList, genFuncMyMakeHTTPHandlerHandler(m.Name, methodConf),
 			)
 
 			r := NewKitRequest(g.genImpl.GenOption.Pkg, m.Name, requestName, requestBody)
@@ -120,6 +127,8 @@ func (g *GenImplKitHttp) genJenF() error {
 			decodeRequestCodeList = append(decodeRequestCodeList, jen.Comment(swagStr).Add(jen.Line()).Add(r.Statement().Line()))
 
 			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(requestName, m, r, g.genImpl.GenOption))
+
+			MakeMyEndpointCodeList = append(MakeMyEndpointCodeList, genMyMakeEndpoint(m, methodConf,r, g.genImpl.GenOption))
 
 			LoggingFuncCodeList = append(LoggingFuncCodeList, genLoggingFunc(m))
 
@@ -164,7 +173,7 @@ func (g *GenImplKitHttp) genJenF() error {
 	myEndpointJenF.Add(EndpointsConstCode)
 	myEndpointJenF.Add(EndpointsCode)
 	myEndpointJenF.Add(NewEndpointsCode)
-	myEndpointJenF.Add(MakeEndpointCodeList...)
+	myEndpointJenF.Add(MakeMyEndpointCodeList...)
 	myEndpointJenF.Add(myExtraEndpoint(methodList))
 
 	logJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
@@ -263,8 +272,13 @@ type MethodConf struct {
 	Method      string
 	Path        string
 	Request     string
+	Endpoint string
+	EndpointWrap string
+	Decode string
+	Encode string
 	RequestBody bool
 	EnableSwag  bool
+	Annotation  string
 }
 
 func NewKitHttpConf(impl Impl) *kitHttpConf {
@@ -310,7 +324,7 @@ func (k *kitHttpConf) MethodConform(name string) (bool, error) {
 		return false, err
 	}
 
-	if conf.Path == "" || conf.Method == "" || conf.Request == "" {
+	if conf.Path == "" || conf.Method == "" {
 		return false, fmt.Errorf("method %s not found param path: %s, method: %s, request %s", name, conf.Path, conf.Method, conf.Request)
 	}
 
@@ -327,18 +341,33 @@ func (k *kitHttpConf) MethodConf(name string) (res MethodConf, err error) {
 	var method string
 	var request string
 	var requestBody string
+	var endpoint string
+	var endpointWrap string
+	var decode string
+	var encode string
 	var enableSwag string
+	var annotation string
 	docF := NewAstDocFormat(m.Comment)
 	docF.MarkValuesMapping(kitHttpRouterMark, &path, &method)
 	docF.MarkValuesMapping(kitHttpRequestMark, &request, &requestBody)
 	docF.MarkValuesMapping(kitHttpSwagMark, &enableSwag)
+	docF.MarkValuesMapping(kitHttpEndpointMark, &endpoint)
+	docF.MarkValuesMapping(kitHttpDecodeMark, &decode)
+	docF.MarkValuesMapping(kitHttpEncodeMark, &encode)
+	docF.MarkValuesMapping(kitHttpEndpointWrapMark, &endpointWrap)
+	annotation,_ = k.MethodAnnotation(name)
 
 	return MethodConf{
 		Method:      strings.ToUpper(method),
 		Path:        path,
 		Request:     request,
+		Endpoint:    encode,
+		EndpointWrap: endpointWrap,
+		Decode:      decode,
+		Encode:      encode,
 		RequestBody: requestBody != "",
 		EnableSwag:  enableSwag != "false",
+		Annotation: annotation,
 	}, nil
 }
 

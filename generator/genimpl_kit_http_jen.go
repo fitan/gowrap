@@ -16,14 +16,24 @@ func genFuncMakeHTTPHandlerNewEndpoint(methodNameList []string) jen.Code {
 	))
 }
 
-func genFuncMakeHTTPHandlerHandler(name, path, method, annotation string) jen.Code {
+func genFuncMakeHTTPHandlerHandler(name string, methodConf MethodConf) jen.Code {
+	decode := jen.Id(methodConf.Decode)
+	encode := jen.Id(methodConf.Encode)
+
+	if methodConf.Decode == "" {
+		decode = jen.Id("decode" + name + "Request")
+	}
+	if methodConf.Encode == "" {
+		encode = jen.Qual("github.com/go-kit/kit/transport/http", "EncodeJSONResponse")
+	}
+
 	return jen.Id("r").Dot("Handle").Call(
-		jen.Lit(path),
+		jen.Lit(methodConf.Path),
 		jen.Qual("github.com/go-kit/kit/transport/http", "NewServer").Call(
 			jen.Id("eps").Dot(name+"Endpoint"),
-			jen.Id("decode"+name+"Request"),
-			jen.Qual("github.com/go-kit/kit/transport/http", "EncodeJSONResponse"),
-			jen.Id("opts").Op("..."))).Dot("Methods").Call(jen.Lit(method)).Dot("Name").Call(jen.Lit(annotation)).Line()
+			decode,
+			encode,
+			jen.Id("opts").Op("..."))).Dot("Methods").Call(jen.Lit(methodConf.Method)).Dot("Name").Call(jen.Lit(methodConf.Annotation)).Line()
 }
 
 func genFuncMakeHTTPHandler(newEndpoint jen.Code, HandlerList jen.Code) jen.Code {
@@ -105,7 +115,12 @@ func genMakeEndpoint(requestName string, method ImplMethod, request *KitRequest,
 	}
 
 	return jen.Func().Id("make" + method.Name + "Endpoint").Params(jen.Id("s").Id("Service")).Params(jen.Qual("github.com/go-kit/kit/endpoint", "Endpoint")).Block(jen.Return().Func().Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("request").Interface()).Params(jen.Id("response").Interface(), jen.Id("err").Id("error")).Block(
-		jen.Id("req").Op(":=").Id("request").Assert(jen.Id(requestName)),
+		func() jen.Code {
+			if len(paramList) > 1 {
+				return jen.Id("req").Op(":=").Id("request").Assert(jen.Id(requestName))
+			}
+			return jen.Null()
+		}(),
 		endpointVarList,
 		jen.List(resultNameList...).Op(":=").Id("s").Dot(method.Name).Call(
 			paramList...,

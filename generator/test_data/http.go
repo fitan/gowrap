@@ -7,27 +7,30 @@ import (
 	"strings"
 
 	govalidator "github.com/asaskevich/govalidator"
-	endpoint "github.com/go-kit/kit/endpoint"
 	http "github.com/go-kit/kit/transport/http"
 	mux "github.com/gorilla/mux"
 	errors "github.com/pkg/errors"
 	cast "github.com/spf13/cast"
 )
 
-// @fn wire set
-func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []http.ServerOption) http1.Handler {
-	var ems []endpoint.Middleware
-	opts = append(opts, http.ServerBefore(func(ctx context.Context, request *http1.Request) context.Context {
-		return ctx
-	}))
-	ems = append(ems, dmw...)
-	eps := NewEndpoint(s, map[string][]endpoint.Middleware{HelloMethodName: ems, HelloBodyMethodName: ems, SayHelloMethodName: ems})
-	r := mux.NewRouter()
-	r.Handle("/hello/{id}", http.NewServer(eps.HelloEndpoint, decodeHelloRequest, http.EncodeJSONResponse, opts...)).Methods("GET").Name("Hello")
-	r.Handle("/hello/body", http.NewServer(eps.HelloBodyEndpoint, decodeHelloBodyRequest, http.EncodeJSONResponse, opts...)).Methods("GET").Name("HelloBody")
-	r.Handle("/hello/say", http.NewServer(eps.SayHelloEndpoint, decodeSayHelloRequest, http.EncodeJSONResponse, opts...)).Methods("GET").Name("SayHello")
+type Handler struct{}
 
-	return r
+func MakeHTTPHandler(r *mux.Router, s Service, mws Mws, ops Ops) Handler {
+	eps := NewEndpoint(s, mws)
+	r.Handle("/hello/{id}", http.NewServer(eps.HelloEndpoint, decodeHelloRequest, http.EncodeJSONResponse, ops[HelloMethodName]...)).Methods("GET").Name("Hello")
+	r.Handle("/hello/body", http.NewServer(eps.HelloBodyEndpoint, decodeHelloBodyRequest, http.EncodeJSONResponse, ops[HelloBodyMethodName]...)).Methods("GET").Name("HelloBody")
+	r.Handle("/hello/say", http.NewServer(eps.SayHelloEndpoint, decodeSayHelloRequest, http.EncodeJSONResponse, ops[SayHelloMethodName]...)).Methods("GET").Name("SayHello")
+
+	return Handler{}
+}
+
+type Ops map[string][]http.ServerOption
+
+func AllMethodAddOps(options map[string][]http.ServerOption, option http.ServerOption) {
+	methods := []string{HelloMethodName, HelloBodyMethodName, SayHelloMethodName}
+	for _, v := range methods {
+		options[v] = append(options[v], option)
+	}
 }
 
 /*
@@ -39,18 +42,18 @@ Hello
 
 @Accept json
 @Produce json
-@Param id path string true " is the ID of the user."
-@Param ip path string true " "
-@Param port path string true " "
-@Param time path string true " "
-@Param uuid path string true " "
-@Param lastNames query string false " is the last names of the user."
-@Param lastNamesInt query string false " "
-@Param namespace query string false " "
-@Param page query string false " "
-@Param size query string false " "
+@Param id path string true is
+@Param ip path string true
+@Param port path string true
+@Param time path string true
+@Param uuid path string true
+@Param lastNames query string false is
+@Param lastNamesInt query string false
+@Param namespace query string false
+@Param page query string false
+@Param size query string false
 @Param headerName header string false "@dto-method fmt Sprintf"
-@Param user body  true " "
+@Param user body  true
 @Success 200 {object} encode.Response{data=HelloRequest}
 @Router /hello/{id} [GET]
 */
@@ -58,15 +61,15 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	req := HelloRequest{}
 
+	var lastNames []string
+
+	var lastNamesInt []int
+
 	var page int64
 
 	var size int64
 
 	var namespace []string
-
-	var lastNames []string
-
-	var lastNamesInt []int
 
 	var id int
 
@@ -82,6 +85,12 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	vars := mux.Vars(r)
 
+	id, err = cast.ToIntE(vars["id"])
+
+	if err != nil {
+		return
+	}
+
 	uuid = vars["uuid"]
 
 	time, err = cast.ToInt64E(vars["time"])
@@ -93,12 +102,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 	ip = vars["ip"]
 
 	port, err = cast.ToIntE(vars["port"])
-
-	if err != nil {
-		return
-	}
-
-	id, err = cast.ToIntE(vars["id"])
 
 	if err != nil {
 		return
@@ -190,16 +193,16 @@ HelloBody
 
 @Accept json
 @Produce json
-@Param id path string true " is the ID of the user."
-@Param ip path string true " "
-@Param port path string true " "
-@Param time path string true " "
-@Param uuid path string true " "
-@Param lastNames query string false " is the last names of the user."
-@Param lastNamesInt query string false " "
-@Param namespace query string false " "
-@Param page query string false " "
-@Param size query string false " "
+@Param id path string true is
+@Param ip path string true
+@Param port path string true
+@Param time path string true
+@Param uuid path string true
+@Param lastNames query string false is
+@Param lastNamesInt query string false
+@Param namespace query string false
+@Param page query string false
+@Param size query string false
 @Param headerName header string false "@dto-method fmt Sprintf"
 @Param HelloRequest body HelloRequest true "http request body"
 @Success 200 {object} encode.Response{data.list=HelloRequest,data.total=int64}
@@ -233,6 +236,12 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	vars := mux.Vars(r)
 
+	time, err = cast.ToInt64E(vars["time"])
+
+	if err != nil {
+		return
+	}
+
 	ip = vars["ip"]
 
 	port, err = cast.ToIntE(vars["port"])
@@ -249,10 +258,15 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	uuid = vars["uuid"]
 
-	time, err = cast.ToInt64E(vars["time"])
+	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
 
-	if err != nil {
-		return
+	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
+
+	if lastNamesIntStr != "" {
+		lastNamesInt, err = cast.ToIntSliceE(strings.Split(lastNamesIntStr, ","))
+		if err != nil {
+			return
+		}
 	}
 
 	pageStr := r.URL.Query().Get("page")
@@ -275,17 +289,6 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
-	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
-
-	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
-
-	if lastNamesIntStr != "" {
-		lastNamesInt, err = cast.ToIntSliceE(strings.Split(lastNamesIntStr, ","))
-		if err != nil {
-			return
-		}
-	}
-
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req)
@@ -305,8 +308,6 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	req.Vm.Port = port
 
-	req.LastNames = lastNames
-
 	req.LastNamesInt = lastNamesInt
 
 	req.Paging.Page = page
@@ -314,6 +315,8 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 	req.Paging.Size = size
 
 	req.Namespace = namespace
+
+	req.LastNames = lastNames
 
 	req.HeaderName = headerName
 
@@ -341,18 +344,18 @@ SayHello
 
 @Accept json
 @Produce json
-@Param id path string true " is the ID of the user."
-@Param ip path string true " "
-@Param port path string true " "
-@Param time path string true " "
-@Param uuid path string true " "
-@Param lastNames query string false " is the last names of the user."
-@Param lastNamesInt query string false " "
-@Param namespace query string false " "
-@Param page query string false " "
-@Param size query string false " "
+@Param id path string true is
+@Param ip path string true
+@Param port path string true
+@Param time path string true
+@Param uuid path string true
+@Param lastNames query string false is
+@Param lastNamesInt query string false
+@Param namespace query string false
+@Param page query string false
+@Param size query string false
 @Param headerName header string false "@dto-method fmt Sprintf"
-@Param user body  true " "
+@Param user body  true
 @Success 200 {object} encode.Response{data=map[string][]nest.NetWork}
 @Router /hello/say [GET]
 */
@@ -370,6 +373,8 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	var namespace []string
 
+	var ip string
+
 	var port int
 
 	var id int
@@ -378,11 +383,17 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	var time int64
 
-	var ip string
-
 	var headerName string
 
 	vars := mux.Vars(r)
+
+	id, err = cast.ToIntE(vars["id"])
+
+	if err != nil {
+		return
+	}
+
+	uuid = vars["uuid"]
 
 	time, err = cast.ToInt64E(vars["time"])
 
@@ -398,13 +409,7 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 		return
 	}
 
-	id, err = cast.ToIntE(vars["id"])
-
-	if err != nil {
-		return
-	}
-
-	uuid = vars["uuid"]
+	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
 
 	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
 
@@ -435,8 +440,6 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
 
-	lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
-
 	headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req.Body)
@@ -456,8 +459,6 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	req.Vm.Port = port
 
-	req.Paging.Size = size
-
 	req.Namespace = namespace
 
 	req.LastNames = lastNames
@@ -465,6 +466,8 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 	req.LastNamesInt = lastNamesInt
 
 	req.Paging.Page = page
+
+	req.Paging.Size = size
 
 	req.HeaderName = headerName
 

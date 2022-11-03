@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"go/types"
 	"golang.org/x/tools/go/packages"
 	"log"
 	"os"
@@ -114,10 +115,9 @@ func LoadMainImports() (res []*ast.ImportSpec, err error) {
 	}
 }
 
-
 var errPackageNotFound = errors.New("package not found")
 
-const mode packages.LoadMode =packages.NeedName |
+const mode packages.LoadMode = packages.NeedName |
 	packages.NeedTypes |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo |
@@ -126,6 +126,7 @@ const mode packages.LoadMode =packages.NeedName |
 	//packages.NeedTypesSizes |
 	//packages.NeedDeps |
 	packages.NeedFiles
+
 //packages.NeedCompiledGoFiles |
 //packages.NeedExportFile
 
@@ -158,4 +159,21 @@ func Load(path string, pkgNeedSyntax bool) (*packages.Package, error) {
 	//}
 
 	return pkgs[0], nil
+}
+
+func type2RawTypeId(pkg *packages.Package, t types.Type, s string) (res string) {
+	switch tName := t.(type) {
+	case *types.Named:
+		if pkg.Name == tName.Obj().Pkg().Name() {
+			return s + tName.Obj().Id()
+		}
+
+		return s + tName.Obj().Pkg().Name() + "." + tName.Obj().Id()
+
+	case *types.Map:
+		return "map[" + type2RawTypeId(pkg, tName.Key(), "") + "]" + type2RawTypeId(pkg, tName.Elem(), s)
+	case *types.Slice:
+		return "[]" + type2RawTypeId(pkg, tName.Elem(), s)
+	}
+	return s
 }

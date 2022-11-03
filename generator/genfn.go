@@ -7,8 +7,6 @@ import (
 
 const GenFnMark = "@fn"
 
-
-
 type GenFn struct {
 	GenOption GenOption
 	FuncList  map[string]Func
@@ -47,7 +45,7 @@ func (g *GenFn) Run() error {
 func (g *GenFn) parse() {
 	for _, v := range g.GenOption.Pkg.Syntax {
 		ast.Inspect(v, func(node ast.Node) bool {
-			if fnDecl,ok := node.(*ast.FuncDecl);ok {
+			if fnDecl, ok := node.(*ast.FuncDecl); ok {
 				var fn Func
 
 				format := AstDocFormat{fnDecl.Doc}
@@ -56,10 +54,16 @@ func (g *GenFn) parse() {
 				}
 
 				for _, param := range fnDecl.Type.Params.List {
-					fn.Args = append(fn.Lhs,g.GenOption.Pkg.TypesInfo.TypeOf(param.Type))
+					fn.Args = append(fn.Lhs, XType{
+						T:  g.GenOption.Pkg.TypesInfo.TypeOf(param.Type),
+						Id: Node2String(g.GenOption.Pkg.Fset, param),
+					})
 				}
 				for _, param := range fnDecl.Type.Results.List {
-					fn.Lhs = append(fn.Args,g.GenOption.Pkg.TypesInfo.TypeOf(param.Type))
+					fn.Lhs = append(fn.Args, XType{
+						T:  g.GenOption.Pkg.TypesInfo.TypeOf(param.Type),
+						Id: Node2String(g.GenOption.Pkg.Fset, param),
+					})
 				}
 				fn.Name = fnDecl.Name.Name
 				fn.Doc = fnDecl.Doc

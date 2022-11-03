@@ -121,13 +121,13 @@ func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 		return fmt.Errorf("plug query: %s fn args count must be 1", name)
 	}
 
-	arg := fn.Args[0]
+	argT := fn.Args[0].T
 
-	if v, ok := arg.(*types.Pointer); ok {
-		arg = v.Elem()
+	if v, ok := argT.(*types.Pointer); ok {
+		argT = v.Elem()
 	}
 
-	argStruct, ok := arg.Underlying().(*types.Struct)
+	argStruct, ok := argT.Underlying().(*types.Struct)
 	if !ok {
 		return fmt.Errorf("plug query: %s fn args must be struct", name)
 	}
@@ -137,7 +137,7 @@ func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 		g.parseField([]string{"v"}, argStruct.Field(i), argStruct.Tag(i), queryM)
 	}
 
-	s := strings.Replace(arg.String(), g.genCall.GenOption.Pkg.PkgPath+".", "", -1)
+	s := strings.Replace(argT.String(), g.genCall.GenOption.Pkg.PkgPath+".", "", -1)
 	sSplit := strings.Split(s, "/")
 	s = sSplit[len(sSplit)-1]
 

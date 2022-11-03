@@ -22,10 +22,15 @@ func NewGenCall(genOption GenOption) *GenCall {
 }
 
 type Func struct {
-	Args []types.Type
-	Lhs  []types.Type
+	Args []XType
+	Lhs  []XType
 	Doc  *ast.CommentGroup
 	Name string
+}
+
+type XType struct {
+	T  types.Type
+	Id string
 }
 
 func (g *GenCall) GetFile(plugName, jenFName string) string {
@@ -70,8 +75,25 @@ func (g *GenCall) parse() {
 
 				if as, ok := c.Parent().(*ast.AssignStmt); ok {
 					if as.Tok.String() == "=" || as.Tok.String() == ":=" {
-						for _, l := range as.Lhs {
-							fn.Lhs = append(fn.Lhs, g.GenOption.Pkg.TypesInfo.TypeOf(l))
+						for _, param := range as.Lhs {
+
+							var id string
+							var t types.Type
+							t = g.GenOption.Pkg.TypesInfo.TypeOf(param)
+							for k, vv := range g.GenOption.Pkg.TypesInfo.Types {
+								if t.String() == vv.Type.String() {
+									fmt.Println("string == string: ", Node2String(g.GenOption.Pkg.Fset, k))
+								}
+								if t.String() == vv.Type.String() && vv.IsType() {
+									id = Node2String(g.GenOption.Pkg.Fset, k)
+									break
+								}
+							}
+
+							fn.Lhs = append(fn.Lhs, XType{
+								T:  t,
+								Id: id,
+							})
 						}
 					} else {
 						panic(fmt.Sprintf("fn %s tok must be = or :=", callName))
@@ -80,8 +102,27 @@ func (g *GenCall) parse() {
 					panic(fmt.Sprintf("fn %s must be assignStmt", callName))
 				}
 
-				for _, arg := range call.Args {
-					fn.Args = append(fn.Args, g.GenOption.Pkg.TypesInfo.TypeOf(arg))
+				for _, param := range call.Args {
+					var id string
+					var t types.Type
+					t = g.GenOption.Pkg.TypesInfo.TypeOf(param)
+
+					id = type2RawTypeId(g.GenOption.Pkg, t, "")
+					//for k, vv := range g.GenOption.Pkg.TypesInfo.Types {
+					//	if t.String() == vv.Type.String() {
+					//		fmt.Println("arg == arg: ", Node2String(g.GenOption.Pkg.Fset,k))
+					//	}
+					//fmt.Println("arg == arg: ", Node2String(g.GenOption.Pkg.Fset,k))
+					//if t.String() == vv.Type.String() && vv.IsType() {
+					//	id =  Node2String(g.GenOption.Pkg.Fset, k)
+					//	break
+					//}
+					//}
+
+					fn.Args = append(fn.Args, XType{
+						T:  t,
+						Id: id,
+					})
 				}
 
 				g.FuncList[callName] = fn

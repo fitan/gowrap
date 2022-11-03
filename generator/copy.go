@@ -31,7 +31,7 @@ type Field struct {
 func (f Field) CopyMethod() (pkgName, methodName string) {
 
 	format := AstDocFormat{doc: f.Doc}
-	format.MarkValuesMapping(CopyMethodName,&pkgName, &methodName )
+	format.MarkValuesMapping(CopyMethodName, &pkgName, &methodName)
 	if pkgName == "" && methodName == "" {
 		return
 	}
@@ -99,7 +99,7 @@ func (d *DataFieldMap) saveField(m map[string]Field, name string, field Field) {
 		return
 	}
 
-	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, oldField.DestIdPath().GoString(), oldField.SrcIdPath().GoString(), field.DestIdPath().GoString(), field.SrcIdPath().GoString())
+	//fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, oldField.DestIdPath().GoString(), oldField.SrcIdPath().GoString(), field.DestIdPath().GoString(), field.SrcIdPath().GoString())
 	if len(oldField.Path) > len(field.Path) {
 		m[name] = field
 	}
@@ -274,7 +274,7 @@ func (d *Copy) Gen() {
 	bind := make(jen.Statement, 0)
 	bind = append(bind, jen.Comment("basic ="))
 	bind = append(bind, d.GenBasic()...)
-	bind = append(bind,jen.Comment("slice = "))
+	bind = append(bind, jen.Comment("slice = "))
 	bind = append(bind, d.GenSlice()...)
 	bind = append(bind, jen.Comment("map = "))
 	bind = append(bind, d.GenMap()...)
@@ -305,9 +305,9 @@ func (d *Copy) GenBasic() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.BasicMap {
 		if v.Name == "Cabinets" {
-			fmt.Println("find basic cabinets: ", v.DestIdPath().String(),v.Type.T.String())
+			fmt.Println("find basic cabinets: ", v.DestIdPath().String(), v.Type.T.String())
 		}
-		srcV,ok := d.Src.BasicMap[v.Name]
+		srcV, ok := d.Src.BasicMap[v.Name]
 		if !ok {
 			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
 			continue
@@ -327,7 +327,7 @@ func (d *Copy) GenBasic() jen.Statement {
 		//}
 		fmt.Println("xtype", "ttype", "basic", "name", v.Name, "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().GoString())
 		bind = append(bind, jen.Comment("basic = "+v.Name))
-		bind = append(bind ,jen.Comment(strings.Join(v.Path, ".")))
+		bind = append(bind, jen.Comment(strings.Join(v.Path, ".")))
 		bind = append(bind, jen.Comment(v.SrcIdPath().GoString()))
 		bind = append(bind, jen.Comment(v.DestIdPath().GoString()))
 
@@ -339,7 +339,7 @@ func (d *Copy) GenBasic() jen.Statement {
 func (d *Copy) GenMap() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.MapMap {
-		srcV,ok := d.Src.MapMap[v.Name]
+		srcV, ok := d.Src.MapMap[v.Name]
 		if !ok {
 			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
 			continue
@@ -369,6 +369,7 @@ func (d *Copy) GenMap() jen.Statement {
 			srcName := srcV.FieldName(d.SumPath())
 			destName := v.FieldName(d.SumPath())
 			nestCopy := &Copy{
+				Pkg:            d.Pkg,
 				JenF:           d.JenF,
 				Recorder:       d.Recorder,
 				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
@@ -396,7 +397,7 @@ func (d *Copy) GenMap() jen.Statement {
 func (d *Copy) GenPointer() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.PointerMap {
-		srcV,ok := d.Src.PointerMap[v.Name]
+		srcV, ok := d.Src.PointerMap[v.Name]
 		if !ok {
 			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
 			continue
@@ -423,6 +424,7 @@ func (d *Copy) GenPointer() jen.Statement {
 			destName := v.FieldName(d.SumPath())
 			//destName := srcLiner.HashID(d.SumPath())
 			nestCopy := &Copy{
+				Pkg:            d.Pkg,
 				JenF:           d.JenF,
 				Recorder:       d.Recorder,
 				SrcParentPath:  append(d.SrcParentPath, srcV.Path...),
@@ -452,9 +454,9 @@ func (d *Copy) GenPointer() jen.Statement {
 func (d *Copy) GenSlice() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.SliceMap {
-		srcV,ok := d.Src.SliceMap[v.Name]
+		srcV, ok := d.Src.SliceMap[v.Name]
 		if v.Name == "Cabinets" {
-			fmt.Println("find genCabinets: ", v.DestIdPath().GoString(),v.Type.T.String(),  "find srcv: ", ok)
+			fmt.Println("find genCabinets: ", v.DestIdPath().GoString(), v.Type.T.String(), "find srcv: ", ok)
 		}
 		if !ok {
 			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
@@ -484,6 +486,7 @@ func (d *Copy) GenSlice() jen.Statement {
 			destName := v.FieldName(d.SumPath())
 			//destName := srcLiner.HashID(d.SumPath())
 			nestCopy := &Copy{
+				Pkg:           d.Pkg,
 				JenF:          d.JenF,
 				Recorder:      d.Recorder,
 				SrcParentPath: append(d.SrcParentPath, srcV.Path...),

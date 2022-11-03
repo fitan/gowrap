@@ -5,7 +5,7 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
+	"github.com/fitan/gowrap/generator"
 
 	"github.com/spf13/cobra"
 )
@@ -21,7 +21,11 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
+		files := m[initType]
+		err := generator.Init(files, initName, outputDir, process)
+		if err != nil {
+			return
+		}
 	},
 }
 
@@ -30,12 +34,23 @@ var initName string
 var outputDir string
 
 var m map[string]map[string]string = map[string]map[string]string{
-	"service": map[string]string{
-		"service": "service.go",
+	// service curd
+	"sc": map[string]string{
+		"curdService": "service.go",
+		"curdTypes": "types.go",
 		"new":     "new.go",
 	},
-	"repo": map[string]string{
+	// repo curd
+	"rc": map[string]string{
+		"curdRepo": "service.go",
+	},
+	"s": map[string]string{
 		"service": "service.go",
+		"types": "types.go",
+		"new":     "new.go",
+	},
+	"r": map[string]string{
+		"repo": "service.go",
 	},
 }
 
@@ -43,6 +58,8 @@ func init() {
 	initCmd.Flags().StringVarP(&initType, "type", "t", "app", "init type")
 	initCmd.Flags().StringVarP(&initName, "name", "n", "app", "init name")
 	initCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "output dir")
+	initCmd.Flags().BoolVarP(&process, "process", "p", false, "process")
+
 	rootCmd.AddCommand(initCmd)
 
 	// Here you will define your flags and configuration settings.

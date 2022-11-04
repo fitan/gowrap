@@ -267,7 +267,7 @@ func (d *Copy) SumParentPath() string {
 }
 
 func (d *Copy) Gen() {
-	has, fn := d.GenFn(d.FnName(), d.Src.Type.TypeAsJen(), d.Dest.Type.TypeAsJen())
+	has, fn := d.GenFn(d.FnName(), d.Src.Type.TypeAsJenComparePkgName(d.Pkg), d.Dest.Type.TypeAsJenComparePkgName(d.Pkg))
 	if has {
 		return
 	}
@@ -325,7 +325,7 @@ func (d *Copy) GenBasic() jen.Statement {
 		//	bind.Add(v.DestIdPath().Op("=").Add(dtoMethod.Call(srcV.SrcIdPath())))
 		//	continue
 		//}
-		fmt.Println("xtype", "ttype", "basic", "name", v.Name, "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().GoString())
+		fmt.Println("xtype", "ttype", "basic", "name", v.Name, "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJenComparePkgName(d.Pkg).GoString())
 		bind = append(bind, jen.Comment("basic = "+v.Name))
 		bind = append(bind, jen.Comment(strings.Join(v.Path, ".")))
 		bind = append(bind, jen.Comment(v.SrcIdPath().GoString()))
@@ -352,13 +352,13 @@ func (d *Copy) GenMap() jen.Statement {
 			continue
 		}
 
-		fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), v.Type.T.String(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
+		fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), v.Type.T.String(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJenComparePkgName(d.Pkg).Render(os.Stdout))
 		if v.Type.T.String() == srcV.Type.T.String() {
 			bind.Add(v.DestIdPath().Op("=").Add(srcV.SrcIdPath()))
 			continue
 		}
 
-		bind.Add(v.DestIdPath().Op("=").Make(v.Type.TypeAsJen(), jen.Id("len").Call(srcV.SrcIdPath())))
+		bind.Add(v.DestIdPath().Op("=").Make(v.Type.TypeAsJenComparePkgName(d.Pkg), jen.Id("len").Call(srcV.SrcIdPath())))
 		block := v.DestIdPath().Index(jen.Id("key")).Op("=").Add(srcV.SrcIdPath()).Index(jen.Id("value"))
 		if !v.Type.MapValue.Basic {
 			srcMapValue := srcV.Type.MapValue
@@ -432,7 +432,7 @@ func (d *Copy) GenPointer() jen.Statement {
 				Src:            NewDataFieldMap(d.Pkg, []string{}, srcName, srcLiner, srcLiner.T),
 				DestParentPath: append(d.DestParentPath, v.Path...),
 				DestPath:       append([]string{}, v.Path...),
-				Dest:           NewDataFieldMap(d.Pkg, []string{}, destName, srcLiner, destLiner.T),
+				Dest:           NewDataFieldMap(d.Pkg, []string{}, destName, destLiner, destLiner.T),
 				Nest:           make([]*Copy, 0),
 				StructName:     d.StructName,
 			}
@@ -442,8 +442,6 @@ func (d *Copy) GenPointer() jen.Statement {
 				jen.If(srcV.SrcIdPath().Op("!=").Nil()).Block(
 					jen.Id("v").Op(":=").Id("d."+nestCopy.FnName()).Call(jen.Id("*").Add(srcV.SrcIdPath())),
 					v.DestIdPath().Op("=").Id("&v"),
-				).Else().Block(
-					v.DestIdPath().Op("=").Add(srcV.SrcIdPath()),
 				),
 			)
 		}
@@ -465,7 +463,7 @@ func (d *Copy) GenSlice() jen.Statement {
 		if v.Doc != nil {
 			bind.Add(jen.Comment(v.Doc.Text()))
 		}
-		//fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJen().Render(os.Stdout))
+		//fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJenComparePkgName().Render(os.Stdout))
 
 		if d.GenExtraCopyMethod(&bind, v, srcV) {
 			continue
@@ -475,7 +473,7 @@ func (d *Copy) GenSlice() jen.Statement {
 			bind.Add(v.DestIdPath().Op("=").Add(srcV.SrcIdPath()))
 			continue
 		}
-		bind.Add(v.DestIdPath().Op("=").Make(v.Type.TypeAsJen(), jen.Id("0"), jen.Id("len").Call(srcV.SrcIdPath())))
+		bind.Add(v.DestIdPath().Op("=").Make(v.Type.TypeAsJenComparePkgName(d.Pkg), jen.Id("0"), jen.Id("len").Call(srcV.SrcIdPath())))
 		block := v.DestIdPath().Index(jen.Id("i")).Op("=").Add(srcV.SrcIdPath()).Index(jen.Id("i"))
 		if !v.Type.ListInner.Basic {
 			srcLiner := srcV.Type.ListInner

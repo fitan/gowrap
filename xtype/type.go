@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"go/types"
+	"golang.org/x/tools/go/packages"
 	"strings"
 
 	"github.com/fitan/jennifer/jen"
@@ -198,6 +199,37 @@ func (t Type) TypeAsJen() *jen.Statement {
 		return toCode(t.NamedType, &jen.Statement{})
 	}
 	return toCode(t.T, &jen.Statement{})
+}
+
+func (t Type) TypeAsJenComparePkgName(pkg *packages.Package) *jen.Statement {
+	if t.Named {
+		return toCodeComparePkgName(pkg,t.NamedType, &jen.Statement{})
+	}
+	return toCodeComparePkgName(pkg,t.T, &jen.Statement{})
+}
+
+func toCodeComparePkgName(pkg *packages.Package,t types.Type, st *jen.Statement) *jen.Statement {
+	switch cast := t.(type) {
+	case *types.Named:
+		if cast.Obj().Pkg() == nil || pkg.Name == cast.Obj().Pkg().Name() {
+			return st.Id(cast.Obj().Name())
+		}
+		return st.Qual(cast.Obj().Pkg().Path(), cast.Obj().Name())
+	case *types.Map:
+		key := toCodeComparePkgName(pkg,cast.Key(), &jen.Statement{})
+		return toCodeComparePkgName(pkg,cast.Elem(), st.Map(key))
+	case *types.Slice:
+		return toCodeComparePkgName(pkg,cast.Elem(), st.Index())
+	case *types.Array:
+		return toCodeComparePkgName(pkg,cast.Elem(), st.Index(jen.Lit(int(cast.Len()))))
+	case *types.Pointer:
+		return toCodeComparePkgName(pkg,cast.Elem(), st.Op("*"))
+	case *types.Basic:
+		return toCodeBasic(cast.Kind(), st)
+	case *types.Struct:
+		return st.Id(t.String())
+	}
+	panic("unsupported type " + t.String())
 }
 
 func toCode(t types.Type, st *jen.Statement) *jen.Statement {

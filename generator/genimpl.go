@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"github.com/fitan/gowrap/xtype"
 	"go/ast"
 	"go/types"
 	"log"
@@ -146,17 +147,7 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 
 			mParam.Name = pName
 			mParam.Type = t
-
-			for k, v := range g.GenOption.Pkg.TypesInfo.Types {
-				if t.String() == v.Type.String() && v.IsType() {
-					mParam.ID = Node2String(g.GenOption.Pkg.Fset, k)
-					break
-				}
-			}
-
-			//idSplit := strings.Split(strings.TrimPrefix(p.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
-			//mParam.ID = idSplit[len(idSplit)-1]
-
+			mParam.ID = xtype.TypeOf(t).TypeAsJenComparePkgName(g.GenOption.Pkg).GoString()
 			params = append(params, mParam)
 		}
 
@@ -177,19 +168,7 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 
 			t := r.Type()
 			mParam.Type = t
-
-
-			//fmt.Println("param: ",r.Name(), r.Type().String())
-			for k, v := range g.GenOption.Pkg.TypesInfo.Types {
-				if t.String() == v.Type.String() && v.IsType() {
-					mParam.ID = Node2String(g.GenOption.Pkg.Fset, k)
-					break
-				}
-			}
-
-
-			//idSplit := strings.Split(strings.TrimPrefix(r.Type().String(), g.GenOption.Pkg.PkgPath+"."), "/")
-			//mParam.ID = idSplit[len(idSplit)-1]
+			mParam.ID = xtype.TypeOf(t).TypeAsJenComparePkgName(g.GenOption.Pkg).GoString()
 
 			results = append(results, mParam)
 		}

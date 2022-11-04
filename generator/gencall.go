@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"github.com/fitan/gowrap/xtype"
 	"github.com/fitan/jennifer/jen"
 	"go/ast"
 	"go/types"
@@ -22,8 +23,8 @@ func NewGenCall(genOption GenOption) *GenCall {
 }
 
 type Func struct {
-	Args []XType
-	Lhs  []XType
+	Args []*xtype.Type
+	Lhs  []*xtype.Type
 	Doc  *ast.CommentGroup
 	Name string
 }
@@ -77,23 +78,7 @@ func (g *GenCall) parse() {
 					if as.Tok.String() == "=" || as.Tok.String() == ":=" {
 						for _, param := range as.Lhs {
 
-							var id string
-							var t types.Type
-							t = g.GenOption.Pkg.TypesInfo.TypeOf(param)
-							for k, vv := range g.GenOption.Pkg.TypesInfo.Types {
-								if t.String() == vv.Type.String() {
-									fmt.Println("string == string: ", Node2String(g.GenOption.Pkg.Fset, k))
-								}
-								if t.String() == vv.Type.String() && vv.IsType() {
-									id = Node2String(g.GenOption.Pkg.Fset, k)
-									break
-								}
-							}
-
-							fn.Lhs = append(fn.Lhs, XType{
-								T:  t,
-								Id: id,
-							})
+							fn.Lhs = append(fn.Lhs, xtype.TypeOf(g.GenOption.Pkg.TypesInfo.TypeOf(param)))
 						}
 					} else {
 						panic(fmt.Sprintf("fn %s tok must be = or :=", callName))
@@ -103,26 +88,7 @@ func (g *GenCall) parse() {
 				}
 
 				for _, param := range call.Args {
-					var id string
-					var t types.Type
-					t = g.GenOption.Pkg.TypesInfo.TypeOf(param)
-
-					id = type2RawTypeId(g.GenOption.Pkg, t, "")
-					//for k, vv := range g.GenOption.Pkg.TypesInfo.Types {
-					//	if t.String() == vv.Type.String() {
-					//		fmt.Println("arg == arg: ", Node2String(g.GenOption.Pkg.Fset,k))
-					//	}
-					//fmt.Println("arg == arg: ", Node2String(g.GenOption.Pkg.Fset,k))
-					//if t.String() == vv.Type.String() && vv.IsType() {
-					//	id =  Node2String(g.GenOption.Pkg.Fset, k)
-					//	break
-					//}
-					//}
-
-					fn.Args = append(fn.Args, XType{
-						T:  t,
-						Id: id,
-					})
+					fn.Args = append(fn.Args, xtype.TypeOf(g.GenOption.Pkg.TypesInfo.TypeOf(param)))
 				}
 
 				g.FuncList[callName] = fn

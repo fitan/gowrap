@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"github.com/fitan/gowrap/xtype"
 	"github.com/fitan/jennifer/jen"
 	"go/ast"
 )
@@ -54,16 +55,10 @@ func (g *GenFn) parse() {
 				}
 
 				for _, param := range fnDecl.Type.Params.List {
-					fn.Args = append(fn.Lhs, XType{
-						T:  g.GenOption.Pkg.TypesInfo.TypeOf(param.Type),
-						Id: Node2String(g.GenOption.Pkg.Fset, param),
-					})
+					fn.Args = append(fn.Lhs, xtype.TypeOf(g.GenOption.Pkg.TypesInfo.TypeOf(param.Type)))
 				}
 				for _, param := range fnDecl.Type.Results.List {
-					fn.Lhs = append(fn.Args, XType{
-						T:  g.GenOption.Pkg.TypesInfo.TypeOf(param.Type),
-						Id: Node2String(g.GenOption.Pkg.Fset, param),
-					})
+					fn.Lhs = append(fn.Args, xtype.TypeOf(g.GenOption.Pkg.TypesInfo.TypeOf(param.Type)))
 				}
 				fn.Name = fnDecl.Name.Name
 				fn.Doc = fnDecl.Doc

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"os"
 	"path"
 	"reflect"
 	"strings"
@@ -16,13 +15,14 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-const ResponseTag = "copy"
+const CopyTag = "copy"
 const CopyMethodName = "@copy-method"
 
 type Field struct {
-	Path []string
-	Name string
-	Type *xtype.Type
+	Path    []string
+	Name    string
+	TagMust bool
+	Type    *xtype.Type
 	// slice map struct *
 	TypeName string
 	Doc      *ast.CommentGroup
@@ -87,7 +87,12 @@ func NewDataFieldMap(pkg *packages.Package, prefix []string, name string, xType 
 		MapMap:     map[string]Field{},
 		BasicMap:   map[string]Field{},
 	}
-	m.Parse(prefix, name, t, nil)
+	m.Parse(Field{
+		Path: prefix,
+		Name: name,
+		Type: xType,
+		Doc:  nil,
+	})
 	return m
 }
 
@@ -107,54 +112,28 @@ func (d *DataFieldMap) saveField(m map[string]Field, name string, field Field) {
 	return
 }
 
-func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *ast.CommentGroup) {
-	f := Field{
-		Name: name,
-		Path: prefix,
-		Type: xtype.TypeOf(t),
-		Doc:  doc,
-	}
-	if name == "Cabinets" {
-		fmt.Println("print field Cabinets", f)
-	}
-	if name == "Status" {
-		fmt.Println("print field Status", f)
-	}
-	switch v := t.(type) {
+//func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *ast.CommentGroup) {
+func (d *DataFieldMap) Parse(f Field) {
+	switch v := f.Type.T.(type) {
 	case *types.Pointer:
-		//if b,ok := d.PointerMap[name]; ok {
-		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-		//	return
-		//}
-		//d.PointerMap[name] = f
-		d.saveField(d.PointerMap, name, f)
+		d.saveField(d.PointerMap, f.Name, f)
 	case *types.Basic:
-		//if b,ok := d.BasicMap[name]; ok {
-		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-		//	return
-		//}
-		//d.BasicMap[name] = f
-		d.saveField(d.PointerMap, name, f)
+		d.saveField(d.BasicMap, f.Name, f)
 		return
 	case *types.Map:
-		//if b,ok := d.MapMap[name]; ok {
-		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-		//	return
-		//}
-		//d.MapMap[name] = f
-		d.saveField(d.MapMap, name, f)
+		d.saveField(d.MapMap, f.Name, f)
 		return
 	case *types.Slice:
-		//if b,ok := d.SliceMap[name]; ok {
-		//	fmt.Printf("作用域内重复定义: %s. src.DestIdPath: %s, src.SrcIdPath: %s, dest.DestIdPath: %s, dest.SrcIdPath: %s \n", name, b.DestIdPath().GoString(), b.SrcIdPath().GoString(), f.DestIdPath().GoString(), f.SrcIdPath().GoString())
-		//	return
-		//}
-		//d.SliceMap[name] = f
-		d.saveField(d.SliceMap, name, f)
+		d.saveField(d.SliceMap, f.Name, f)
 		return
 	case *types.Array:
 	case *types.Named:
-		d.Parse(prefix, name, v.Underlying(), doc)
+		d.Parse(Field{
+			Name: f.Name,
+			Type: xtype.TypeOf(v.Underlying()),
+			Path: f.Path,
+			Doc:  f.Doc,
+		})
 		return
 	case *types.Struct:
 		for i := 0; i < v.NumFields(); i++ {
@@ -163,19 +142,30 @@ func (d *DataFieldMap) Parse(prefix []string, name string, t types.Type, doc *as
 				continue
 			}
 			indexName := field.Name()
-			if field.Name() == "Cabinets" {
-				fmt.Println("find struct Cabinets: ", field.Type().String())
-			}
-			tagName, ok := reflect.StructTag(v.Tag(i)).Lookup(ResponseTag)
+			tagMust := false
+			tag, ok := reflect.StructTag(v.Tag(i)).Lookup(CopyTag)
 			if ok {
-				indexName = tagName
+				tags := strings.Split(tag, ",")
+				tagName := tags[0]
+				if tagName != "" {
+					indexName = tagName
+				}
+				if tags[1] == "must" {
+					tagMust = true
+				}
 			}
-			doc = GetCommentByTokenPos(d.Pkg, field.Pos())
-			d.Parse(append(prefix[0:], field.Name()), indexName, field.Type(), doc)
+			d.Parse(Field{
+				Path:     append(f.Path[0:], field.Name()),
+				Name:     indexName,
+				TagMust:  tagMust,
+				Type:     xtype.TypeOf(field.Type()),
+				TypeName: "",
+				Doc:      GetCommentByTokenPos(d.Pkg, field.Pos()),
+			})
 		}
 		return
-	default:
-		panic("unknown types.Type " + t.String())
+		//default:
+		//	panic("unknown types.Type " + f.Type.T.String())
 	}
 }
 
@@ -304,9 +294,6 @@ func (d *Copy) GenExtraCopyMethod(bind *jen.Statement, destV, srcV Field) (has b
 func (d *Copy) GenBasic() jen.Statement {
 	bind := make(jen.Statement, 0)
 	for _, v := range d.Dest.BasicMap {
-		if v.Name == "Cabinets" {
-			fmt.Println("find basic cabinets: ", v.DestIdPath().String(), v.Type.T.String())
-		}
 		srcV, ok := d.Src.BasicMap[v.Name]
 		if !ok {
 			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
@@ -325,7 +312,6 @@ func (d *Copy) GenBasic() jen.Statement {
 		//	bind.Add(v.DestIdPath().Op("=").Add(dtoMethod.Call(srcV.SrcIdPath())))
 		//	continue
 		//}
-		fmt.Println("xtype", "ttype", "basic", "name", v.Name, "id", v.Type.ID(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJenComparePkgName(d.Pkg).GoString())
 		bind = append(bind, jen.Comment("basic = "+v.Name))
 		bind = append(bind, jen.Comment(strings.Join(v.Path, ".")))
 		bind = append(bind, jen.Comment(v.SrcIdPath().GoString()))
@@ -352,7 +338,6 @@ func (d *Copy) GenMap() jen.Statement {
 			continue
 		}
 
-		fmt.Println("xtype", "ttype", "slice", "id", v.Type.ID(), v.Type.T.String(), "unescapedid", v.Type.UnescapedID(), "jen", v.Type.TypeAsJenComparePkgName(d.Pkg).Render(os.Stdout))
 		if v.Type.T.String() == srcV.Type.T.String() {
 			bind.Add(v.DestIdPath().Op("=").Add(srcV.SrcIdPath()))
 			continue

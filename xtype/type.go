@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"go/types"
 	"golang.org/x/tools/go/packages"
+	"log"
+	"strconv"
 	"strings"
 
 	"github.com/fitan/jennifer/jen"
@@ -41,6 +43,8 @@ type Type struct {
 	MapValue      *Type
 	Basic         bool
 	BasicType     *types.Basic
+	Func          bool
+	FuncType      *types.Func
 }
 
 // StructField holds the type of a struct field and its name.
@@ -140,7 +144,8 @@ func TypeOf(t types.Type) *Type {
 		rt.Interface = true
 		rt.InterfaceType = value
 	default:
-		panic("unknown types.Type " + t.String())
+		log.Println("unknown type", t.String())
+		//panic("unknown types.Type " + t.String())
 	}
 	return rt
 }
@@ -201,14 +206,46 @@ func (t Type) TypeAsJen() *jen.Statement {
 	return toCode(t.T, &jen.Statement{})
 }
 
-func (t Type) TypeAsJenComparePkgName(pkg *packages.Package) *jen.Statement {
+func (t Type) TypeAsJenComparePkgNameString(pkg *packages.Package) string {
 	if t.Named {
-		return toCodeComparePkgName(pkg,t.NamedType, &jen.Statement{})
+		return toCodeComparePkgNameString(pkg, t.NamedType, "")
 	}
-	return toCodeComparePkgName(pkg,t.T, &jen.Statement{})
+	return toCodeComparePkgNameString(pkg, t.T, "")
 }
 
-func toCodeComparePkgName(pkg *packages.Package,t types.Type, st *jen.Statement) *jen.Statement {
+func toCodeComparePkgNameString(pkg *packages.Package, t types.Type, s string) string {
+	switch cast := t.(type) {
+	case *types.Named:
+		if cast.Obj().Pkg() == nil || pkg.Name == cast.Obj().Pkg().Name() {
+			return s + cast.Obj().Name()
+		}
+		return s + cast.Obj().Pkg().Name() + "." + cast.Obj().Name()
+	case *types.Map:
+		key := toCodeComparePkgNameString(pkg, cast.Key(), "")
+		return s + "map[" + key + "]" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
+	case *types.Slice:
+		return s + "[]" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
+	case *types.Array:
+		n := strconv.FormatInt(cast.Len(), 10)
+		return s + "[" + n + "]" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
+	case *types.Pointer:
+		return s + "*" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
+	case *types.Basic:
+		return s + cast.String()
+	case *types.Struct:
+		return s + t.String()
+	}
+	panic("unsupported type " + t.String())
+}
+
+func (t Type) TypeAsJenComparePkgName(pkg *packages.Package) *jen.Statement {
+	if t.Named {
+		return toCodeComparePkgName(pkg, t.NamedType, &jen.Statement{})
+	}
+	return toCodeComparePkgName(pkg, t.T, &jen.Statement{})
+}
+
+func toCodeComparePkgName(pkg *packages.Package, t types.Type, st *jen.Statement) *jen.Statement {
 	switch cast := t.(type) {
 	case *types.Named:
 		if cast.Obj().Pkg() == nil || pkg.Name == cast.Obj().Pkg().Name() {
@@ -216,14 +253,14 @@ func toCodeComparePkgName(pkg *packages.Package,t types.Type, st *jen.Statement)
 		}
 		return st.Qual(cast.Obj().Pkg().Path(), cast.Obj().Name())
 	case *types.Map:
-		key := toCodeComparePkgName(pkg,cast.Key(), &jen.Statement{})
-		return toCodeComparePkgName(pkg,cast.Elem(), st.Map(key))
+		key := toCodeComparePkgName(pkg, cast.Key(), &jen.Statement{})
+		return toCodeComparePkgName(pkg, cast.Elem(), st.Map(key))
 	case *types.Slice:
-		return toCodeComparePkgName(pkg,cast.Elem(), st.Index())
+		return toCodeComparePkgName(pkg, cast.Elem(), st.Index())
 	case *types.Array:
-		return toCodeComparePkgName(pkg,cast.Elem(), st.Index(jen.Lit(int(cast.Len()))))
+		return toCodeComparePkgName(pkg, cast.Elem(), st.Index(jen.Lit(int(cast.Len()))))
 	case *types.Pointer:
-		return toCodeComparePkgName(pkg,cast.Elem(), st.Op("*"))
+		return toCodeComparePkgName(pkg, cast.Elem(), st.Op("*"))
 	case *types.Basic:
 		return toCodeBasic(cast.Kind(), st)
 	case *types.Struct:
@@ -255,7 +292,6 @@ func toCode(t types.Type, st *jen.Statement) *jen.Statement {
 	}
 	panic("unsupported type " + t.String())
 }
-
 
 func toCodeBasic(t types.BasicKind, st *jen.Statement) *jen.Statement {
 	switch t {

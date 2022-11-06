@@ -147,7 +147,7 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 
 			mParam.Name = pName
 			mParam.Type = t
-			mParam.ID = xtype.TypeOf(t).TypeAsJenComparePkgName(g.GenOption.Pkg).GoString()
+			mParam.ID = xtype.TypeOf(t).TypeAsJenComparePkgNameString(g.GenOption.Pkg)
 			params = append(params, mParam)
 		}
 
@@ -164,11 +164,9 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			rName := r.Name()
 			mParam.Name = rName
 
-
-
 			t := r.Type()
 			mParam.Type = t
-			mParam.ID = xtype.TypeOf(t).TypeAsJenComparePkgName(g.GenOption.Pkg).GoString()
+			mParam.ID = xtype.TypeOf(t).TypeAsJenComparePkgNameString(g.GenOption.Pkg)
 
 			results = append(results, mParam)
 		}

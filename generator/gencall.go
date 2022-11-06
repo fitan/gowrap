@@ -77,7 +77,6 @@ func (g *GenCall) parse() {
 				if as, ok := c.Parent().(*ast.AssignStmt); ok {
 					if as.Tok.String() == "=" || as.Tok.String() == ":=" {
 						for _, param := range as.Lhs {
-
 							fn.Lhs = append(fn.Lhs, xtype.TypeOf(g.GenOption.Pkg.TypesInfo.TypeOf(param)))
 						}
 					} else {

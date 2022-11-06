@@ -78,7 +78,7 @@ func (g *GenCallCopy) gen(jenF *jen.File, pkg *packages.Package, name string, ca
 
 	//DestTypeElem := destTypePoinit.Elem()
 
-	jenF.Func().Id(name).Params(jen.Id("src").Id(srcType.TypeAsJenComparePkgName(pkg).GoString())).Params(jen.Id("dest").Id(destType.TypeAsJenComparePkgName(pkg).GoString())).Block(
+	jenF.Func().Id(name).Params(jen.Id("src").Add(srcType.TypeAsJenComparePkgName(pkg))).Params(jen.Id("dest").Add(destType.TypeAsJenComparePkgName(pkg))).Block(
 		jen.Id("dest").Op("=").Id(objName).Block().Dot("Copy").Call(jen.Id("src")),
 		jen.Return(),
 	)
@@ -97,7 +97,7 @@ func (g *GenCallCopy) gen(jenF *jen.File, pkg *packages.Package, name string, ca
 		DestPath:       []string{},
 		Dest:           NewDataFieldMap(pkg, []string{}, objName, xtype.TypeOf(destType.T), destType.T),
 		DefaultFn: jen.Func().Params(jen.Id("d").Id(objName)).
-			Id("Copy").Params(jen.Id("src").Id(srcType.TypeAsJenComparePkgName(pkg).GoString())).Params(jen.Id("dest").Id(destType.TypeAsJenComparePkgName(pkg).GoString())),
+			Id("Copy").Params(jen.Id("src").Add(srcType.TypeAsJenComparePkgName(pkg))).Params(jen.Id("dest").Add(destType.TypeAsJenComparePkgName(pkg))),
 	}
 	dto.Gen()
 	return nil

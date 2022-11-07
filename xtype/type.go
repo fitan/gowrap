@@ -144,7 +144,7 @@ func TypeOf(t types.Type) *Type {
 		rt.Interface = true
 		rt.InterfaceType = value
 	default:
-		log.Println("unknown type", t.String())
+		log.Println("unknown type", t)
 		//panic("unknown types.Type " + t.String())
 	}
 	return rt

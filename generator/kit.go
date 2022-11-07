@@ -38,11 +38,8 @@ type HttpParam struct {
 }
 
 type KitServiceParam struct {
-	HasEndpointName bool
 	EndpointName    string
-	HasDecodeName   bool
 	DecodeName      string
-	HasEncodeName   bool
 	EncodeName      string
 }
 
@@ -129,17 +126,8 @@ func (m *KitCommentConf) ParamKitService(s []string) (err error) {
 		return
 	}
 	m.KitServiceParam.EndpointName = s[2]
-	if m.KitServiceParam.EndpointName != "" {
-		m.KitServiceParam.HasEndpointName = true
-	}
 	m.KitServiceParam.DecodeName = s[3]
-	if m.KitServiceParam.DecodeName != "" {
-		m.KitServiceParam.HasDecodeName = true
-	}
 	m.KitServiceParam.EncodeName = s[4]
-	if m.KitServiceParam.EncodeName != "" {
-		m.KitServiceParam.HasEncodeName = true
-	}
 	return
 }
 

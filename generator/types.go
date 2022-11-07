@@ -53,6 +53,28 @@ func (m Method) EnableSwag() bool {
 	return true
 }
 
+func (m Method) KitHttpServiceEndpointName() string {
+	if m.RawKit.Conf.KitServiceParam.EndpointName != `""` && m.RawKit.Conf.KitServiceParam.EndpointName != "" {
+		return m.RawKit.Conf.KitServiceParam.EndpointName
+	}
+	return "eps." + m.Name + "Endpoint"
+}
+
+func (m Method) KitHttpServiceDecodeName() string {
+
+	if m.RawKit.Conf.KitServiceParam.DecodeName != `""` && m.RawKit.Conf.KitServiceParam.DecodeName != "" {
+		return m.RawKit.Conf.KitServiceParam.DecodeName
+	}
+	return "decode" + m.Name + "Request"
+}
+
+func (m Method) KitHttpServiceEncodeName() string {
+	if m.RawKit.Conf.KitServiceParam.EncodeName != `""` && m.RawKit.Conf.KitServiceParam.EncodeName != "" {
+		return m.RawKit.Conf.KitServiceParam.EncodeName
+	}
+	return "encode.JsonResponse"
+}
+
 func (m Method) Annotation() string {
 	if m.Doc == nil {
 		return ""

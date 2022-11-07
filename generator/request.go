@@ -18,6 +18,7 @@ const (
 	HeaderTag           string = "header"
 	PathTag             string = "path"
 	BodyTag             string = "body"
+	FileTag 		   	string = "file"
 	CtxTag              string = "ctx"
 
 	DocKitHttpParamMark string = "@kit-http-param"
@@ -36,6 +37,7 @@ type KitRequest struct {
 	Query         map[string]RequestParam
 	Path          map[string]RequestParam
 	Body          map[string]RequestParam
+	File 		  map[string]RequestParam
 	Header        map[string]RequestParam
 	Ctx           map[string]RequestParam
 	Empty         map[string]RequestParam
@@ -51,6 +53,7 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 		Query:         make(map[string]RequestParam),
 		Path:          make(map[string]RequestParam),
 		Body:          make(map[string]RequestParam),
+		File: 		  make(map[string]RequestParam),
 		Header:        make(map[string]RequestParam),
 		Ctx:           make(map[string]RequestParam),
 		Empty:         make(map[string]RequestParam),
@@ -129,6 +132,11 @@ func (k *KitRequest) ParamPath(paramName string) (res string) {
 		return param.ParamPath
 	}
 
+	param, ok = k.File[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
 	param, ok = k.Header[paramName]
 	if ok {
 		return param.ParamPath
@@ -164,6 +172,8 @@ func (k *KitRequest) SetParam(param RequestParam) {
 		k.Body[param.ParamName] = param
 	case CtxTag:
 		k.Ctx[param.ParamName] = param
+	case FileTag:
+		k.File[param.ParamName] = param
 	case "":
 		k.Empty[param.ParamName] = param
 
@@ -195,6 +205,7 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, k.BindPathParam()...)
 	listCode = append(listCode, k.BindQueryParam()...)
 	listCode = append(listCode, k.BindHeaderParam()...)
+	listCode = append(listCode, k.BindFileParam()...)
 	listCode = append(listCode, k.BindBodyParam()...)
 	listCode = append(listCode, k.BindCtxParam()...)
 	listCode = append(listCode, k.BindRequest()...)
@@ -283,6 +294,17 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 	}
 
 	return listCode
+}
+
+func (k *KitRequest) BindFileParam() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	for _, v := range k.File {
+		list = append(list, jen.List(jen.Id("_"), jen.Id("req." + v.ParamPath), jen.Id("err")).Op("=").Id("r.FormFile").Call(jen.Lit(v.ParamName)).Line().
+			If(jen.Err().Op("!=").Nil()).Block(
+				jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("r.FormFile")),
+		))
+	}
+	return list
 }
 
 func (k *KitRequest) BindHeaderParam() []jen.Code {

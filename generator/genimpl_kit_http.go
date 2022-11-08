@@ -174,7 +174,7 @@ func (g *GenImplKitHttp) genJenF() error {
 	myEndpointJenF.Add(EndpointsCode)
 	myEndpointJenF.Add(NewEndpointsCode)
 	myEndpointJenF.Add(MakeMyEndpointCodeList...)
-	myEndpointJenF.Add(myExtraEndpoint(methodList))
+	myEndpointJenF.Add(myExtraEndpoint())
 
 	logJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	JenFAddImports(g.genImpl.GenOption.Pkg, logJenF)

@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"github.com/fitan/jennifer/jen"
 )
 
@@ -40,7 +39,6 @@ func genMyMakeEndpoint(method ImplMethod, methodConf MethodConf, request *KitReq
 			paramList...,
 		),
 		func() jen.Code {
-			fmt.Println(methodConf.EndpointWrap)
 			if methodConf.EndpointWrap == "" {
 				return jen.Return().List(jen.Qual(option.ImportByName("encode"), "WrapResponse").Call(
 					jen.Id(responseDataID),
@@ -58,15 +56,9 @@ func genMyMakeEndpoint(method ImplMethod, methodConf MethodConf, request *KitReq
 }
 
 
-func myExtraEndpoint(methodList []ImplMethod) jen.Code {
+func myExtraEndpoint() jen.Code {
 	return jen.Type().Id("Mws").Map(jen.String()).Index().Id("endpoint.Middleware").Line().
-		Func().Id("AllMethodAddMws").Params(jen.Id("mw").Id("Mws"), jen.Id("m").Id("endpoint.Middleware")).Block(
-		jen.Id("methods").Op(":=").Index().String().ValuesFunc(
-			func(group *jen.Group) {
-				for _, m := range methodList {
-					group.Id(m.Name + "MethodName")
-				}
-			}),
+		Func().Id("MethodAddMws").Params(jen.Id("mw").Id("Mws"), jen.Id("m").Id("endpoint.Middleware"), jen.Id("methods").Index().String()).Block(
 		jen.For(jen.List(jen.Id("_"), jen.Id("v")).Op(":=").Range().Id("methods")).Block(
 			jen.Id("mw").Index(jen.Id("v")).Op("=").Append(jen.Id("mw").Index(jen.Id("v")), jen.Id("m")),
 		),
@@ -111,13 +103,7 @@ func myExtraHttp(methodList []ImplMethod, handlerList jen.Code) jen.Code {
 	).Line()
 
 	code.Type().Id("Ops").Map(jen.String()).Index().Id("http.ServerOption").Line()
-	code.Func().Id("AllMethodAddOps").Params(jen.Id("options").Id("map[string][]http.ServerOption"), jen.Id("option").Id("http.ServerOption")).Block(
-		jen.Id("methods").Op(":=").Index().String().ValuesFunc(
-			func(group *jen.Group) {
-				for _, m := range methodList {
-					group.Id(m.Name + "MethodName")
-				}
-			}),
+	code.Func().Id("MethodAddOps").Params(jen.Id("options").Id("map[string][]http.ServerOption"), jen.Id("option").Id("http.ServerOption"), jen.Id("methods").Index().String()).Block(
 		jen.For(jen.List(jen.Id("_"), jen.Id("v")).Op(":=").Range().Id("methods")).Block(
 			jen.Id("options").Index(jen.Id("v")).Op("=").Append(jen.Id("options").Index(jen.Id("v")), jen.Id("option")),
 		),

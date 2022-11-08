@@ -79,6 +79,36 @@ type HelloRequest struct {
 	//Role string `param:"ctx,role"`
 }
 
+type HelloRequestCopy struct {
+	// ID is the ID of the user.
+	ID          int    `param:"path,id"`
+	UUID        string `param:"path,uuid"`
+	Time        int64  `param:"path,time"`
+	ParentName  *string
+	ParentNames []*string
+	FatherNames *[]string
+	Body        struct {
+		Name string `json:"name"`
+		Age  string `json:"age"`
+	} `param:"body,user"`
+	SayHi []struct {
+		Say string "json:\"say\""
+		Hi  string "json:\"hi\""
+	}
+	// LastNames is the last names of the user.
+	LastNames    []string `param:"query,lastNames"`
+	LastNamesInt []int    `param:"query,lastNamesInt"`
+	Paging
+	Vm  nest.Vm
+	VMS []nest.Vm
+	// @dto-method fmt Sprintf
+	HeaderName string   `param:"header,headerName"`
+	Namespace  []string `param:"query,namespace"`
+	VMMap      map[string]nest.Vm
+	// @dto-method RoleToRole
+	//Role string `param:"ctx,role"`
+}
+
 type Query struct {
 	Name string `json:"name" query:"eq" gorm:"column:name"`
 	Age  *int   `json:"age" query:"gt" gorm:"column:age"`
@@ -142,8 +172,9 @@ func (r RedisService) Hello(
 func (r RedisService) SayHello(
 	ctx context.Context, uuid string, ip string, port int, headerName string,
 ) (res HelloRequest, err error) {
-	//src := HelloRequest{}
-	//apiDTO(src, &res)
+	src := HelloRequestCopy{}
+	// @call copy
+	res = copyDTO(src)
 
 	q := Query{}
 

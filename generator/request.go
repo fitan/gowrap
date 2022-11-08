@@ -510,6 +510,12 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		k.NamedMap[paramName] = rawParamType
 		k.RequestType(prefix, requestName, rt.Underlying(), requestParamTagTypeTag, doc)
 	case *types.Struct:
+		var paramTypeName string
+		var ok bool
+		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
+			paramTypeName = xtype.TypeOf(requestType).TypeAsJenComparePkgNameString(k.pkg)
+		}
+
 		k.SetParam(RequestParam{
 			FieldName:     requestName,
 			ParamDoc:      doc,
@@ -517,8 +523,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamName:     paramName,
 			ParamSource:   paramSource,
 			ParamType:     "struct",
-			ParamTypeName: k.NamedMap[paramName],
-			BasicType:     k.NamedMap[paramName],
+			ParamTypeName: paramTypeName,
+			BasicType:     paramTypeName,
 			HasPtr:        false,
 		})
 		for i := 0; i < rt.NumFields(); i++ {

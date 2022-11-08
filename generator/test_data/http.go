@@ -1,16 +1,26 @@
+
 package test_data
 
 import (
 	"context"
 	"encoding/json"
-	http1 "net/http"
-	"strings"
-
+	"fmt"
 	govalidator "github.com/asaskevich/govalidator"
+	encode "github.com/fitan/gowrap/generator/test_data/encode"
+	"github.com/fitan/gowrap/generator/test_data/nest"
+	endpoint "github.com/go-kit/kit/endpoint"
 	http "github.com/go-kit/kit/transport/http"
 	mux "github.com/gorilla/mux"
 	errors "github.com/pkg/errors"
 	cast "github.com/spf13/cast"
+	otel "go.opentelemetry.io/otel"
+	attribute "go.opentelemetry.io/otel/attribute"
+	codes "go.opentelemetry.io/otel/codes"
+	trace "go.opentelemetry.io/otel/trace"
+	zap "go.uber.org/zap"
+	http1 "net/http"
+	"strings"
+	"time"
 )
 
 type Handler struct{}
@@ -26,8 +36,7 @@ func MakeHTTPHandler(r *mux.Router, s Service, mws Mws, ops Ops) Handler {
 
 type Ops map[string][]http.ServerOption
 
-func AllMethodAddOps(options map[string][]http.ServerOption, option http.ServerOption) {
-	methods := []string{HelloMethodName, HelloBodyMethodName, SayHelloMethodName}
+func MethodAddOps(options map[string][]http.ServerOption, option http.ServerOption, methods []string) {
 	for _, v := range methods {
 		options[v] = append(options[v], option)
 	}
@@ -53,13 +62,15 @@ Hello
 @Param page query string false
 @Param size query string false
 @Param headerName header string false "@dto-method fmt Sprintf"
-@Param user body  true
+@Param user body struct{Name string "json:\"name\""; Age string "json:\"age\""} true
 @Success 200 {object} encode.Response{data=HelloRequest}
 @Router /hello/{id} [GET]
 */
 func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{}, err error) {
 
 	req := HelloRequest{}
+
+	var _namespace []string
 
 	var _lastNames []string
 
@@ -69,10 +80,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	var _size int64
 
-	var _namespace []string
-
-	var _port int
-
 	var _id int
 
 	var _uuid string
@@ -81,9 +88,17 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 
 	var _ip string
 
+	var _port int
+
 	var _headerName string
 
 	vars := mux.Vars(r)
+
+	_id, err = cast.ToIntE(vars["id"])
+
+	if err != nil {
+		return
+	}
 
 	_uuid = vars["uuid"]
 
@@ -96,12 +111,6 @@ func decodeHelloRequest(ctx context.Context, r *http1.Request) (res interface{},
 	_ip = vars["ip"]
 
 	_port, err = cast.ToIntE(vars["port"])
-
-	if err != nil {
-		return
-	}
-
-	_id, err = cast.ToIntE(vars["id"])
 
 	if err != nil {
 		return
@@ -222,6 +231,8 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	var _lastNamesInt []int
 
+	var _port int
+
 	var _id int
 
 	var _uuid string
@@ -230,17 +241,9 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	var _ip string
 
-	var _port int
-
 	var _headerName string
 
 	vars := mux.Vars(r)
-
-	_id, err = cast.ToIntE(vars["id"])
-
-	if err != nil {
-		return
-	}
 
 	_uuid = vars["uuid"]
 
@@ -258,13 +261,10 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 		return
 	}
 
-	pageStr := r.URL.Query().Get("page")
+	_id, err = cast.ToIntE(vars["id"])
 
-	if pageStr != "" {
-		_page, err = cast.ToInt64E(pageStr)
-		if err != nil {
-			return
-		}
+	if err != nil {
+		return
 	}
 
 	sizeStr := r.URL.Query().Get("size")
@@ -289,6 +289,15 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 		}
 	}
 
+	pageStr := r.URL.Query().Get("page")
+
+	if pageStr != "" {
+		_page, err = cast.ToInt64E(pageStr)
+		if err != nil {
+			return
+		}
+	}
+
 	_headerName = r.Header.Get("headerName")
 
 	err = json.NewDecoder(r.Body).Decode(&req)
@@ -308,15 +317,15 @@ func decodeHelloBodyRequest(ctx context.Context, r *http1.Request) (res interfac
 
 	req.Vm.Port = _port
 
-	req.Paging.Page = _page
-
-	req.Paging.Size = _size
-
 	req.Namespace = _namespace
 
 	req.LastNames = _lastNames
 
 	req.LastNamesInt = _lastNamesInt
+
+	req.Paging.Page = _page
+
+	req.Paging.Size = _size
 
 	req.HeaderName = _headerName
 
@@ -355,7 +364,7 @@ SayHello
 @Param page query string false
 @Param size query string false
 @Param headerName header string false "@dto-method fmt Sprintf"
-@Param user body  true
+@Param user body struct{Name string "json:\"name\""; Age string "json:\"age\""} true
 @Success 200 {object} encode.Response{data=map[string][]nest.NetWork}
 @Router /hello/say [GET]
 */
@@ -363,15 +372,17 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	req := HelloRequest{}
 
-	var _size int64
-
-	var _namespace []string
-
 	var _lastNames []string
 
 	var _lastNamesInt []int
 
 	var _page int64
+
+	var _size int64
+
+	var _namespace []string
+
+	var _port int
 
 	var _id int
 
@@ -381,11 +392,17 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	var _ip string
 
-	var _port int
-
 	var _headerName string
 
 	vars := mux.Vars(r)
+
+	_id, err = cast.ToIntE(vars["id"])
+
+	if err != nil {
+		return
+	}
+
+	_uuid = vars["uuid"]
 
 	_time, err = cast.ToInt64E(vars["time"])
 
@@ -401,13 +418,18 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 		return
 	}
 
-	_id, err = cast.ToIntE(vars["id"])
+	sizeStr := r.URL.Query().Get("size")
 
-	if err != nil {
-		return
+	if sizeStr != "" {
+		_size, err = cast.ToInt64E(sizeStr)
+		if err != nil {
+			return
+		}
 	}
 
-	_uuid = vars["uuid"]
+	_namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
+
+	_lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
 
 	lastNamesIntStr := r.URL.Query().Get("lastNamesInt")
 
@@ -426,19 +448,6 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 			return
 		}
 	}
-
-	sizeStr := r.URL.Query().Get("size")
-
-	if sizeStr != "" {
-		_size, err = cast.ToInt64E(sizeStr)
-		if err != nil {
-			return
-		}
-	}
-
-	_namespace = strings.Split(r.URL.Query().Get("namespace"), ",")
-
-	_lastNames = strings.Split(r.URL.Query().Get("lastNames"), ",")
 
 	_headerName = r.Header.Get("headerName")
 
@@ -485,3 +494,4 @@ func decodeSayHelloRequest(ctx context.Context, r *http1.Request) (res interface
 
 	return req, err
 }
+

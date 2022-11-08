@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
+	"log"
 	"path"
 	"reflect"
 	"strings"
@@ -23,8 +24,6 @@ type Field struct {
 	Name    string
 	TagMust bool
 	Type    *xtype.Type
-	// slice map struct *
-	TypeName string
 	Doc      *ast.CommentGroup
 }
 
@@ -159,7 +158,6 @@ func (d *DataFieldMap) Parse(f Field) {
 				Name:     indexName,
 				TagMust:  tagMust,
 				Type:     xtype.TypeOf(field.Type()),
-				TypeName: "",
 				Doc:      GetCommentByTokenPos(d.Pkg, field.Pos()),
 			})
 		}
@@ -293,10 +291,12 @@ func (d *Copy) GenExtraCopyMethod(bind *jen.Statement, destV, srcV Field) (has b
 
 func (d *Copy) GenBasic() jen.Statement {
 	bind := make(jen.Statement, 0)
+	log.Printf("map: ", d.Src.BasicMap)
+	log.Printf("dest: ", d.Dest.BasicMap)
 	for _, v := range d.Dest.BasicMap {
 		srcV, ok := d.Src.BasicMap[v.Name]
 		if !ok {
-			fmt.Printf("not found %s in %s\n", v.Name, d.SumPath())
+			log.Printf("not found %s in %s\n", v.Name, d.SumPath())
 			continue
 		}
 

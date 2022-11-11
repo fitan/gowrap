@@ -3,6 +3,7 @@ package generator
 import (
 	"bytes"
 	"embed"
+	"github.com/fitan/jennifer/jen"
 	"github.com/pkg/errors"
 	"golang.org/x/tools/imports"
 	"io/ioutil"
@@ -27,7 +28,10 @@ func GenToTemplate(templateName string, toFileName string, value Gen, process bo
 	if err != nil {
 		return errors.Wrap(err, "getTemplate")
 	}
-	t, err := template.New("header").Parse(templateFile)
+	t, err := template.New("header").Funcs(
+		template.FuncMap{
+			"MergeFile": jen.MergeFile,
+		}).Parse(templateFile)
 	if err != nil {
 		err = errors.Wrap(err, "template.New")
 		return err

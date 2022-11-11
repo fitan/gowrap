@@ -21,4 +21,6 @@ require (
 	gorm.io/gorm v1.24.0
 )
 
+replace github.com/fitan/jennifer => ../jennifer
+
 go 1.16

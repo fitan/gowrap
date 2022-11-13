@@ -39,8 +39,8 @@ func (g *GenCall) GetFile(plugName, jenFName string) string {
 	return f.GoString()
 }
 
-func (g *GenCall) JenF(name string) *jen.File {
-	return g.Plugs[name].JenF(name)
+func (g *GenCall) JenF(PlugName, jenFName string) *jen.File {
+	return g.Plugs[PlugName].JenF(jenFName)
 }
 
 func (g *GenCall) AddPlug(plug GenPlug) {

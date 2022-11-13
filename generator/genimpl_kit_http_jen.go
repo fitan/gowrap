@@ -59,8 +59,16 @@ func genEndpointConst(methodNameList []string) jen.Code {
 	j := jen.Null()
 
 	for _, methodName := range methodNameList {
-		j.Var().Id(methodName + "MethodName").Op("=").Lit(methodName).Line()
+		j.Const().Id(methodName + "MethodName").Op("=").Lit(methodName).Line()
 	}
+
+	j.Var().Id("MethodNameList").Op("=").Index().String().ValuesFunc(func(g *jen.Group) {
+		for _, methodName := range methodNameList {
+			g.Id(methodName + "MethodName")
+		}
+	})
+
+
 	return j
 }
 func genEndpoints(methodNameList []string) jen.Code {

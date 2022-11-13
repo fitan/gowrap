@@ -1,2 +1,3 @@
 {{/* gotype: github.com/fitan/gowrap/generator.Gen*/}}
-{{$.GenCall.GetFile "query" "query"}}
+{{ $Merge := (MergeFile ($.GenCall.JenF "query" "query") ($.GenCall.JenF "copy" "copy"))}}
+{{$Merge.GoString}}

@@ -13,48 +13,48 @@ import (
 
 const queryGenFName = "query"
 
-var queryCode map[string]func(fieldName string, path string) jen.Code = map[string]func(fieldName, path string) jen.Code{
-	"eq": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" = ?"), jen.Id(path))
+var queryCode map[string]func(fieldName string, path *jen.Statement) jen.Code = map[string]func(fieldName string, path *jen.Statement) jen.Code{
+	"eq": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" = ?"), path)
 	},
-	"ne": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" != ?"), jen.Id(path))
+	"ne": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" != ?"), path)
 	},
-	"gt": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" > ?"), jen.Id(path))
+	"gt": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" > ?"), path)
 	},
-	"ge": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" >= ?"), jen.Id(path))
+	"ge": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" >= ?"), path)
 	},
-	"lt": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" < ?"), jen.Id(path))
+	"lt": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" < ?"), path)
 	},
-	"le": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" <= ?"), jen.Id(path))
+	"le": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" <= ?"), path)
 	},
-	"like": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" LIKE ?"), jen.Id(path))
+	"like": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" LIKE ?"), path)
 	},
-	"nlike": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT LIKE ?"), jen.Id(path))
+	"nlike": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT LIKE ?"), path)
 	},
-	"ilike": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" ILIKE ?"), jen.Id(path))
+	"ilike": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" ILIKE ?"), path)
 	},
-	"nilike": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT ILIKE ?"), jen.Id(path))
+	"nilike": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT ILIKE ?"), path)
 	},
-	"in": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" IN ?"), jen.Id(path))
+	"in": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" IN ?"), path)
 	},
-	"nin": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT IN ?"), jen.Id(path))
+	"nin": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT IN ?"), path)
 	},
-	"between": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" BETWEEN ? AND ?"), jen.Id(path).Index(jen.Id("0")), jen.Id(path).Index(jen.Id("1")))
+	"between": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" BETWEEN ? AND ?"), path.Index(jen.Id("0")), path.Index(jen.Id("1")))
 	},
-	"nbetween": func(fieldName, path string) jen.Code {
-		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT BETWEEN ? AND ?"), jen.Id(path).Index(jen.Id("0")), jen.Id(path).Index(jen.Id("1")))
+	"nbetween": func(fieldName string, path *jen.Statement) jen.Code {
+		return jen.Id("db").Op("=").Id("db").Dot("Where").Call(jen.Lit(fieldName+" NOT BETWEEN ? AND ?"), path.Index(jen.Id("0")), path.Index(jen.Id("1")))
 	},
 	//"regexp": "regexp ",
 	//"nregexp": "not regexp",
@@ -141,13 +141,19 @@ func NewQuery(prePath []string) *Query {
 }
 
 type Query struct {
+	Point  bool
+	Named string
 	PrePath []string
 	List    []QueryMsg
-	Or      *NestQuery
-	Sub     *NestQuery
+	Or      []NestQuery
+	Sub     []NestQuery
+	// 嵌套的where
+	Where  	[]NestQuery
 }
 
 type NestQuery struct {
+	ForeignKey string
+	References string
 	Table string
 	Op    string
 	Query *Query
@@ -161,6 +167,8 @@ type QueryMsg struct {
 }
 
 type TagMsg struct {
+	ForeignKey string
+	References string
 	T      string
 	Op     string
 	Table  string
@@ -182,6 +190,10 @@ func parseTag(field *types.Var, tag string) *TagMsg {
 			tagMsg.Table = strings.TrimPrefix(v, "table:")
 		case "op":
 			tagMsg.Op = strings.TrimPrefix(v, "op:")
+		case "foreignKey":
+			tagMsg.ForeignKey = strings.TrimPrefix(v, "foreignKey:")
+		case "references":
+			tagMsg.References = strings.TrimPrefix(v, "references:")
 		}
 	}
 	if tagMsg.Op == "" {
@@ -197,6 +209,22 @@ func parseTag(field *types.Var, tag string) *TagMsg {
 	return tagMsg
 }
 
+func (g *GenCallQuery) parseType(t types.Type, query *Query) {
+	switch v :=  t.(type) {
+	case *types.Struct:
+		g.parseStruct(v, query)
+	case *types.Named:
+		if _, ok := v.Underlying().(*types.Struct);ok {
+			query.Named = v.Obj().Name()
+			NewQuery(query.PrePath)
+			g.parseType(v.Underlying(), query)
+		}
+	case *types.Pointer:
+		query.Point = true
+		g.parseType(v.Elem(), query)
+	}
+}
+
 func (g *GenCallQuery) parseStruct(v *types.Struct, query *Query) error {
 	for i := 0; i < v.NumFields(); i++ {
 		field := v.Field(i)
@@ -209,28 +237,32 @@ func (g *GenCallQuery) parseStruct(v *types.Struct, query *Query) error {
 
 		// query tag 不存在 如果是结构体则递归
 		if tagMsg == nil {
-			if ts, ok := field.Type().(*types.Struct); ok {
-				g.parseStruct(ts, query)
-			}
+			g.parseType(field.Type(), query)
 			continue
 		}
 
 		switch tagMsg.T {
 		case "sub":
-			query.Sub = &NestQuery{
-				Table: tagMsg.Table,
-				Op:    tagMsg.Op,
-				Query: NewQuery(append(query.PrePath, field.Name())),
-			}
-			g.parseStruct(field.Type().(*types.Struct), query.Sub.Query)
+			subQuery := NewQuery(append(query.PrePath, field.Name()))
+			query.Sub = append(query.Sub, NestQuery{
+				ForeignKey: tagMsg.ForeignKey,
+				References: tagMsg.References,
+				Table:      tagMsg.Table,
+				Op:         tagMsg.Op,
+				Query:      subQuery,
+			})
+			g.parseStruct(field.Type().(*types.Struct), subQuery)
 			continue
 		case "or":
-			query.Or = &NestQuery{
-				Table: tagMsg.Table,
-				Op:    tagMsg.Op,
-				Query: NewQuery(append(query.PrePath, field.Name())),
-			}
-			g.parseStruct(field.Type().(*types.Struct), query.Or.Query)
+			orQuery := NewQuery(append(query.PrePath, field.Name()))
+			query.Or = append(query.Or, NestQuery{
+				ForeignKey: tagMsg.ForeignKey,
+				References: tagMsg.References,
+				Table:      tagMsg.Table,
+				Op:         tagMsg.Op,
+				Query:      orQuery,
+			})
+			g.parseStruct(field.Type().(*types.Struct), orQuery)
 			continue
 		}
 
@@ -246,35 +278,50 @@ func (g *GenCallQuery) parseStruct(v *types.Struct, query *Query) error {
 	return nil
 }
 
-func (g *GenCallQuery) parseField(path []string, v *types.Var, tag string, list *[]QueryMsg) {
-	tagQuery, ok := reflect.StructTag(tag).Lookup("query")
-	if !ok {
-		if structType, ok := v.Type().(*types.Struct); ok {
-			for i := 0; i < structType.NumFields(); i++ {
-				field := structType.Field(i)
-				if !field.Exported() {
-					continue
-				}
-				g.parseField(append(path, v.Name()), field, structType.Tag(i), list)
-			}
+func (g *GenCallQuery) gen(query *Query) *jen.Statement {
+	block := jen.Null()
+	valBind := jen.Null()
+	code := jen.Func().Params(jen.Id("db").Id("*gorm.DB")).Params(jen.Id("*gorm.DB")).Block(
+		block,
+		jen.Return(jen.Id("db")),
+	)
+
+	if query.Point == true {
+		p := query.PrePath
+		if query.Named != "" {
+			p = append(p, query.Named)
 		}
-		return
+		block.If(jen.Id("v." + strings.Join(p,".")).Op("!=").Nil()).Block(
+			valBind,
+		).Line()
+	} else {
+		block.Add(valBind)
 	}
 
-	_, hasPoint := v.Type().(*types.Pointer)
-	FiledName := v.Name()
-	column := schema.ParseTagSetting(reflect.StructTag(tag).Get("gorm"), ";")["COLUMN"]
-	if column == "" {
-		column = stringy.New(FiledName).SnakeCase().ToLower()
+	for _, v := range query.List {
+		if v.Point {
+			valBind.If(jen.Id("v." + v.PATH).Op("!=").Nil()).Block(
+				queryCode[v.Op](v.Column, jen.Id("v."+v.PATH)),
+			).Line()
+		} else {
+			valBind.Add(queryCode[v.Op](v.Column, jen.Id("v." + v.PATH))).Line()
+		}
 	}
 
-	*list = append(*list, QueryMsg{
-		Column: column,
-		Op:     tagQuery,
-		Point:  hasPoint,
-		PATH:   strings.Join(append(path, FiledName), "."),
-	})
+	for _, v := range query.Or {
+		valBind.Id("db").Op("=").Id("db").Dot("Or").Call(
+			g.gen(v.Query).Call(jen.Id("db").Dot("Session").Call(jen.Id("&gorm.Session{NewDB: true}")))).Line()
+	}
+
+	for _, v := range query.Sub {
+		valBind.Add(queryCode[v.Op](v.ForeignKey, g.gen(v.Query).Call(
+			jen.Id("db").Dot("Session").Call(jen.Id("&gorm.Session{NewDB: true}")).Dot("Table").Call(jen.Lit(v.Table)).Dot("Select").Call(jen.Lit(v.References)),
+		))).Line()
+	}
+
+	return code
 }
+
 
 func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 
@@ -294,37 +341,24 @@ func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 		argT = v.Elem()
 	}
 
-	argStruct, ok := argT.Underlying().(*types.Struct)
+	_, ok := argT.Underlying().(*types.Struct)
 	if !ok {
 		return fmt.Errorf("plug query: %s fn args must be struct", name)
 	}
-	queryList := []QueryMsg{}
 
-	for i := 0; i < argStruct.NumFields(); i++ {
-		g.parseField([]string{"v"}, argStruct.Field(i), argStruct.Tag(i), &queryList)
-	}
+	q := NewQuery([]string{})
+	g.parseType(argT, q)
+
+	code := g.gen(q)
+
 
 	s := strings.Replace(argT.String(), g.genCall.GenOption.Pkg.PkgPath+".", "", -1)
 	sSplit := strings.Split(s, "/")
 	s = sSplit[len(sSplit)-1]
 
-	setM := jen.Null().Line()
-
-	for _, v := range queryList {
-		if v.Point {
-			setM.If(jen.Id(v.PATH).Op("!=").Nil()).Block(
-				queryCode[v.Op](v.Column, v.PATH),
-			).Line()
-		} else {
-			setM.Add(queryCode[v.Op](v.Column, v.PATH)).Line()
-		}
-	}
-
-	jenF.Add(jen.Func().Id(name).Params(jen.Id("v").Id(s)).Parens(jen.Func().Params(jen.Id("db").Id("*gorm.DB")).Params(jen.Id("*gorm.DB"))).Block(
-		jen.Return(jen.Func().Params(jen.Id("db").Id("*gorm.DB")).Params(jen.Id("*gorm.DB")).Block(
-			setM,
-			jen.Return(jen.Id("db")),
-		),
+	jenF.Add(jen.Func().Id(name).Params(jen.Id("v").Id(s)).Parens(jen.Func().Params(jen.Id("db").Op("*").Qual("gorm.io/gorm", "DB")).Params(jen.Id("*gorm.DB"))).Block(
+		jen.Return(
+			code,
 		)))
 
 	return nil

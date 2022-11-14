@@ -110,12 +110,26 @@ type HelloRequestCopy struct {
 }
 
 type Query struct {
-	Name string `json:"name" query:"eq" gorm:"column:name"`
-	Age  *int   `json:"age" query:"gt" gorm:"column:age"`
-	Ids  []int  `json:"ids" query:"in" gorm:"column:id"`
+	Name string `json:"name" query:"op:eq" gorm:"column:name"`
+	Age  *int   `json:"age" query:"op:gt" gorm:"column:age"`
+	Ids  []int  `json:"ids" query:"op:in" gorm:"column:id"`
 	VM   struct {
-		Ip string `json:"ip" query:"eq" gorm:"column:ip"`
-	}
+		Ip string `json:"ip" query:"op:eq"`
+	} `json:"vm" query:"op:eq;type:sub;table:vm;foreignKey:vm_uuid;references:uuid"`
+	Email struct{
+		Name string `json:"name" query:"op:eq"`
+
+		Project struct{
+			Id int `json:"id" query:"op:eq"`
+		} `json:"project" query:"op:eq;type:sub;table:project;foreignKey:project_id;references:id"`
+
+	} `json:"email" query:"op:eq;type:or;table:email;foreignKey:email_uuid;references:uuid"`
+	*PM
+}
+
+type PM struct {
+	NetMask string `json:"netMask" query:"op:eq"`
+	Limit int `json:"limit" query:"op:eq"`
 }
 
 func RoleToRole(s string) string {

@@ -269,7 +269,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 		return listCode
 	}
 	returnCode := jen.If(jen.Err().Op("!=").Nil()).Block(
-		jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("json.Decode")),
+		jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("decode body")),
 		jen.Return(),
 	)
 	if k.RequestIsBody {
@@ -289,8 +289,13 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 	}
 
 	for _, v := range k.Body {
-		decode := jen.Id("err").Op("=").Id("json.NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
-		listCode = append(listCode, decode, returnCode)
+		if v.ParamTypeName == "[]byte" {
+			decode := jen.List(jen.Id("req." + v.ParamPath),jen.Id("err")).Op("=").Qual("io/ioutil","ReadAll").Call(jen.Id("r.Body"))
+			listCode = append(listCode, decode, returnCode)
+		} else {
+			decode := jen.Id("err").Op("=").Id("json.NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
+			listCode = append(listCode, decode, returnCode)
+		}
 	}
 
 	return listCode

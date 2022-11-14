@@ -141,22 +141,22 @@ func NewQuery(prePath []string) *Query {
 }
 
 type Query struct {
-	Point  bool
-	Named string
+	Point   bool
+	Named   string
 	PrePath []string
 	List    []QueryMsg
 	Or      []NestQuery
 	Sub     []NestQuery
 	// 嵌套的where
-	Where  	[]NestQuery
+	Where []*Query
 }
 
 type NestQuery struct {
 	ForeignKey string
 	References string
-	Table string
-	Op    string
-	Query *Query
+	Table      string
+	Op         string
+	Query      *Query
 }
 
 type QueryMsg struct {
@@ -169,10 +169,10 @@ type QueryMsg struct {
 type TagMsg struct {
 	ForeignKey string
 	References string
-	T      string
-	Op     string
-	Table  string
-	Column string
+	T          string
+	Op         string
+	Table      string
+	Column     string
 }
 
 func parseTag(field *types.Var, tag string) *TagMsg {
@@ -210,18 +210,28 @@ func parseTag(field *types.Var, tag string) *TagMsg {
 }
 
 func (g *GenCallQuery) parseType(t types.Type, query *Query) {
-	switch v :=  t.(type) {
+	switch v := t.(type) {
 	case *types.Struct:
 		g.parseStruct(v, query)
 	case *types.Named:
-		if _, ok := v.Underlying().(*types.Struct);ok {
-			query.Named = v.Obj().Name()
-			NewQuery(query.PrePath)
-			g.parseType(v.Underlying(), query)
+		if namedStruct, ok := v.Underlying().(*types.Struct); ok {
+			g.parseStruct(namedStruct, query)
 		}
 	case *types.Pointer:
-		query.Point = true
-		g.parseType(v.Elem(), query)
+		if pointStruct, ok := v.Elem().(*types.Struct); ok {
+			q := NewQuery(query.PrePath)
+			q.Point = true
+			query.Where = append(query.Where, q)
+			g.parseStruct(pointStruct, q)
+		}
+
+		if pointNamedStruct, ok := v.Elem().(*types.Named).Underlying().(*types.Struct); ok {
+			q := NewQuery(query.PrePath)
+			q.Point = true
+			q.Named = v.Elem().(*types.Named).Obj().Name()
+			query.Where = append(query.Where, q)
+			g.parseStruct(pointNamedStruct, q)
+		}
 	}
 }
 
@@ -291,7 +301,7 @@ func (g *GenCallQuery) gen(query *Query) *jen.Statement {
 		if query.Named != "" {
 			p = append(p, query.Named)
 		}
-		block.If(jen.Id("v." + strings.Join(p,".")).Op("!=").Nil()).Block(
+		block.If(jen.Id("v." + strings.Join(p, ".")).Op("!=").Nil()).Block(
 			valBind,
 		).Line()
 	} else {
@@ -304,7 +314,7 @@ func (g *GenCallQuery) gen(query *Query) *jen.Statement {
 				queryCode[v.Op](v.Column, jen.Id("v."+v.PATH)),
 			).Line()
 		} else {
-			valBind.Add(queryCode[v.Op](v.Column, jen.Id("v." + v.PATH))).Line()
+			valBind.Add(queryCode[v.Op](v.Column, jen.Id("v."+v.PATH))).Line()
 		}
 	}
 
@@ -321,7 +331,6 @@ func (g *GenCallQuery) gen(query *Query) *jen.Statement {
 
 	return code
 }
-
 
 func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 
@@ -350,7 +359,6 @@ func (g *GenCallQuery) parse(jenF *jen.File, name string, fn Func) error {
 	g.parseType(argT, q)
 
 	code := g.gen(q)
-
 
 	s := strings.Replace(argT.String(), g.genCall.GenOption.Pkg.PkgPath+".", "", -1)
 	sSplit := strings.Split(s, "/")

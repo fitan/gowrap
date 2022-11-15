@@ -52,12 +52,12 @@ func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 		return encode.Response{
 			Data: {{(index $m.ResultsExcludeErr 0).Name}},
 			Error: err,
-		}, err
+		}, nil
 		{{else}}
 		return encode.Response{
 			Data: {{$m.ResultsMapExcludeErr}},
 			Error: err,
-		},err
+		},nil
 		{{end}}
 	}
 }

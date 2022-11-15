@@ -329,6 +329,26 @@ func (g *GenCallQuery) gen(query *Query) *jen.Statement {
 		))).Line()
 	}
 
+	for _, v := range query.Where {
+		whereCode := jen.Id("db").Op("=").Id("db").Dot("Where").Call(
+			g.gen(v).Call(jen.Id("db").Dot("Session").Call(jen.Id("&gorm.Session{NewDB: true}"))),
+		).Line()
+		p := v.PrePath
+		if v.Point {
+			if v.Named != "" {
+				p = append(p, v.Named)
+				valBind.If(jen.Id("v." + strings.Join(p, ".")).Op("!=").Nil()).Block(
+					whereCode,
+				).Line()
+			} else {
+				valBind.If(jen.Id("v." + strings.Join(p, ".")).Op("!=").Nil()).Block(
+					whereCode,
+				).Line()
+			}
+		} else {
+			valBind.Add(whereCode)
+		}
+	}
 	return code
 }
 

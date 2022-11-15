@@ -121,15 +121,23 @@ type Query struct {
 
 		Project struct{
 			Id int `json:"id" query:"op:eq"`
+			Device struct{
+				Port int `json:"port" query:"op:eq"`
+			} `json:"device" query:"op:eq;type:sub;table:device;foreignKey:device_id;references:id"`
 		} `json:"project" query:"op:eq;type:sub;table:project;foreignKey:project_id;references:id"`
 
 	} `json:"email" query:"op:eq;type:or;table:email;foreignKey:email_uuid;references:uuid"`
 	*PM
+	Brand
 }
 
 type PM struct {
-	NetMask string `json:"netMask" query:"op:eq"`
+	NetMask *string `json:"netMask" query:"op:eq"`
 	Limit int `json:"limit" query:"op:eq"`
+}
+
+type Brand struct {
+	Model string `json:"model" query:"op:eq"`
 }
 
 func RoleToRole(s string) string {

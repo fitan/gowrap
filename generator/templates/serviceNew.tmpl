@@ -1,5 +1,4 @@
-package hello
-
+package {{$.name}}
 import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/transport/http"
@@ -10,33 +9,34 @@ import (
 func NewMws(ms []endpoint.Middleware) (res Mws) {
 	res = Mws{}
 	for _, v := range ms {
-		AllMethodAddMws(res, v)
+		MethodAddMws(res, v, MethodNameList)
 	}
 	return
 }
 
-func NewService(log *zap.SugaredLogger) Service {
+func NewService(base BaseServiceImpl,log *zap.SugaredLogger) Service {
 	var ms []Middleware
 	ms = append(ms, NewLogging(log), NewTracing())
-	svc := New()
 
 	for _, m := range ms {
-		svc = m(svc)
+		base = m(base)
 	}
-	return svc
+	return base
 }
 
 func NewOps(ops []http.ServerOption) (res Ops) {
 	res = Ops{}
 	for _, v := range ops {
-		AllMethodAddOps(res, v)
+		MethodAddOps(res, v, MethodNameList)
 	}
 	return
 }
 
-var HelloSet = wire.NewSet(
+var Set = wire.NewSet(
 	MakeHTTPHandler,
 	NewService,
 	NewOps,
 	NewMws,
+	wire.Struct(new(BaseService), "*"),
+	wire.Bind(new(BaseServiceImpl), new(*BaseService)),
 )

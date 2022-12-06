@@ -2,9 +2,26 @@ package test_data
 
 import (
 	"context"
-
+	"encoding/json"
+	"fmt"
+	govalidator "github.com/asaskevich/govalidator"
 	encode "github.com/fitan/gowrap/generator/test_data/encode"
+	"github.com/fitan/gowrap/generator/test_data/nest"
 	endpoint "github.com/go-kit/kit/endpoint"
+	log "github.com/go-kit/kit/log"
+	level "github.com/go-kit/kit/log/level"
+	http "github.com/go-kit/kit/transport/http"
+	mux "github.com/gorilla/mux"
+	errors "github.com/pkg/errors"
+	cast "github.com/spf13/cast"
+	otel "go.opentelemetry.io/otel"
+	attribute "go.opentelemetry.io/otel/attribute"
+	codes "go.opentelemetry.io/otel/codes"
+	trace "go.opentelemetry.io/otel/trace"
+	gorm "gorm.io/gorm"
+	http1 "net/http"
+	"strings"
+	"time"
 )
 
 const HelloMethodName = "Hello"
@@ -37,22 +54,33 @@ func makeHelloEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HelloRequest)
 		res, err := s.Hello(ctx, req.ID, req.Namespace, req.Paging.Page, req.Paging.Size, req.LastNames)
-		return encode.Response{Data: res, Error: err}, err
+		return encode.WrapResponse(res, err)
+
 	}
 }
 func makeHelloBodyEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HelloRequest)
 		list, total, err := s.HelloBody(ctx, req)
-		return encode.Response{Data: map[string]interface{}{
+		return NopEndpointWrap(map[string]interface{}{
 			"list":  list,
-			"total": total}, Error: err}, err
+			"total": total}, err)
+
 	}
 }
 func makeSayHelloEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(HelloRequest)
 		m, err := s.SayHello(ctx, req.UUID, req.Vm.Ip, req.Vm.Port, req.HeaderName)
-		return encode.Response{Data: m, Error: err}, err
+		return m, err
+
+	}
+}
+
+type Mws map[string][]endpoint.Middleware
+
+func MethodAddMws(mw Mws, m endpoint.Middleware, methods []string) {
+	for _, v := range methods {
+		mw[v] = append(mw[v], m)
 	}
 }

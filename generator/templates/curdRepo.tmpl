@@ -1,4 +1,4 @@
-package {{$.Vars.pkgName}}
+package {{$.name}}
 
 import (
 	"context"
@@ -7,70 +7,96 @@ import (
 
 type Middleware func(Service) Service
 
+// @impl
+//go:generate gk gen -g "myLog:log.go" -g "myTrace:trace.go"  -p true
 type Service interface {
-	Create(ctx context.Context, v types.{{$.Vars.objName}}) (err error)
-	List(ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}}) (list []types.{{$.Vars.objName}}, total int64, err error)
+	Create(ctx context.Context, v types.{{UpFirst $.name}}) (err error)
+	List(ctx context.Context, page int, pageSize int, order string, scopes ...func(db *gorm.DB) *gorm.DB) (list []types.{{UpFirst $.name}}, total int64, err error)
 	Delete(ctx context.Context, uuid string) (err error)
-	Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error)
-	Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error)
-	Filter(ctx context.Context, fieldName string, value string, filter *types.{{$.Vars.objName}}) (list []map[string]interface{}, err error)
+	Update(ctx context.Context, uuid string, v types.{{UpFirst $.name}}) (err error)
+	Get(ctx context.Context, uuid string) (v types.{{UpFirst $.name}}, err error)
+	Filter(ctx context.Context, fieldName string, value string, scopes ...func(db *gorm.DB) *gorm.DB) (list []map[string]interface{}, err error)
+	Exist(ctx context.Context, scopes ...func(db *gorm.DB) *gorm.DB) (exist bool, err error)
 }
 
-type service struct {
-	db *gorm.DB
+type BaseService struct {
+	DB *mygorm.DB
 }
 
-func (s *service) Create(ctx context.Context, v types.{{$.Vars.objName}}) (err error) {
-	return s.db.WithContext(ctx).Create(&v).Error
+func (s *BaseService) Create(ctx context.Context, v types.{{UpFirst $.name}}) (err error) {
+	return s.DB.GetDb(ctx).Create(v).Error
 }
 
-func (s *service) List(
-	ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}},
-) (list []types.{{$.Vars.objName}}, total int64, err error) {
-	tx := s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{})
+func (s *BaseService) List(
+	ctx context.Context,
+	page int,
+	pageSize int,
+	order string,
+	scopes ...func(db *gorm.DB) *gorm.DB,
+) (list []types.{{UpFirst $.name}}, total int64, err error) {
+	db := s.DB.GetDb(ctx)
 
-	if order != "" {
-		tx.Order(order)
+	if order == "" || order == "desc" {
+		db.Order("id desc")
 	} else {
-		tx.Order("id desc")
+		db.Order("id asc")
 	}
 
-	if filter != nil {
-		tx.Where(filter)
+	for _, scope := range scopes {
+		db = scope(db)
 	}
 
-	err = tx.Count(&total).Error
-	if err != nil {
-		return
-	}
+	db.Count(&total)
 
 	if page != 0 && pageSize != 0 {
-		tx.Offset((page - 1) * pageSize).Limit(pageSize)
+		db = db.Offset((page - 1) * pageSize).Limit(pageSize)
 	}
 
-	return list, total, tx.Find(&list).Error
+	return list, total,db.Find(&list).Error
 }
 
-func (s *service) Delete(ctx context.Context, uuid string) (err error) {
-	return s.db.WithContext(ctx).Delete(&types.{{$.Vars.objName}}{}, "uuid = ?", uuid).Error
+func (s *BaseService) Delete(ctx context.Context, uuid string) (err error) {
+	return s.DB.GetDb(ctx).Where("uuid = ?", uuid).Delete(&types.{{UpFirst $.name}}{}).Error
 }
 
-func (s *service) Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error) {
-	return s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{}).Where("uuid = ?", uuid).Save(&v).Error
+func (s *BaseService) Update(ctx context.Context, uuid string, v types.{{UpFirst $.name}}) (err error) {
+	return s.DB.GetDb(ctx).Model(&types.{{UpFirst $.name}}{}).Where("uuid = ?", uuid).Updates(v).Error
 }
 
-func (s *service) Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error) {
-	return v, s.db.WithContext(ctx).First(&v, "uuid = ?", uuid).Error
+func (s *BaseService) Get(ctx context.Context, uuid string) (v types.{{UpFirst $.name}}, err error) {
+	return v, s.DB.GetDb(ctx).Where("uuid = ?", uuid).First(&v).Error
 }
 
-func (s *service)Filter(ctx context.Context, fieldName string, value string, filter *types.{{$.Vars.objName}}) (list []map[string]interface{}, err error) {
-	tx := s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{})
-	if filter != nil {
-		tx = tx.Where(filter)
+func (s *BaseService) Filter(
+	ctx context.Context,
+	fieldName string,
+	value string,
+	scopes ...func(db *gorm.DB) *gorm.DB,
+) (list []map[string]interface{}, err error) {
+	db := s.DB.GetDb(ctx).Model(&types.{{UpFirst $.name}}{})
+	for _, scope := range scopes {
+		db = scope(db)
 	}
-	return list, tx.Select("uuid", fieldName).Group(fieldName).Where(fieldName+" like ?", "%"+value+"%").Find(&list).Error
+	return list, db.Select("uuid", fieldName).Group(fieldName).Where(fieldName+" like ?", "%"+value+"%").Find(&list).Error
 }
 
-func New(db *gorm.DB) Service {
-	return &service{db: db}
+func (s *BaseService) Exist(ctx context.Context, scopes ...func(db *gorm.DB) *gorm.DB) (exist bool, err error) {
+	db := s.DB.GetDb(ctx).Model(&types.{{UpFirst $.name}}{})
+	for _, scope := range scopes {
+		db = scope(db)
+	}
+	err = db.First(&types.{{UpFirst $.name}}{}).Error
+	if err == nil {
+		return true, nil
+	}
+	
+	if err == gorm.ErrRecordNotFound {
+		return false, nil
+	}
+	
+	return false, err
 }
+
+type BaseServiceImpl Service
+
+

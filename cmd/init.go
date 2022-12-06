@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"github.com/fitan/gowrap/generator"
-
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +23,7 @@ to quickly create a Cobra application.`,
 		files := m[initType]
 		err := generator.Init(files, initName, outputDir, process)
 		if err != nil {
+			panic(err)
 			return
 		}
 	},
@@ -37,27 +37,29 @@ var m map[string]map[string]string = map[string]map[string]string{
 	// service curd
 	"sc": map[string]string{
 		"curdService": "service.go",
-		"curdTypes": "types.go",
-		"new":     "new.go",
+		"curdTypes":   "types.go",
+		"serviceNew":  "new.go",
 	},
 	// repo curd
 	"rc": map[string]string{
 		"curdRepo": "service.go",
+		"repoNew":  "new.go",
 	},
 	"s": map[string]string{
-		"service": "service.go",
-		"types": "types.go",
-		"new":     "new.go",
+		"service":    "service.go",
+		"types":      "types.go",
+		"serviceNew": "new.go",
 	},
 	"r": map[string]string{
-		"repo": "service.go",
+		"repo":    "service.go",
+		"repoNew": "new.go",
 	},
 }
 
 func init() {
 	initCmd.Flags().StringVarP(&initType, "type", "t", "app", "init type")
 	initCmd.Flags().StringVarP(&initName, "name", "n", "app", "init name")
-	initCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "output dir")
+	initCmd.Flags().StringVarP(&outputDir, "output", "o", "./", "output dir")
 	initCmd.Flags().BoolVarP(&process, "process", "p", false, "process")
 
 	rootCmd.AddCommand(initCmd)

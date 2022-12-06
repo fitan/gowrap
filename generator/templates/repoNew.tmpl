@@ -1,0 +1,23 @@
+package {{$.name}}
+
+import (
+	"github.com/google/wire"
+	"go.uber.org/zap"
+)
+
+func NewService(base BaseServiceImpl,log *zap.SugaredLogger) Service {
+	var ms []Middleware
+	ms = append(ms, NewLogging(log), NewTracing())
+
+	for _, m := range ms {
+		base = m(base)
+	}
+	return base
+}
+
+
+var Set = wire.NewSet(
+	NewService,
+	wire.Struct(new(BaseService), "*"),
+	wire.Bind(new(BaseServiceImpl), new(*BaseService)),
+)

@@ -1,17 +1,20 @@
-package {{$.Vars.pkgName}}
+package {{$.name}}
 
 import (
 	"context"
 	"fmt"
+	"github.com/fitan/mykit/mygorm"
+	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 )
 
 type Middleware func(Service) Service
 
-// @tags {{$.Vars.pkgName}}
-// @basePath /{{$.Vars.pkgName}}
+// @tags {{$.name}}
+// @base-path /{{$.name}}
+// @impl
+//go:generate gk gen -g "myHttp:http.go" -g "myEndpoint:endpoint.go" -g "myLog:log.go" -g "myTrace:trace.go" -g "dto:dto.go" -p true
 type Service interface {
 	// Create 创建
 	// @kit-http / POST
@@ -28,7 +31,7 @@ type Service interface {
 	// List 列表
 	// @kit-http / GET
 	// @kit-http-request ListRequest
-	List(ctx context.Context, page int, pageSize int,match Match) (list []GetResponse, total int64, err error)
+	List(ctx context.Context, page int, pageSize int, order string, query listQuery) (list []GetResponse, total int64, err error)
 	// Get 获取
 	// @kit-http /{uuid} GET
 	// @kit-http-request GetRequest
@@ -36,25 +39,29 @@ type Service interface {
 	// Filter 过滤
 	// @kit-http /filter GET
 	// @kit-http-request FilterRequest
-	Filter(ctx context.Context, key, value string, match Match) (res FilterResponse, err error)
+	Filter(ctx context.Context, key, value string, query filterQuery) (res []map[string]interface{}, err error)
 }
 
-type service struct {
-	traceId    string
-	logger     log.Logger
-	repository repository.Repository
+type BaseService struct {
+	DB 	   *mygorm.DB
+	Log     *zap.SugaredLogger
+	Repository repo.Services
 }
 
 
-func (s *service) Filter(ctx context.Context, key, value string, match Match) (res FilterResponse, err error) {
+func (s *BaseService) Filter(ctx context.Context, key, value string, query filterQuery) (res []map[string]interface{}, err error) {
 	dbName,ok := DbNameMap[key]
 	if !ok {
 		err = fmt.Errorf("key %s not found", key)
 		return
 	}
-	vs, err := s.repository.{{$.Vars.objName}}().Filter(ctx, dbName, value, match.DTO())
+
+	// @call query
+	queryScope := filterQueryDTO(query)
+
+	vs, err := s.Repository.{{UpFirst $.name}}.Filter(ctx, dbName, value, queryScope)
 	if err != nil {
-		err = errors.Wrap(err, "{{$.Vars.objName}}.Filter")
+		err = errors.Wrap(err, "{{UpFirst $.name}}.Filter")
 		return
 	}
 
@@ -69,68 +76,79 @@ func (s *service) Filter(ctx context.Context, key, value string, match Match) (r
 	return
 }
 
-func (s *service) Get(ctx context.Context, uuid string) (res GetResponse, err error) {
-	v, err := s.repository.{{$.Vars.objName}}().Get(ctx, uuid)
+func (s *BaseService) Get(ctx context.Context, uuid string) (res GetResponse, err error) {
+	get, err := s.Repository.{{UpFirst $.name}}.Get(ctx, uuid)
 	if err != nil {
-		err = errors.Wrap(err, "{{$.Vars.objName}}.Get")
+		err = errors.Wrap(err, "{{UpFirst $.name}}.Get")
 		return
 	}
 
-	res = res.DTO(v)
+	// @call copy
+	res = getCopyDTO(get)
+
 	return
 }
 
-func (s *service) Create(ctx context.Context, createRequest CreateRequest) (res bool, err error) {
-	err = s.repository.{{$.Vars.objName}}().Create(ctx, createRequest.DTO())
+func (s *BaseService) Create(ctx context.Context, createRequest CreateRequest) (res bool, err error) {
+	var create types.{{UpFirst $.name}}
+	// @call copy
+	create = createCopyDTO(createRequest)
+
+	err = s.Repository.{{UpFirst $.name}}.Create(ctx, create)
 
 	if err != nil {
-		err = errors.Wrap(err, "{{$.Vars.objName}}.Create")
+		err = errors.Wrap(err, "{{UpFirst $.name}}.Create")
 		return false, err
 	}
 
 	return true, nil
 }
 
-func (s *service) Update(ctx context.Context, uuid string, createRequest CreateRequest) (res bool, err error) {
-	err = s.repository.{{$.Vars.objName}}().Update(ctx, uuid, createRequest.DTO())
-	if err != nil {
-		err = errors.Wrap(err, "{{$.Vars.objName}}.Update")
-		return
-	}
+func (s *BaseService) Update(ctx context.Context, uuid string, createRequest CreateRequest) (res bool, err error) {
+	var update types.{{UpFirst $.name}}
+	// @call copy
+	update = updateCopyDTO(createRequest)
 
-	return true, nil
-}
-
-func (s *service) Delete(ctx context.Context, uuid string) (res bool, err error) {
-	err = s.repository.{{$.Vars.objName}}().Delete(ctx, uuid)
+	err = s.Repository.{{UpFirst $.name}}.Update(ctx, uuid, update)
 	if err != nil {
-		err = errors.Wrap(err, "{{$.Vars.objName}}.Delete")
+		err = errors.Wrap(err, "{{UpFirst $.name}}.Update")
 		return false, err
 	}
 
 	return true, nil
 }
 
-func (s *service) List(ctx context.Context, page int, pageSize int,match Match) (list []GetResponse, total int64, err error) {
-	res, total, err := s.repository.{{$.Vars.objName}}().List(ctx, page, pageSize, "", match.DTO())
+func (s *BaseService) Delete(ctx context.Context, uuid string) (res bool, err error) {
+	err = s.Repository.{{UpFirst $.name}}.Delete(ctx, uuid)
 	if err != nil {
-		err = errors.Wrap(err, "{{$.Vars.objName}}.List")
+		err = errors.Wrap(err, "{{UpFirst $.name}}.Delete")
+		return false, err
+	}
+
+	err = s.Repository.{{UpFirst $.name}}.Delete(ctx, uuid)
+	if err != nil {
+		err = errors.Wrap(err, "{{UpFirst $.name}}.Delete")
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (s *BaseService) List(ctx context.Context, page int, pageSize int, order string,query listQuery) (list []GetResponse, total int64, err error) {
+	// @call query
+	queryScope := listQueryDTO(query)
+
+	res, total, err := s.Repository.{{UpFirst $.name}}.List(ctx, page, pageSize, order, queryScope)
+	if err != nil {
+		err = errors.Wrap(err, "{{UpFirst $.name}}.List")
 		return nil, 0, err
 	}
 
-	dto := GetResponse{}
-	for _, v := range res {
-		list = append(list, dto.DTO(v))
-	}
+	// @call copy
+	list = listDTO(res)
 
 	return
 }
 
-func New(logger log.Logger, traceId string, repository repository.Repository) Service {
-	logger = log.With(logger, "{{$.Vars.pkgName}}", "service")
-	return &service{
-		traceId:    traceId,
-		logger:     logger,
-		repository: repository,
-	}
-}
+type BaseServiceImpl Service
+

@@ -46,6 +46,7 @@ type ImplMethod struct {
 	Results        MethodParamSlice
 	ReturnsError   bool
 	AcceptsContext bool
+	Variadic       bool
 }
 
 func (m ImplMethod) ResultsExcludeErr() MethodParamSlice {
@@ -99,11 +100,10 @@ func (m ImplMethod) ResultsMapExcludeErr() string {
 type MethodParamSlice []MethodParam
 
 type MethodParam struct {
-	Comment  []*ast.Comment
-	Name     string
-	Type     types.Type
-	ID       string
-	Variadic bool
+	Comment []*ast.Comment
+	Name    string
+	Type    types.Type
+	ID      string
 }
 
 func (g *GenImpl) Run() error {
@@ -133,7 +133,8 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 		m := ti.Method(i)
 		comment = GetCommentByTokenPos(g.GenOption.Pkg, m.Pos())
 		methodName := m.Name()
-		ps := m.Type().(*types.Signature).Params()
+		signature := m.Type().(*types.Signature)
+		ps := signature.Params()
 		for i := 0; i < ps.Len(); i++ {
 			mParam := MethodParam{}
 			if i == 0 {
@@ -178,6 +179,7 @@ func (g *GenImpl) parseImpl(ti *types.Interface) Impl {
 			Results:        results,
 			ReturnsError:   returnsError,
 			AcceptsContext: acceptsContext,
+			Variadic:       signature.Variadic(),
 		}
 		impl.Methods = append(impl.Methods, implMethod)
 	}

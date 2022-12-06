@@ -1,79 +1,53 @@
-package {{$.Vars.pkgName}}
-
-var DbNameMap = map[string]string{
-}
-
-type FilterRequest struct {
-	Key  string `json:"key" param:"query,key"`
-	Value string `json:"value" param:"query,value"`
-	Match Match `param:",match"`
-}
-
-type Match struct {
-}
-
-func (m Match) DTO() (res *types.{{$.Vars.objName}})  {
-	// TODO
-	return
-}
-
-
-type FilterResponse []map[string]interface{}
-
-type GetRequest struct {
-	UUID string `json:"uuid" param:"path,uuid"`
-}
-
-type GetResponse struct {
-	UUID string `json:"uuid" param:"path,uuid"`
-	CreateRequest
-}
-
-func (g GetResponse) DTO(v types.{{$.Vars.objName}}) GetResponse {
-	// TODO
-	return GetResponse{
-	}
-}
+package {{$.name}}
 
 type CreateRequest struct {
-	// TODO
-}
 
-func (c CreateRequest) DTO() (res types.{{$.Vars.objName}})  {
-	// TODO
-	return types.{{$.Vars.objName}}{}
-}
-
-type CreateResponse struct {
 }
 
 type UpdateRequest struct {
-	UUID string `json:"-" param:"path,uuid"`
-	CreateRequest `param:"body,body"`
-}
-
-func (u UpdateRequest) DTO(v types.{{$.Vars.objName}}) (res types.{{$.Vars.objName}})  {
-	// TODO
-	return
-}
-
-type UpdateResponse struct {
+	UUID string `json:"uuid" param:"path,uuid"`
+	Body CreateRequest `json:"body" param:"body,body"`
 }
 
 type DeleteRequest struct {
 	UUID string `json:"uuid" param:"path,uuid"`
 }
 
-type DeleteResponse struct {
-}
-
 type ListRequest struct {
-	Page     int    `json:"page" param:"query,page"`
-	PageSize int    `json:"pageSize" param:"query,pageSize"`
-	Match Match `param:",match"`
+	Page int `json:"page" param:"query,page"`
+	PageSize int `json:"pageSize" param:"query,pageSize"`
+	Order string `json:"order" param:"query,order"`
+	Query listQuery `json:"query" param:",query"`
 }
 
-type ListResponse struct {
-	UUID string `json:"uuid" param:"path,uuid"`
-	CreateRequest
+type listQuery struct {
+
+}
+
+type GetRequest struct {
+	UID string `json:"uuid" param:"path,uuid"`
+}
+
+type GetResponse struct {
+
+}
+
+type FilterRequest struct {
+	Key   string `json:"key" param:"query,key"`
+	Value string `json:"value" param:"query,value"`
+	Query filterQuery `json:"query" param:",query"`
+}
+
+var DbNameMap = map[string]string{
+	"": "",
+}
+
+type filterQuery struct {
+}
+
+type FilterResponse struct {
+}
+
+type UpdateBatchRequest struct {
+	Body []UpdateRequest `json:"body" param:"body,body"`
 }

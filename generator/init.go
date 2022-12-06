@@ -12,7 +12,7 @@ import (
 	"text/template"
 )
 
-func Init(files map[string]string, outputDir string, name string, process bool) error {
+func Init(files map[string]string, name string, outputDir string, process bool) error {
 	dir := filepath.Join(outputDir, name)
 	_, err := os.Stat(dir)
 	if err == nil {
@@ -23,6 +23,11 @@ func Init(files map[string]string, outputDir string, name string, process bool) 
 		return errors.Wrap(err, "stat dir")
 	}
 
+	err = os.Mkdir(dir, 0777)
+	if err != nil {
+		return errors.Wrap(err, "os.Create")
+	}
+
 	for k, v := range files {
 		toFileName := filepath.Join(dir, v)
 
@@ -31,7 +36,9 @@ func Init(files map[string]string, outputDir string, name string, process bool) 
 			return errors.Wrap(err, "getTemplate")
 		}
 
-		t, err := template.New("header").Parse(templateFile)
+		t, err := template.New("header").Funcs(template.FuncMap{
+			"UpFirst": upFirst,
+		}).Parse(templateFile)
 		if err != nil {
 			err = errors.Wrap(err, "template.New")
 			return err

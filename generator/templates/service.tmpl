@@ -1,0 +1,27 @@
+package {{$.name}}
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/go-kit/kit/log"
+	"github.com/pkg/errors"
+)
+
+type Middleware func(Service) Service
+
+// @tags {{$.name}}
+// @basePath /{{$.name}}
+type Service interface {
+
+}
+
+type BaseService struct {
+	Logger     log.Logger
+}
+
+
+
+
+type BaseServiceImpl Service
+

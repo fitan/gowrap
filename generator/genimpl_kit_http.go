@@ -11,9 +11,9 @@ import (
 	"text/template"
 )
 
-const name = "kitHttp"
+const implKitHttpName = "kitHttp"
 const implTags = "@tags"
-const implBasePath = "@basePath"
+const implBasePath = "@base-path"
 const kitHttpRouterMark = "@kit-http"
 const kitHttpRequestMark = "@kit-http-request"
 const kitHttpEndpointMark = "@kit-http-endpoint"
@@ -48,7 +48,7 @@ func NewGenImplKitHttp(impl *GenImpl) *GenImplKitHttp {
 }
 
 func (g *GenImplKitHttp) Name() string {
-	return name
+	return implKitHttpName
 }
 
 func (g *GenImplKitHttp) Gen() error {
@@ -96,13 +96,15 @@ func (g *GenImplKitHttp) genJenF() error {
 			requestName, requestBody, _ := g.implConf[implName].MethodHttpRequest(m.Name)
 			enableSwag, _ := g.implConf[implName].EnableSwag(m.Name)
 			tags := g.implConf[implName].implTags
-			methodConf,_ := g.implConf[implName].MethodConf(m.Name)
+			methodConf, _ := g.implConf[implName].MethodConf(m.Name)
 
 			handlerCodeList = append(
 				handlerCodeList, genFuncMakeHTTPHandlerHandler(m.Name, methodConf),
 			)
+			fmt.Println("path", g.implConf[implName].implBasePath)
+			fmt.Println("tag", g.implConf[implName].implTags)
 			myHandlerCodeList = append(
-				myHandlerCodeList, genFuncMyMakeHTTPHandlerHandler(m.Name, methodConf),
+				myHandlerCodeList, genFuncMyMakeHTTPHandlerHandler(m.Name, g.implConf[implName], methodConf),
 			)
 
 			r := NewKitRequest(g.genImpl.GenOption.Pkg, m.Name, requestName, requestBody)
@@ -128,7 +130,7 @@ func (g *GenImplKitHttp) genJenF() error {
 
 			MakeEndpointCodeList = append(MakeEndpointCodeList, genMakeEndpoint(requestName, m, r, g.genImpl.GenOption))
 
-			MakeMyEndpointCodeList = append(MakeMyEndpointCodeList, genMyMakeEndpoint(m, methodConf,r, g.genImpl.GenOption))
+			MakeMyEndpointCodeList = append(MakeMyEndpointCodeList, genMyMakeEndpoint(m, methodConf, r, g.genImpl.GenOption))
 
 			LoggingFuncCodeList = append(LoggingFuncCodeList, genLoggingFunc(m))
 
@@ -154,7 +156,7 @@ func (g *GenImplKitHttp) genJenF() error {
 	myHttpJenF := jen.NewFile(g.genImpl.GenOption.Pkg.Name)
 	JenFAddImports(g.genImpl.GenOption.Pkg, myHttpJenF)
 	myH := jen.Statement(myHandlerCodeList)
-	myHttpJenF.Add(myExtraHttp(methodList, &myH))
+	myHttpJenF.Add(myExtraHttp(&myH))
 	myHttpJenF.Add(decodeRequestCodeList...)
 
 	EndpointsConstCode = genEndpointConst(methodNameList)
@@ -269,22 +271,26 @@ type kitHttpConf struct {
 }
 
 type MethodConf struct {
-	Method      string
-	Path        string
-	Request     string
-	Endpoint string
+	Method       string
+	Path         string
+	Request      string
+	Endpoint     string
 	EndpointWrap string
-	Decode string
-	Encode string
-	RequestBody bool
-	EnableSwag  bool
-	Annotation  string
+	Decode       string
+	Encode       string
+	RequestBody  bool
+	EnableSwag   bool
+	Annotation   string
 }
 
 func NewKitHttpConf(impl Impl) *kitHttpConf {
-	return &kitHttpConf{
+	k := &kitHttpConf{
 		impl: impl,
 	}
+
+	k.parse()
+
+	return k
 }
 
 func (k *kitHttpConf) parse() {
@@ -313,7 +319,9 @@ func (k *kitHttpConf) MethodAnnotation(name string) (string, error) {
 	var annotation string
 	docF.MarkValuesMapping(name, &annotation)
 	if annotation == "" {
-		annotation = strings.TrimPrefix(docF.doc.List[0].Text, "// ")
+		if m.Comment != nil {
+			annotation = strings.TrimPrefix(docF.doc.List[0].Text, "// ")
+		}
 	}
 	return annotation, nil
 }
@@ -321,11 +329,13 @@ func (k *kitHttpConf) MethodAnnotation(name string) (string, error) {
 func (k *kitHttpConf) MethodConform(name string) (bool, error) {
 	conf, err := k.MethodConf(name)
 	if err != nil {
+		err = fmt.Errorf("method %s conform error: %w", name, err)
 		return false, err
 	}
 
 	if conf.Path == "" || conf.Method == "" {
-		return false, fmt.Errorf("method %s not found param path: %s, method: %s, request %s", name, conf.Path, conf.Method, conf.Request)
+		//return false, fmt.Errorf("method %s not found param path: %s, method: %s, request %s", name, conf.Path, conf.Method, conf.Request)
+		return false, nil
 	}
 
 	return true, nil
@@ -355,19 +365,19 @@ func (k *kitHttpConf) MethodConf(name string) (res MethodConf, err error) {
 	docF.MarkValuesMapping(kitHttpDecodeMark, &decode)
 	docF.MarkValuesMapping(kitHttpEncodeMark, &encode)
 	docF.MarkValuesMapping(kitHttpEndpointWrapMark, &endpointWrap)
-	annotation,_ = k.MethodAnnotation(name)
+	annotation, _ = k.MethodAnnotation(name)
 
 	return MethodConf{
-		Method:      strings.ToUpper(method),
-		Path:        path,
-		Request:     request,
-		Endpoint:    encode,
+		Method:       strings.ToUpper(method),
+		Path:         path,
+		Request:      request,
+		Endpoint:     encode,
 		EndpointWrap: endpointWrap,
-		Decode:      decode,
-		Encode:      encode,
-		RequestBody: requestBody != "",
-		EnableSwag:  enableSwag != "false",
-		Annotation: annotation,
+		Decode:       decode,
+		Encode:       encode,
+		RequestBody:  requestBody != "",
+		EnableSwag:   enableSwag != "false",
+		Annotation:   annotation,
 	}, nil
 }
 

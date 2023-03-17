@@ -224,7 +224,11 @@ func toCodeComparePkgNameString(pkg *packages.Package, t types.Type, s string) s
 		key := toCodeComparePkgNameString(pkg, cast.Key(), "")
 		return s + "map[" + key + "]" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
 	case *types.Slice:
-		return s + "[]" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
+		nest := toCodeComparePkgNameString(pkg, cast.Elem(), "")
+		if strings.HasPrefix("...", nest) {
+			return s + nest
+		}
+		return s + "[]" + nest
 	case *types.Array:
 		n := strconv.FormatInt(cast.Len(), 10)
 		return s + "[" + n + "]" + toCodeComparePkgNameString(pkg, cast.Elem(), "")
@@ -234,8 +238,22 @@ func toCodeComparePkgNameString(pkg *packages.Package, t types.Type, s string) s
 		return s + cast.String()
 	case *types.Struct:
 		return s + t.String()
+	case *types.Signature:
+		ts := types.TypeString(t, func(p *types.Package) string {
+			if p == nil {
+				return ""
+			}
+			return p.Name()
+		})
+		fmt.Println(cast, ts, cast.Variadic())
+		if cast.Variadic() {
+			return "..." + ts
+		}
+		return ts
+	default:
+		return s + t.String()
 	}
-	panic("unsupported type " + t.String())
+	//panic("unsupported type " + t.String())
 }
 
 func (t Type) TypeAsJenComparePkgName(pkg *packages.Package) *jen.Statement {

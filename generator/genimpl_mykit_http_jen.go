@@ -2,6 +2,8 @@ package generator
 
 import (
 	"github.com/fitan/jennifer/jen"
+	"path"
+	"strings"
 )
 
 // myEndpoint
@@ -55,7 +57,6 @@ func genMyMakeEndpoint(method ImplMethod, methodConf MethodConf, request *KitReq
 	)).Line()
 }
 
-
 func myExtraEndpoint() jen.Code {
 	return jen.Type().Id("Mws").Map(jen.String()).Index().Id("endpoint.Middleware").Line().
 		Func().Id("MethodAddMws").Params(jen.Id("mw").Id("Mws"), jen.Id("m").Id("endpoint.Middleware"), jen.Id("methods").Index().String()).Block(
@@ -66,18 +67,18 @@ func myExtraEndpoint() jen.Code {
 }
 
 // myHttp
-func genFuncMyMakeHTTPHandlerHandler(name string,methodConf MethodConf) jen.Code {
+func genFuncMyMakeHTTPHandlerHandler(name string, kitHttpConf *kitHttpConf, methodConf MethodConf) jen.Code {
 	decode := jen.Id(methodConf.Decode)
 	encode := jen.Id(methodConf.Encode)
 
 	if methodConf.Decode == "" {
-		decode = jen.Id("decode"+name+"Request")
+		decode = jen.Id("decode" + name + "Request")
 	}
 	if methodConf.Encode == "" {
 		encode = jen.Qual("github.com/go-kit/kit/transport/http", "EncodeJSONResponse")
 	}
 	return jen.Id("r").Dot("Handle").Call(
-		jen.Lit(methodConf.Path),
+		jen.Lit(path.Join(strings.ToLower(kitHttpConf.implBasePath), methodConf.Path)),
 		jen.Qual("github.com/go-kit/kit/transport/http", "NewServer").Call(
 			jen.Id("eps").Dot(name+"Endpoint"),
 			decode,
@@ -85,8 +86,7 @@ func genFuncMyMakeHTTPHandlerHandler(name string,methodConf MethodConf) jen.Code
 			jen.Id("ops").Index(jen.Id(name+"MethodName")).Op("..."))).Dot("Methods").Call(jen.Lit(methodConf.Method)).Dot("Name").Call(jen.Lit(methodConf.Annotation)).Line()
 }
 
-
-func myExtraHttp(methodList []ImplMethod, handlerList jen.Code) jen.Code {
+func myExtraHttp(handlerList jen.Code) jen.Code {
 	code := jen.Null()
 	code.Type().Id("Handler").Struct().Line()
 	code.Func().Id("MakeHTTPHandler").Params(
@@ -145,6 +145,11 @@ func genMyKitTrace(tracingPrefix string, methodList []ImplMethod) jen.Code {
 		for _, param := range method.ParamsExcludeCtx() {
 			methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
 			tracingParamCode = append(tracingParamCode, jen.Lit(param.Name), jen.Id(param.Name))
+		}
+
+		if method.Variadic {
+			methodParamCode[len(methodParamCode)-1] = jen.Id(method.Params[len(method.Params)-1].Name).Op("...").Id(strings.TrimPrefix(method.Params[len(method.Params)-1].ID, "[]"))
+			nextMethodParamCode[len(nextMethodParamCode)-1] = jen.Id(method.Params[len(method.Params)-1].Name).Op("...")
 		}
 
 		for _, param := range method.Results {
@@ -224,6 +229,11 @@ func genMyLogging(methodList []ImplMethod) jen.Code {
 				methodParamCode = append(methodParamCode, jen.Id(param.Name).Id(param.ID))
 			}
 			nextMethodParamCode = append(nextMethodParamCode, jen.Id(param.Name))
+		}
+
+		if method.Variadic {
+			methodParamCode[len(methodParamCode)-1] = jen.Id(method.Params[len(method.Params)-1].Name).Op("...").Id(strings.TrimPrefix(method.Params[len(method.Params)-1].ID, "[]"))
+			nextMethodParamCode[len(nextMethodParamCode)-1] = jen.Id(method.Params[len(method.Params)-1].Name).Op("...")
 		}
 
 		for _, param := range method.ParamsExcludeCtx() {

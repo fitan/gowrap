@@ -7,6 +7,7 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/gojuno/minimock/v3 v3.0.10
 	github.com/golangci/golangci-lint v1.41.1
+	github.com/google/wire v0.5.0
 	github.com/goreleaser/goreleaser v0.169.0
 	github.com/gorilla/mux v1.8.0
 	github.com/opentracing/opentracing-go v1.1.0
@@ -19,8 +20,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.opentelemetry.io/otel v1.0.1
 	go.opentelemetry.io/otel/trace v1.0.1
-	golang.org/x/net v0.0.0-20220111093109-d55c255bac03 // indirect
-	golang.org/x/tools v0.1.11
+	golang.org/x/tools v0.7.0
 	google.golang.org/grpc v1.37.0
 	gorm.io/gorm v1.23.9
 )

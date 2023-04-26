@@ -15,10 +15,11 @@ import (
 const (
 	RequestParamTagName string = "param"
 	QueryTag            string = "query"
+	RawQueryTag         string = "rawQuery"
 	HeaderTag           string = "header"
 	PathTag             string = "path"
 	BodyTag             string = "body"
-	FileTag 		   	string = "file"
+	FileTag             string = "file"
 	CtxTag              string = "ctx"
 
 	DocKitHttpParamMark string = "@kit-http-param"
@@ -34,13 +35,14 @@ type KitRequest struct {
 	RequestIsNil  bool
 
 	NamedMap map[string]string
-	Query         map[string]RequestParam
-	Path          map[string]RequestParam
-	Body          map[string]RequestParam
-	File 		  map[string]RequestParam
-	Header        map[string]RequestParam
-	Ctx           map[string]RequestParam
-	Empty         map[string]RequestParam
+	RawQuery map[string]RequestParam
+	Query    map[string]RequestParam
+	Path     map[string]RequestParam
+	Body     map[string]RequestParam
+	File     map[string]RequestParam
+	Header   map[string]RequestParam
+	Ctx      map[string]RequestParam
+	Empty    map[string]RequestParam
 }
 
 func NewKitRequest(pkg *packages.Package, serviceName, requestName string, requestIsBody bool) *KitRequest {
@@ -49,11 +51,12 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 		ServiceName:   serviceName,
 		RequestName:   requestName,
 		RequestIsBody: requestIsBody,
-		NamedMap: 	make(map[string]string),
+		NamedMap:      make(map[string]string),
+		RawQuery:      make(map[string]RequestParam),
 		Query:         make(map[string]RequestParam),
 		Path:          make(map[string]RequestParam),
 		Body:          make(map[string]RequestParam),
-		File: 		  make(map[string]RequestParam),
+		File:          make(map[string]RequestParam),
 		Header:        make(map[string]RequestParam),
 		Ctx:           make(map[string]RequestParam),
 		Empty:         make(map[string]RequestParam),
@@ -61,7 +64,7 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 }
 
 type RequestParam struct {
-	ParamDoc  *ast.CommentGroup
+	ParamDoc *ast.CommentGroup
 
 	ParamPath string
 
@@ -79,7 +82,6 @@ type RequestParam struct {
 	// int,string,bool,float
 	BasicType string
 
-
 	HasPtr bool
 }
 
@@ -89,11 +91,11 @@ func (r RequestParam) Annotations() string {
 	}
 	for _, v := range r.ParamDoc.List {
 		docFormat := DocFormat(v.Text)
-		if strings.HasPrefix(docFormat, "// " + r.FieldName) {
-			return fmt.Sprintf(`"%s"`,strings.TrimPrefix(docFormat, "// " + r.FieldName))
+		if strings.HasPrefix(docFormat, "// "+r.FieldName) {
+			return fmt.Sprintf(`"%s"`, strings.TrimPrefix(docFormat, "// "+r.FieldName))
 		}
 	}
-	return fmt.Sprintf(`"%s"`,strings.TrimPrefix(r.ParamDoc.List[0].Text, "// "))
+	return fmt.Sprintf(`"%s"`, strings.TrimPrefix(r.ParamDoc.List[0].Text, "// "))
 }
 
 func (r RequestParam) ToVal() jen.Code {
@@ -122,7 +124,11 @@ func (k *KitRequest) ParamPath(paramName string) (res string) {
 	if strings.ToUpper(paramName) == strings.ToUpper(k.RequestName) {
 		return ""
 	}
-	param, ok := k.Query[paramName]
+	param, ok := k.RawQuery[paramName]
+	if ok {
+		return param.ParamPath
+	}
+	param, ok = k.Query[paramName]
 	if ok {
 		return param.ParamPath
 	}
@@ -162,6 +168,8 @@ func (k *KitRequest) ParamPath(paramName string) (res string) {
 
 func (k *KitRequest) SetParam(param RequestParam) {
 	switch param.ParamSource {
+	case RawQueryTag:
+		k.RawQuery[param.ParamName] = param
 	case QueryTag:
 		k.Query[param.ParamName] = param
 	case PathTag:
@@ -203,6 +211,7 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, jen.Id("req").Op(":=").Id(k.RequestName).Block())
 	listCode = append(listCode, k.DefineVal()...)
 	listCode = append(listCode, k.BindPathParam()...)
+	listCode = append(listCode, k.BindRawQueryPram()...)
 	listCode = append(listCode, k.BindQueryParam()...)
 	listCode = append(listCode, k.BindHeaderParam()...)
 	listCode = append(listCode, k.BindFileParam()...)
@@ -213,7 +222,7 @@ func (k *KitRequest) DecodeRequest() (s string) {
 	listCode = append(listCode, jen.Return(jen.Id("req"), jen.Id("err")))
 	var LineListCode []jen.Code
 	for _, v := range listCode {
-		LineListCode = append(LineListCode, jen.Line(),v)
+		LineListCode = append(LineListCode, jen.Line(), v)
 	}
 
 	fn := jen.Func().Id("decode"+upFirst(k.ServiceName)+"Request").Params(
@@ -230,6 +239,9 @@ func (k *KitRequest) DecodeRequest() (s string) {
 
 func (k *KitRequest) DefineVal() []jen.Code {
 	listCode := make([]jen.Code, 0, 0)
+	for _, v := range k.RawQuery {
+		listCode = append(listCode, jen.Var().Id(v.ParamName).Id(v.RawParamType))
+	}
 	for _, v := range k.Query {
 		listCode = append(listCode, v.ToVal())
 	}
@@ -290,7 +302,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 
 	for _, v := range k.Body {
 		if v.ParamTypeName == "[]byte" {
-			decode := jen.List(jen.Id("req." + v.ParamPath),jen.Id("err")).Op("=").Qual("io/ioutil","ReadAll").Call(jen.Id("r.Body"))
+			decode := jen.List(jen.Id("req."+v.ParamPath), jen.Id("err")).Op("=").Qual("io/ioutil", "ReadAll").Call(jen.Id("r.Body"))
 			listCode = append(listCode, decode, returnCode)
 		} else {
 			decode := jen.Id("err").Op("=").Id("json.NewDecoder").Call(jen.Id("r.Body")).Dot("Decode").Parens(jen.Id("&req." + v.ParamPath))
@@ -304,9 +316,9 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 func (k *KitRequest) BindFileParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	for _, v := range k.File {
-		list = append(list, jen.List(jen.Id("_"), jen.Id("req." + v.ParamPath), jen.Id("err")).Op("=").Id("r.FormFile").Call(jen.Lit(v.ParamName)).Line().
+		list = append(list, jen.List(jen.Id("_"), jen.Id("req."+v.ParamPath), jen.Id("err")).Op("=").Id("r.FormFile").Call(jen.Lit(v.ParamName)).Line().
 			If(jen.Err().Op("!=").Nil()).Block(
-				jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("r.FormFile")),
+			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("r.FormFile")),
 		))
 	}
 	return list
@@ -341,6 +353,24 @@ func (k *KitRequest) BindHeaderParam() []jen.Code {
 
 }
 
+func (k *KitRequest) BindRawQueryPram() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	if len(k.RawQuery) == 0 {
+		return list
+	}
+	for _, v := range k.RawQuery {
+		urlValues, err := UrlValues(v.ParamName, v.ParamType, v.ParamTypeName)
+		if err != nil {
+			panic(err)
+		}
+
+		list = append(list, urlValues...)
+		continue
+	}
+
+	return list
+}
+
 func (k *KitRequest) BindQueryParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 
@@ -351,8 +381,9 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 	for _, v := range k.Query {
 		//r.URL.Query().Get("project")
 		varBind := jen.Id("r.URL.Query().Get").Call(jen.Lit(v.ParamName))
+
 		if !(v.ParamType == "basic" && v.BasicType == "string") {
-			castCode, err := CastMap(v.ParamName, v.ParamType, v.ParamTypeName,  varBind)
+			castCode, err := CastMap(v.ParamName, v.ParamType, v.ParamTypeName, varBind)
 			if err != nil {
 				panic(err)
 			}
@@ -439,6 +470,10 @@ func (k *KitRequest) BindCtxParam() []jen.Code {
 
 func (k *KitRequest) BindRequest() []jen.Code {
 	list := make([]jen.Code, 0, 0)
+	for _, v := range k.RawQuery {
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
+		list = append(list, reqBindVal)
+	}
 	for _, v := range k.Path {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamName)
 		list = append(list, reqBindVal)
@@ -477,7 +512,7 @@ func (k *KitRequest) ParseRequest() {
 							k.RequestTypeOf = t
 							k.RequestType([]string{}, k.RequestName, t, "", doc)
 							k.CheckRequestIsNil()
-							
+
 							return false
 						}
 					}
@@ -551,7 +586,7 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		//fmt.Println("obj.type.string",rt.Obj().Type().String())
 		//fmt.Println("obj.id",rt.Obj().Id())
 		//fmt.Println("local.pkg.pkgPath", k.pkg.PkgPath)
-		split := strings.Split(strings.TrimPrefix(rt.Obj().Type().String(), k.pkg.PkgPath+"."),"/")
+		split := strings.Split(strings.TrimPrefix(rt.Obj().Type().String(), k.pkg.PkgPath+"."), "/")
 		named := split[len(split)-1]
 
 		k.NamedMap[paramName] = named
@@ -569,16 +604,16 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		k.RequestType(prefix, requestName, rt.Underlying(), requestParamTagTypeTag, doc)
 	case *types.Struct:
 		k.SetParam(RequestParam{
-			FieldName:   requestName,
-			ParamDoc:    doc,
-			ParamPath:   strings.Join(prefix, "."),
-			ParamName:   paramName,
-			ParamSource: paramSource,
-			ParamType:   "struct",
+			FieldName:     requestName,
+			ParamDoc:      doc,
+			ParamPath:     strings.Join(prefix, "."),
+			ParamName:     paramName,
+			ParamSource:   paramSource,
+			ParamType:     "struct",
 			ParamTypeName: k.NamedMap[paramName],
-			RawParamType: rawParamType,
-			BasicType:   k.NamedMap[paramName],
-			HasPtr:      false,
+			RawParamType:  rawParamType,
+			BasicType:     k.NamedMap[paramName],
+			HasPtr:        false,
 		})
 		for i := 0; i < rt.NumFields(); i++ {
 			field := rt.Field(i)
@@ -593,39 +628,39 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		var paramTypeName string
 		var ok bool
 		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
-			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."),"/")
+			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."), "/")
 			paramTypeName = "[]" + split[len(split)-1]
 		}
 		k.SetParam(RequestParam{
-			FieldName:   requestName,
-			ParamDoc:    doc,
-			ParamPath:   strings.Join(prefix, "."),
-			ParamName:   paramName,
-			ParamSource: paramSource,
-			ParamType:   "slice",
+			FieldName:     requestName,
+			ParamDoc:      doc,
+			ParamPath:     strings.Join(prefix, "."),
+			ParamName:     paramName,
+			ParamSource:   paramSource,
+			ParamType:     "slice",
 			ParamTypeName: paramTypeName,
-			RawParamType: rawParamType,
-			BasicType:   rt.Elem().Underlying().String(),
-			HasPtr:      false,
+			RawParamType:  rawParamType,
+			BasicType:     rt.Elem().Underlying().String(),
+			HasPtr:        false,
 		})
 	case *types.Map:
 		var paramTypeName string
 		var ok bool
 		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
-			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."),"/")
+			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."), "/")
 			paramTypeName = split[len(split)-1]
 		}
 		k.SetParam(RequestParam{
-			FieldName:   requestName,
-			ParamDoc:    doc,
-			ParamPath:   strings.Join(prefix, "."),
-			ParamName:   paramName,
-			ParamSource: paramSource,
-			ParamType:   "map",
+			FieldName:     requestName,
+			ParamDoc:      doc,
+			ParamPath:     strings.Join(prefix, "."),
+			ParamName:     paramName,
+			ParamSource:   paramSource,
+			ParamType:     "map",
 			ParamTypeName: paramTypeName,
-			RawParamType: rawParamType,
-			BasicType:   rt.Elem().Underlying().String(),
-			HasPtr:      false,
+			RawParamType:  rawParamType,
+			BasicType:     rt.Elem().Underlying().String(),
+			HasPtr:        false,
 		})
 	case *types.Basic:
 		var paramTypeName string
@@ -634,16 +669,16 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			paramTypeName = rt.Name()
 		}
 		k.SetParam(RequestParam{
-			FieldName:   requestName,
-			ParamDoc:    doc,
-			ParamPath:   strings.Join(prefix, "."),
-			ParamName:   paramName,
-			ParamSource: paramSource,
-			ParamType:   "basic",
+			FieldName:     requestName,
+			ParamDoc:      doc,
+			ParamPath:     strings.Join(prefix, "."),
+			ParamName:     paramName,
+			ParamSource:   paramSource,
+			ParamType:     "basic",
 			ParamTypeName: paramTypeName,
-			RawParamType: rawParamType,
-			BasicType:   rt.Name(),
-			HasPtr:      false,
+			RawParamType:  rawParamType,
+			BasicType:     rt.Name(),
+			HasPtr:        false,
 		})
 	default:
 		return
@@ -666,7 +701,23 @@ func upFirst(s string) string {
 	return ""
 }
 
-func CastMap(paramName, t, paramTypeName string,  code jen.Code) (res []jen.Code, err error) {
+func UrlValues(paramName, t, paramTypeName string) (res []jen.Code, err error) {
+	key := t + "." + paramTypeName
+	switch key {
+	case "map.string":
+		res = append(res, jen.Id(paramName+"Map").Op(":=").Make(jen.Map(jen.String()).String(), jen.Id("0")))
+		res = append(res, jen.For(jen.Id("k,v := range").Id("r.URL.Query()")).Block(
+			jen.Id(paramName+"Map").Index(jen.Id("k")).Op("=").Id(`strings.Join(v,",")`)),
+		)
+		res = append(res, jen.Id(paramName).Op("=").Id(paramName+"Map"))
+	default:
+		err = fmt.Errorf("not support type %s", paramTypeName)
+	}
+
+	return
+}
+
+func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
 	if t == "slice" && paramTypeName == "string" {
 		res = append(res, jen.Id(paramName).Op("=").Id("strings.Split").Call(code, jen.Lit(",")))
 		return
@@ -694,18 +745,18 @@ func CastMap(paramName, t, paramTypeName string,  code jen.Code) (res []jen.Code
 		"map.int64": "cast.ToStringMapInt64E",
 		"map.bool":  "cast.ToStringMapBoolE",
 
-		"struct.time.Time": "cast.ToTimeE",
+		"struct.time.Time":    "cast.ToTimeE",
 		"basic.time.Duration": "cast.ToDurationE",
 	}
 	var ok bool
-	mKey := t+"."+paramTypeName
+	mKey := t + "." + paramTypeName
 	fnStr, ok := m[mKey]
 	if !ok {
 		err = fmt.Errorf("CastMap not found %s %s", t, paramTypeName)
 		return
 	}
 
-	paramStr := paramName +"Str"
+	paramStr := paramName + "Str"
 	varParamStr := jen.Id(paramStr).Op(":=").Add(code)
 	paramStrCode := jen.Id(paramStr)
 	if t == "slice" {
@@ -729,7 +780,7 @@ func CastMap(paramName, t, paramTypeName string,  code jen.Code) (res []jen.Code
 		),
 	)
 
-	res = append(res, varParamStr,ifParamStr)
+	res = append(res, varParamStr, ifParamStr)
 
 	return
 }

@@ -4,6 +4,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/dave/jennifer v1.5.0
 	github.com/davecgh/go-spew v1.1.1
+	github.com/fitan/jennifer v0.0.0-20221109093939-57a62ac0ad5b
 	github.com/go-kit/kit v0.9.0
 	github.com/gojuno/minimock/v3 v3.0.10
 	github.com/golangci/golangci-lint v1.41.1

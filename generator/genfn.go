@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
+	"github.com/fitan/jennifer/jen"
 	"go/ast"
 	"go/types"
 	"golang.org/x/tools/go/ast/astutil"
@@ -32,7 +32,7 @@ type FnPlug interface {
 type Func struct {
 	MarkParam []string
 	Args      []types.Type
-	Lhs []types.Type
+	Lhs       []types.Type
 }
 
 func (g *GenFn) JenFile() *jen.File {

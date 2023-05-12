@@ -3,9 +3,9 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
+	"github.com/fitan/jennifer/jen"
 	"github.com/pkg/errors"
 	"go/ast"
 	"go/parser"
@@ -34,7 +34,7 @@ type Generator struct {
 	dstPackage     *packages.Package
 	genTemplates   []genTemplate
 	methods        methodsList
-	GenFn *GenFn
+	GenFn          *GenFn
 	doc            *ast.CommentGroup
 	interfaceType  string
 	localPrefix    string
@@ -146,7 +146,7 @@ func (t TemplateInputInterface) HasMethodPath(name string) bool {
 }
 
 func (t TemplateInputInterface) MethodPath(name string) string {
-	return strings.TrimSuffix(path.Join(t.BasePath(), t.Methods[name].RawKit.Conf.Url),"/")
+	return strings.TrimSuffix(path.Join(t.BasePath(), t.Methods[name].RawKit.Conf.Url), "/")
 }
 
 type methodsList map[string]Method
@@ -334,8 +334,8 @@ func NewGeneratorFn(ops []Options) ([]*Generator, error) {
 			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
 		}
 
-		for _, f := range srcPackageAST.Files  {
-			importSpecs = append(importSpecs,f.Imports...)
+		for _, f := range srcPackageAST.Files {
+			importSpecs = append(importSpecs, f.Imports...)
 		}
 
 		options.Imports = append(options.Imports, makeImports(importSpecs)...)
@@ -354,7 +354,7 @@ func NewGeneratorFn(ops []Options) ([]*Generator, error) {
 			dstPackage:     options.SourceLoadPkg,
 			interfaceType:  interfaceType,
 			methods:        methods,
-			GenFn: genFn,
+			GenFn:          genFn,
 			doc:            doc,
 			localPrefix:    options.LocalPrefix,
 			genTemplates:   make([]genTemplate, 0, 0),
@@ -509,12 +509,12 @@ func makeImports(imports []*ast.ImportSpec) []string {
 	return result
 }
 
-func LoadMainImports() (res []*ast.ImportSpec,err error) {
+func LoadMainImports() (res []*ast.ImportSpec, err error) {
 	mainName := "main.go"
-	readMain := func (path string) (res []*ast.ImportSpec,err error) {
+	readMain := func(path string) (res []*ast.ImportSpec, err error) {
 		fset := token.NewFileSet()
 		var f *ast.File
-		f, err = parser.ParseFile(fset,path,nil, parser.ParseComments|parser.ImportsOnly)
+		f, err = parser.ParseFile(fset, path, nil, parser.ParseComments|parser.ImportsOnly)
 		if err != nil {
 			return
 		}
@@ -621,7 +621,7 @@ func (g Generator) Generate(fix bool) error {
 		Imports: g.Options.Imports,
 		Vars:    g.Options.Vars,
 
-		GenFn:  g.GenFn,
+		GenFn: g.GenFn,
 	})
 	if err != nil {
 		return err
@@ -629,19 +629,19 @@ func (g Generator) Generate(fix bool) error {
 
 	t1 := time.Now()
 	imports.LocalPrefix = g.localPrefix
-	var importsOpt  *imports.Options
+	var importsOpt *imports.Options
 	if fix {
 		importsOpt = &imports.Options{
-			Comments: true,
-			TabWidth: 8,
-			TabIndent: true,
+			Comments:   true,
+			TabWidth:   8,
+			TabIndent:  true,
 			FormatOnly: false,
 		}
 	} else {
 		importsOpt = &imports.Options{
-			Comments: true,
-			TabWidth: 8,
-			TabIndent: true,
+			Comments:   true,
+			TabWidth:   8,
+			TabIndent:  true,
 			FormatOnly: true,
 		}
 	}
@@ -654,8 +654,8 @@ func (g Generator) Generate(fix bool) error {
 	buf = bytes.NewBuffer([]byte{})
 	_, err = buf.Write(processedSource)
 	if err != nil {
-			return nil
-		}
+		return nil
+	}
 	err = ioutil.WriteFile(g.Options.OutputFile, buf.Bytes(), 0664)
 	return err
 

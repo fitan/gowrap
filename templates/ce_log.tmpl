@@ -21,10 +21,17 @@ func (s *logging) {{$m.Declaration}} {
 			"{{$v.Name}}", {{$v.Name}},
 			{{end}}
 			"took", time.Since(begin),
+			{{if $m.ReturnsError}}
 			"err", err,
+			{{end}}
 		)
 	}(time.Now())
+	{{if $m.HasResults}}
 	return s.next.{{$m.Call}}
+	{{else}}
+	s.next.{{$m.Call}}
+	{{end}}
+
 }
 {{end}}
 

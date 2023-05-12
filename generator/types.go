@@ -30,12 +30,12 @@ type Method struct {
 	RawKit Kit
 	Kit    KitParams
 
-	KitRequest *KitRequest
+	KitRequest       *KitRequest
 	KitRequestDecode string
 }
 
 func DocFormat(doc string) string {
-	return strings.Join(strings.Fields(doc)," ")
+	return strings.Join(strings.Fields(doc), " ")
 }
 
 func (m Method) EnableSwag() bool {
@@ -81,8 +81,8 @@ func (m Method) Annotation() string {
 	}
 	for _, c := range m.Doc {
 		docFormat := DocFormat(c)
-		if strings.HasPrefix(docFormat, "// " +  m.Name) {
-			return strings.TrimPrefix(docFormat, "// " + m.Name)
+		if strings.HasPrefix(docFormat, "// "+m.Name) {
+			return strings.TrimPrefix(docFormat, "// "+m.Name)
 		}
 	}
 	return strings.TrimPrefix(DocFormat(m.Doc[0]), "// ")
@@ -579,7 +579,6 @@ func (m Method) Declaration() string {
 	return m.Name + m.Signature()
 }
 
-
 func (m Method) SwagFieldData() string {
 	if len(m.ResultsMapExcludeErr()) == 0 {
 		return "data=string"
@@ -588,18 +587,17 @@ func (m Method) SwagFieldData() string {
 		return "data=" + m.Results[0].Type
 	}
 	var s []string
-	for _,v:= range m.ResultsExcludeErr() {
-		s = append(s, "data."+v.Name + "=" + v.Type)
+	for _, v := range m.ResultsExcludeErr() {
+		s = append(s, "data."+v.Name+"="+v.Type)
 	}
 	return strings.Join(s, ",")
 }
 
-
 func (m Method) ResultsExcludeErrCode() *jen.Statement {
 	var code []jen.Code
 
-	for _,v := range m.ResultsExcludeErr() {
-		code = append(code,jen.Id(v.Name).Id(v.Type))
+	for _, v := range m.ResultsExcludeErr() {
+		code = append(code, jen.Id(v.Name).Id(v.Type))
 	}
 
 	return jen.Var().Defs(code...)
@@ -608,7 +606,7 @@ func (m Method) ResultsExcludeErrCode() *jen.Statement {
 func (m Method) ResultsNamesCode() *jen.Statement {
 	var l jen.Statement
 	for _, v := range m.Results {
-		l = append(l,jen.Id(v.Name))
+		l = append(l, jen.Id(v.Name))
 	}
 
 	return jen.List(l...)
@@ -638,7 +636,7 @@ func (m Method) ReturnCode() *jen.Statement {
 	if len(m.ResultsExcludeErr()) == 1 {
 		code = jen.Return(jen.Id("encode.Response").Values(
 			jen.Dict{
-				jen.Id("Data"): result1DataCode,
+				jen.Id("Data"):  result1DataCode,
 				jen.Id("Error"): jen.Id("err"),
 			},
 		), jen.Id("err"))
@@ -652,7 +650,7 @@ func (m Method) ReturnCode() *jen.Statement {
 
 		code = jen.Return(jen.Id("encode.Response").Values(
 			jen.Dict{
-				jen.Id("Data"): dataMap,
+				jen.Id("Data"):  dataMap,
 				jen.Id("Error"): jen.Id("err"),
 			},
 		), jen.Id("err"))
@@ -661,8 +659,6 @@ func (m Method) ReturnCode() *jen.Statement {
 	return code
 
 }
-
-
 
 func (m Method) MakeEndpoint() string {
 	return jen.Func().Id("make" + upFirst(m.Name) + "Endpoint").Params(jen.Id("s").Id("Service")).Id("endpoint.Endpoint").Block(

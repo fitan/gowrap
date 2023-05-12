@@ -19,12 +19,21 @@ func (s *tracing) {{$m.Declaration}} {
 	defer func() {
 		span.LogKV(
 			{{range $v := $m.ParamsExcludeCtx}}"{{$v.Name}}",{{$v.Name}},{{end}}
+			{{if $m.ReturnsError}}
 			"err",err,
+			{{end}}
 		)
+		{{if $m.ReturnsError}}
 		span.SetTag(string(ext.Error), err != nil)
+		{{end}}
 		span.Finish()
 	}()
+
+	{{if $m.HasResults}}
 	return s.next.{{$m.Call}}
+	{{else}}
+	s.next.{{$m.Call}}
+	{{end}}
 }
 {{end}}
 

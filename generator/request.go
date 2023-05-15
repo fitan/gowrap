@@ -208,18 +208,22 @@ func (k *KitRequest) ParseParamTag(fieldName, tag string) (paramSource string, p
 func (k *KitRequest) DecodeRequest() (s string) {
 	listCode := make([]jen.Code, 0, 0)
 	// req := Request{}
-	listCode = append(listCode, jen.Id("req").Op(":=").Id(k.RequestName).Block())
-	listCode = append(listCode, k.DefineVal()...)
-	listCode = append(listCode, k.BindPathParam()...)
-	listCode = append(listCode, k.BindRawQueryPram()...)
-	listCode = append(listCode, k.BindQueryParam()...)
-	listCode = append(listCode, k.BindHeaderParam()...)
-	listCode = append(listCode, k.BindFileParam()...)
-	listCode = append(listCode, k.BindBodyParam()...)
-	listCode = append(listCode, k.BindCtxParam()...)
-	listCode = append(listCode, k.BindRequest()...)
-	listCode = append(listCode, k.Validate()...)
-	listCode = append(listCode, jen.Return(jen.Id("req"), jen.Id("err")))
+	if k.RequestName != "nil" {
+		listCode = append(listCode, jen.Id("req").Op(":=").Id(k.RequestName).Block())
+		listCode = append(listCode, k.DefineVal()...)
+		listCode = append(listCode, k.BindPathParam()...)
+		listCode = append(listCode, k.BindRawQueryPram()...)
+		listCode = append(listCode, k.BindQueryParam()...)
+		listCode = append(listCode, k.BindHeaderParam()...)
+		listCode = append(listCode, k.BindFileParam()...)
+		listCode = append(listCode, k.BindBodyParam()...)
+		listCode = append(listCode, k.BindCtxParam()...)
+		listCode = append(listCode, k.BindRequest()...)
+		listCode = append(listCode, k.Validate()...)
+		listCode = append(listCode, jen.Return(jen.Id("req"), jen.Id("err")))
+	} else {
+		listCode = append(listCode, jen.Return(jen.Id("nil"), jen.Id("nil")))
+	}
 	var LineListCode []jen.Code
 	for _, v := range listCode {
 		LineListCode = append(LineListCode, jen.Line(), v)

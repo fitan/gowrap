@@ -25,7 +25,7 @@ import (
 //go:embed templates/*
 var tmp embed.FS
 
-//GenerateCommand implements Command interface
+// GenerateCommand implements Command interface
 type GenerateCommand struct {
 	BaseCommand
 
@@ -44,7 +44,7 @@ type GenerateCommand struct {
 	initVersion   string
 	initType      string
 	initName      string
-	genFn string
+	genFn         string
 }
 
 var serviceCombo []string = []string{"service", "new"}
@@ -55,11 +55,11 @@ var initComboConf = map[string]map[string]string{
 	},
 	"service": map[string]string{
 		"init_ce_service": "service.go",
-		"init_ce_types": "types.go",
+		"init_ce_types":   "types.go",
 	},
 }
 
-//NewGenerateCommand creates GenerateCommand
+// NewGenerateCommand creates GenerateCommand
 func NewGenerateCommand(l remoteTemplateLoader) *GenerateCommand {
 	gc := &GenerateCommand{
 		loader: loader{fileReader: ioutil.ReadFile, remoteLoader: l},
@@ -123,11 +123,10 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 				return err
 			}
 		default:
-			ops,err = gc.getComboOptions(gc.initType, gc.initName)
+			ops, err = gc.getComboOptions(gc.initType, gc.initName)
 			if err != nil {
 				return err
 			}
-
 
 		}
 
@@ -206,7 +205,7 @@ var (
 	errNoInterfaceName = CommandLineError("interface name is not specified")
 	errNoTemplate      = CommandLineError("no template specified")
 	errMustBeOrdered   = CommandLineError("Must be ordered bt or init")
-	errInitMustName = CommandLineError("init must be -n name")
+	errInitMustName    = CommandLineError("init must be -n name")
 )
 
 func (gc *GenerateCommand) checkFlags() error {
@@ -233,7 +232,7 @@ func (gc *GenerateCommand) checkFlags() error {
 }
 
 func (gc *GenerateCommand) getCEInitOptions(initType string, initName string) ([]generator.Options, error) {
-	ops := make([]generator.Options, 0,0)
+	ops := make([]generator.Options, 0, 0)
 	dirName := "./" + toSnakeCase(initName)
 	pkgName := strings.ToLower(initName)
 	objName := initName
@@ -252,7 +251,6 @@ func (gc *GenerateCommand) getCEInitOptions(initType string, initName string) ([
 	values["objName"] = objName
 
 	combo := initComboConf[initType]
-
 
 	for k, v := range combo {
 
@@ -273,7 +271,7 @@ func (gc *GenerateCommand) getCEInitOptions(initType string, initName string) ([
 			LocalPrefix:   gc.localPrefix,
 			PkgNeedSyntax: false,
 			RunCmdDir:     cmdDir,
-			InitType: initType,
+			InitType:      initType,
 		}
 
 		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
@@ -290,7 +288,6 @@ func (gc *GenerateCommand) getCEInitOptions(initType string, initName string) ([
 		ops = append(ops, options)
 	}
 	return ops, err
-
 
 }
 
@@ -386,7 +383,7 @@ func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]
 			LocalPrefix:   gc.localPrefix,
 			PkgNeedSyntax: false,
 			RunCmdDir:     cmdDir,
-			InitType: initType,
+			InitType:      initType,
 		}
 
 		outputFileDir, err := gc.filepath.Abs(gc.filepath.Dir(outputFile))
@@ -534,10 +531,10 @@ type varFlag struct {
 	value interface{}
 }
 
-//vars is a helper type that implements flag.Value to read multiple vars from the command line
+// vars is a helper type that implements flag.Value to read multiple vars from the command line
 type vars []varFlag
 
-//String implements flag.Value
+// String implements flag.Value
 func (v vars) String() string {
 	return fmt.Sprintf("%#v", v)
 }
@@ -614,7 +611,9 @@ func toSnakeCase(str string) string {
 	return strings.ToLower(result)
 }
 
-const headerTemplate = `package {{.Package.Name}}
+const headerTemplate = `
+// Code generated . DO NOT EDIT.
+package {{.Package.Name}}
 `
 
 const backup = `

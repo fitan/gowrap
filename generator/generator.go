@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-//Generator generates decorators for the interface types
+// Generator generates decorators for the interface types
 type Generator struct {
 	Options
 
@@ -151,7 +151,7 @@ func (t TemplateInputInterface) MethodPath(name string) string {
 
 type methodsList map[string]Method
 
-//Options of the NewGenerator constructor
+// Options of the NewGenerator constructor
 type Options struct {
 	//InterfaceName is a name of interface type
 	InterfaceName string
@@ -209,8 +209,8 @@ var methods methodsList
 var importSpecs []*ast.ImportSpec
 var doc *ast.CommentGroup
 
-//var srcPackage *packages.Package
-//var dstPackage *packages.Package
+// var srcPackage *packages.Package
+// var dstPackage *packages.Package
 var srcPackageAST *ast.Package
 
 var globalOption Options
@@ -364,7 +364,7 @@ func NewGeneratorFn(ops []Options) ([]*Generator, error) {
 	return gs, nil
 }
 
-//NewGenerator returns Generator initialized with options
+// NewGenerator returns Generator initialized with options
 func NewGenerator(ops []Options) ([]*Generator, error) {
 	if len(ops) == 0 {
 		return nil, nil
@@ -597,7 +597,7 @@ func makePackage(path string) (*packages.Package, error) {
 	}, nil
 }
 
-//Generate generates code using header and body templates
+// Generate generates code using header and body templates
 func (g Generator) Generate(fix bool) error {
 	buf := bytes.NewBuffer([]byte{})
 
@@ -772,7 +772,9 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 						currentPackage, field.Names[0].Name, method.RawKit.Conf.HttpRequestName,
 						method.RawKit.Conf.HttpRequestBody,
 					)
-					kitRequest.ParseRequest()
+					if kit.Conf.HttpRequestName != "nil" {
+						kitRequest.ParseRequest()
+					}
 					method.KitRequest = kitRequest
 					method.KitRequestDecode = kitRequest.DecodeRequest()
 				}
@@ -829,8 +831,8 @@ func processSelector(fs *token.FileSet, currentPackage *packages.Package, se *as
 
 var errDuplicateMethod = errors.New("embedded interface has same method")
 
-//mergeMethods merges two methods list, if there is a duplicate method name
-//errDuplicateMethod is returned
+// mergeMethods merges two methods list, if there is a duplicate method name
+// errDuplicateMethod is returned
 func mergeMethods(ml1, ml2 methodsList) (methodsList, error) {
 	if ml1 == nil || ml2 == nil {
 		return ml1, nil

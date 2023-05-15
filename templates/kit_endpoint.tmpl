@@ -34,7 +34,9 @@ func NewEndpoint(s Service, dmw map[string][]endpoint.Middleware) Endpoints {
 {{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
 func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		{{if ne $m.KitRequest.RequestName "nil"}}
 		req := request.({{$m.KitRequest.RequestName}})
+		{{end}}
 
 		{{range $v := $m.ResultsExcludeErr}}
 		var {{$v.Name}} {{$v.Type}}

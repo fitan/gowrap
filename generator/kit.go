@@ -38,9 +38,9 @@ type HttpParam struct {
 }
 
 type KitServiceParam struct {
-	EndpointName    string
-	DecodeName      string
-	EncodeName      string
+	EndpointName string
+	DecodeName   string
+	EncodeName   string
 }
 
 func KitComment(comments []*ast.Comment) (kitConf KitCommentConf, err error) {
@@ -73,12 +73,12 @@ func KitComment(comments []*ast.Comment) (kitConf KitCommentConf, err error) {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
-		//case KitHttpResponse:
-		//	err = (&kitConf).ParamKitHttpResponse(fields)
-		//	if err != nil {
-		//		err = errors.Wrap(err, comment.Text)
-		//		return
-		//	}
+			//case KitHttpResponse:
+			//	err = (&kitConf).ParamKitHttpResponse(fields)
+			//	if err != nil {
+			//		err = errors.Wrap(err, comment.Text)
+			//		return
+			//	}
 
 		}
 	}

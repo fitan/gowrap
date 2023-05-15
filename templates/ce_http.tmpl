@@ -44,6 +44,7 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 
 {{range $m := $.Interface.Methods}}
 func decode{{$m.Name}}Request(_ context.Context, r *http.Request) (interface{}, error) {
+{{if ne $m.KitRequest.RequestName "nil"}}
 {{range $v := $m.ParamsExcludeCtx}}
     var {{$v.Name}} {{$v.Type}}
 {{end}}
@@ -66,5 +67,8 @@ func decode{{$m.Name}}Request(_ context.Context, r *http.Request) (interface{}, 
 		return nil, err
 	}
 	return req, err
+{{else}}
+	return nil,nil
+{{end}}
 }
 {{end}}

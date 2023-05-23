@@ -14,6 +14,8 @@ type Middleware func(Service) Service
 
 // @tags {{$.Vars.pkgName}}
 // @basePath /{{$.Vars.pkgName}}
+//
+// gowrap gen -g -p ./ -i Service -bt "kit_http:http.go kit_endpoint:endpoint.go ce_log:logging.go ce_trace:tracing.go"
 type Service interface {
 	// Create 创建
 	// @kit-http / POST

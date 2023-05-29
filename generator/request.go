@@ -266,15 +266,15 @@ func (k *KitRequest) Validate() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	list = append(
 		list,
-		jen.List(jen.Id("validReq"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
+		jen.List(jen.Id("_"), jen.Id("err")).Op("=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
 		jen.If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid.ValidateStruct")),
 			jen.Return(),
 		),
-		jen.If(jen.Id("!validReq")).Block(
-			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid false")),
-			jen.Return(),
-		),
+		//jen.If(jen.Id("!validReq")).Block(
+		//	jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid false")),
+		//	jen.Return(),
+		//),
 	)
 	return list
 }

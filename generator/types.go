@@ -140,11 +140,12 @@ type GinParams struct {
 
 // Param represents fuction argument or result
 type Param struct {
-	Doc      []string
-	Comment  []string
-	Name     string
-	Type     string
-	Variadic bool
+	Doc       []string
+	Comment   []string
+	Name      string
+	Type      string
+	Variadic  bool
+	HasStruct bool
 }
 
 // ParamsSlice slice of parameters
@@ -257,9 +258,9 @@ func NewParam(name string, fi *ast.Field, usedNames map[string]bool, printer typ
 
 	_, variadic := typ.(*ast.Ellipsis)
 	p := &Param{
-		Name:     name,
-		Variadic: variadic,
-		Type:     typeStr,
+		Name:      name,
+		Variadic:  variadic,
+		Type:      typeStr,
 	}
 	if fi.Doc != nil && len(fi.Doc.List) > 0 {
 		p.Doc = make([]string, 0, len(fi.Doc.List))

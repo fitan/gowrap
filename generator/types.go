@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
 	"go/ast"
+	"golang.org/x/tools/go/packages"
 	"strings"
 )
 
@@ -140,12 +141,12 @@ type GinParams struct {
 
 // Param represents fuction argument or result
 type Param struct {
-	Doc       []string
-	Comment   []string
-	Name      string
-	Type      string
-	Variadic  bool
-	HasStruct bool
+	Doc          []string
+	Comment      []string
+	Name         string
+	Type         string
+	Variadic     bool
+	HasSerialize bool
 }
 
 // ParamsSlice slice of parameters
@@ -183,7 +184,7 @@ func (p Param) Pass() string {
 }
 
 // NewMethod returns pointer to Signature struct or error
-func NewMethod(name string, fi *ast.Field, printer typePrinter) (*Method, error) {
+func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter) (*Method, error) {
 	f, ok := fi.Type.(*ast.FuncType)
 	if !ok {
 		return nil, fmt.Errorf("%q is not a method", name)
@@ -222,11 +223,11 @@ func NewMethod(name string, fi *ast.Field, printer typePrinter) (*Method, error)
 
 	var err error
 
-	m.Params, err = makeParams(f.Params, usedNames, printer)
+	m.Params, err = makeParams(pkg, file, f.Params, usedNames, printer)
 	if err != nil {
 		return nil, err
 	}
-	m.Results, err = makeParams(f.Results, usedNames, printer)
+	m.Results, err = makeParams(pkg, file, f.Results, usedNames, printer)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +244,22 @@ func NewMethod(name string, fi *ast.Field, printer typePrinter) (*Method, error)
 }
 
 // NewParam returns Param struct
-func NewParam(name string, fi *ast.Field, usedNames map[string]bool, printer typePrinter) (*Param, error) {
+func NewParam(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, usedNames map[string]bool, printer typePrinter) (*Param, error) {
+
+	//var hasStruct bool
+
+	//fmt.Println("paramName", Node2String(pkg.Fset, fi.Type))
+	//if !JudgeBuiltInType(Node2String(pkg.Fset, fi.Type)) {
+	//	_, _, ts, err := FindTypeSpecByExpr(pkg, file, fi.Type)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	_, hasStruct = ts.Type.(*ast.StructType)
+	//}
+
+	//typeOf := pkg.TypesInfo.TypeOf(fi.Type)
+	//xtype.TypeOf(typeOf).
+
 	typ := fi.Type
 	if name == "" || usedNames[name] {
 		name = genName(typePrefix(typ), 1, usedNames)
@@ -258,9 +274,10 @@ func NewParam(name string, fi *ast.Field, usedNames map[string]bool, printer typ
 
 	_, variadic := typ.(*ast.Ellipsis)
 	p := &Param{
-		Name:      name,
-		Variadic:  variadic,
-		Type:      typeStr,
+		Name:         name,
+		Variadic:     variadic,
+		Type:         typeStr,
+		HasSerialize: !JudgeBuiltInType(Node2String(pkg.Fset, fi.Type)),
 	}
 	if fi.Doc != nil && len(fi.Doc.List) > 0 {
 		p.Doc = make([]string, 0, len(fi.Doc.List))
@@ -279,7 +296,7 @@ func NewParam(name string, fi *ast.Field, usedNames map[string]bool, printer typ
 	return p, nil
 }
 
-func makeParams(params *ast.FieldList, usedNames map[string]bool, printer typePrinter) (ParamsSlice, error) {
+func makeParams(pkg *packages.Package, file *ast.File, params *ast.FieldList, usedNames map[string]bool, printer typePrinter) (ParamsSlice, error) {
 	if params == nil {
 		return nil, nil
 	}
@@ -289,14 +306,14 @@ func makeParams(params *ast.FieldList, usedNames map[string]bool, printer typePr
 		//for anonymous parameters we generate params and results names
 		//based on their type
 		if p.Names == nil {
-			param, err := NewParam("", p, usedNames, printer)
+			param, err := NewParam(pkg, file, "", p, usedNames, printer)
 			if err != nil {
 				return nil, err
 			}
 			result = append(result, *param)
 		} else {
 			for _, ident := range p.Names {
-				param, err := NewParam(ident.Name, p, usedNames, printer)
+				param, err := NewParam(pkg, file, ident.Name, p, usedNames, printer)
 				if err != nil {
 					return nil, err
 				}

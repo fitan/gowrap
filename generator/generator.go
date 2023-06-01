@@ -677,7 +677,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 	//looking for the source interface declaration in all files in the dir
 	//while doing this we also store all found type declarations to check if some of the
 	//interface methods use unexported types
-	for _, f := range p.Files {
+	for _, f := range currentPackage.Syntax {
 		tsList, gdDoc := typeSpecs(f)
 		for index, ts := range tsList {
 			types = append(types, ts)
@@ -749,7 +749,7 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 			}
 
 			var method *Method
-			method, err = NewMethod(field.Names[0].Name, field, printer.New(fs, typeSpecs, typesPrefix))
+			method, err = NewMethod(currentPackage, currentFile, field.Names[0].Name, field, printer.New(fs, typeSpecs, typesPrefix))
 
 			if err == nil {
 

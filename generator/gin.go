@@ -162,6 +162,33 @@ func GinUrl2SwagUrl(s string) string {
 	return strings.Join(sl, "/")
 }
 
+func FindTypeSpecByExpr(pkg *packages.Package, file *ast.File, expr ast.Expr) (*packages.Package, *ast.File, *ast.TypeSpec, error) {
+	switch t := expr.(type) {
+	// struct 在同一个pkg里面
+	case *ast.Ident:
+		findFile, findTypeSpec, err := FindTypeSpecByName(pkg, t.Name)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return pkg, findFile, findTypeSpec, nil
+	// struct 是selector类型， 在另外的pkg里面
+	case *ast.SelectorExpr:
+		findPkg, err := FindSelectPkg(pkg, file, t)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		findFile, findTypeSpec, err := FindTypeSpecByName(findPkg, t.Sel.Name)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return findPkg, findFile, findTypeSpec, nil
+
+	}
+	// 未知的状态
+	return nil, nil, nil, fmt.Errorf("unknown type %s", Node2String(pkg.Fset, expr))
+}
+
 func FindByExpr(pkg *packages.Package, file *ast.File, expr ast.Expr) (*packages.Package, *ast.File, *ast.StructType, error) {
 	switch t := expr.(type) {
 	// struct 在同一个pkg里面
@@ -328,10 +355,10 @@ func FindTagByType(pkg *packages.Package, file *ast.File, ty ast.Node, tagName s
 	return tagMsgs
 }
 
-//type Req struct {
-//转换部分 xxx.Client
-//Name Client
-//}
+// type Req struct {
+// 转换部分 xxx.Client
+// Name Client
+// }
 func Node2SwagType(node ast.Node, selectName string) ast.Node {
 	t := node2SwagType2(node, selectName)
 	t = node2SwagType1(t)
@@ -381,26 +408,27 @@ func node2SwagType2(node ast.Node, selectName string) ast.Node {
 // go 的内置基础类型
 func JudgeBuiltInType(t string) bool {
 	m := map[string]int{
-		"uint8":      0,
-		"uint16":     0,
-		"uint32":     0,
-		"uint64":     0,
-		"int8":       0,
-		"int16":      0,
-		"int32":      0,
-		"int64":      0,
-		"float32":    0,
-		"float64":    0,
-		"complex64":  0,
-		"complex128": 0,
-		"byte":       0,
-		"rune":       0,
-		"uint":       0,
-		"int":        0,
-		"uintptr":    0,
-		"string":     0,
-		"bool":       0,
-		"error":      0,
+		"uint8":           0,
+		"uint16":          0,
+		"uint32":          0,
+		"uint64":          0,
+		"int8":            0,
+		"int16":           0,
+		"int32":           0,
+		"int64":           0,
+		"float32":         0,
+		"float64":         0,
+		"complex64":       0,
+		"complex128":      0,
+		"byte":            0,
+		"rune":            0,
+		"uint":            0,
+		"int":             0,
+		"uintptr":         0,
+		"string":          0,
+		"bool":            0,
+		"error":           0,
+		"context.Context": 0,
 	}
 	_, ok := m[t]
 	return ok

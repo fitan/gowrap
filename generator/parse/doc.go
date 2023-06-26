@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	iniLexer = lexer.MustSimple([]lexer.SimpleRule{
+	enumLexer = lexer.MustSimple([]lexer.SimpleRule{
 		{"whitespace", `\s+`},
 		{`String`, `"(?:\\.|[^"])*"|'(?:\\.|[^'])*'`},
 		{"Punct", `[)(,]`},
@@ -14,7 +14,7 @@ var (
 		{"Comment", `^[^@].+`},
 	})
 	parser = participle.MustBuild[Doc](
-		participle.Lexer(iniLexer),
+		participle.Lexer(enumLexer),
 	)
 )
 

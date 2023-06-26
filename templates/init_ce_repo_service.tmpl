@@ -2,6 +2,7 @@ package {{$.Vars.pkgName}}
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -15,6 +16,11 @@ type Service interface {
 	Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error)
 	Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error)
 	Filter(ctx context.Context, fieldName string, value string, filter *types.{{$.Vars.objName}}) (list []map[string]interface{}, err error)
+	ByUuids(ctx context.Context, uuids []string) (list []types.{{$.Vars.objName}}, err error)
+	GetIdByUuid(ctx context.Context, uuid string) (id int, err error)
+	UpdateWithAssociations(ctx context.Context, uuid string, v types.{{$.Vars.objName}}, associations map[string]interface{}) (err error)
+	CreateWithAssociations(ctx context.Context, v types.{{$.Vars.objName}}, associations map[string]interface{}) (err error)
+	DeleteWithAssociations(ctx context.Context, uuid string, associations map[string]interface{}) (err error)
 }
 
 type service struct {
@@ -70,6 +76,80 @@ func (s *service)Filter(ctx context.Context, fieldName string, value string, fil
 		tx = tx.Where(filter)
 	}
 	return list, tx.Select("uuid", fieldName).Group(fieldName).Where(fieldName+" like ?", "%"+value+"%").Find(&list).Error
+}
+
+func (s *service) ByUuids(ctx context.Context, uuids []string) (list []types.{{$.Vars.objName}}, err error) {
+	return list, s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{}).Where("uuid in (?)", uuids).Find(&list).Error
+}
+
+func (s *service) GetIdByUuid(ctx context.Context, uuid string) (id int, err error) {
+	err = s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{}).Where("uuid = ?", uuid).Select("id").Scan(&id).Error
+	return
+}
+
+func (s *service) UpdateWithAssociations(ctx context.Context, uuid string, v types.{{$.Vars.objName}}, associations map[string]interface{}) (err error) {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err = tx.Model(&types.{{$.Vars.objName}}{}).Where("uuid = ?", uuid).Save(&v).Error
+		if err != nil {
+			err = errors.Wrap(err, "save failed")
+			return err
+		}
+		for key, value := range associations {
+			err = tx.Model(&v).Association(key).Clear()
+			if err != nil {
+				err = errors.Wrap(err, "clear association failed")
+				return err
+			}
+
+			err = tx.Model(&v).Association(key).Append(value)
+			if err != nil {
+				err = errors.Wrap(err, "append association failed")
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func (s *service) DeleteWithAssociations(ctx context.Context, uuid string, associations map[string]interface{}) (err error) {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var record types.{{$.Vars.objName}}
+		err = tx.Model(&types.{{$.Vars.objName}}{}).Where("uuid = ?", uuid).Delete(&record).Error
+		if err != nil {
+			err = errors.Wrap(err, "delete failed")
+			return err
+		}
+
+		for key, _ := range associations {
+			err = tx.Model(&record).Association(key).Clear()
+			if err != nil {
+				err = errors.Wrap(err, "clear association failed")
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func (s *service) CreateWithAssociations(ctx context.Context, v types.{{$.Vars.objName}}, associations map[string]interface{}) (err error) {
+	return s.db.Model(ctx).Transaction(func(tx *gorm.DB) error {
+		err = tx.Model(&types.{{$.Vars.objName}}{}).Create(&v).Error
+		if err != nil {
+			err = errors.Wrap(err, "create failed")
+			return err
+		}
+
+		for key, value := range associations {
+			err = tx.Model(&v).Association(key).Append(value)
+			if err != nil {
+				err = errors.Wrap(err, "append association failed")
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func New(db *gorm.DB) Service {

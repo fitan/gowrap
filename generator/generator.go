@@ -35,6 +35,7 @@ type Generator struct {
 	genTemplates   []genTemplate
 	methods        methodsList
 	GenFn          *GenFn
+	Enum           *Enum
 	doc            *ast.CommentGroup
 	interfaceType  string
 	localPrefix    string
@@ -54,6 +55,7 @@ type TemplateInputs struct {
 	Imports []string
 
 	GenFn *GenFn
+	Enum  *Enum
 }
 
 // Import generates an import statement using a list of imports from the source file
@@ -434,23 +436,26 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
 		}
 
-		if methods == nil && importSpecs == nil {
+		if options.InterfaceName != "" {
 
-			t1 := time.Now()
-			methods, importSpecs, doc, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName)
-			log.Printf("findInterface time: %v", time.Now().Sub(t1).String())
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse interface declaration")
+			if methods == nil && importSpecs == nil {
+
+				t1 := time.Now()
+				methods, importSpecs, doc, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName)
+				log.Printf("findInterface time: %v", time.Now().Sub(t1).String())
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to parse interface declaration")
+				}
+
+				if len(methods) == 0 {
+					return nil, errEmptyInterface
+				}
 			}
 
-			if len(methods) == 0 {
-				return nil, errEmptyInterface
-			}
-		}
-
-		for _, m := range methods {
-			if srcPackageAST.Name != "" && []rune(m.Name)[0] == []rune(strings.ToLower(m.Name))[0] {
-				return nil, errors.Wrap(errUnexportedMethod, m.Name)
+			for _, m := range methods {
+				if srcPackageAST.Name != "" && []rune(m.Name)[0] == []rune(strings.ToLower(m.Name))[0] {
+					return nil, errors.Wrap(errUnexportedMethod, m.Name)
+				}
 			}
 		}
 
@@ -470,6 +475,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			dstPackage:     options.SourceLoadPkg,
 			interfaceType:  interfaceType,
 			methods:        methods,
+			Enum:           NewEnumGen(options.SourceLoadPkg),
 			doc:            doc,
 			localPrefix:    options.LocalPrefix,
 			genTemplates:   make([]genTemplate, 0, 0),
@@ -622,6 +628,7 @@ func (g Generator) Generate(fix bool) error {
 		Vars:    g.Options.Vars,
 
 		GenFn: g.GenFn,
+		Enum:  g.Enum,
 	})
 	if err != nil {
 		return err

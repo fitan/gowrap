@@ -57,6 +57,9 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 {{- range $k, $v := $m.KitRequest.Header}}
 // @Param {{$v.ParamName}} header string false {{$v.Annotations}}
 {{- end}}
+{{- range $k, $v := $m.KitRequest.Form}}
+// @Param {{$v.ParamName}} formData {{$v.FormDataSwagType}} true {{$v.Annotations}}
+{{- end}}
 {{- if $m.KitRequest.RequestIsBody}}
 // @Param {{$m.KitRequest.RequestName}} body {{$m.KitRequest.RequestName}} 	true "http request body"
 {{- else}}

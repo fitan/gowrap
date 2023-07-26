@@ -11,6 +11,10 @@
 `"github.com/spf13/cast"`
 }}
 
+/*
+{{$.Interface.CEPermissionSql}}
+*/
+
 func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.ServerOption) http.Handler {
 	var ems []endpoint.Middleware
 

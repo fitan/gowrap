@@ -2,6 +2,8 @@ package generator
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
@@ -14,6 +16,7 @@ import (
 	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -56,6 +59,65 @@ type TemplateInputs struct {
 
 	GenFn *GenFn
 	Enum  *Enum
+}
+
+func (t TemplateInputInterface) hashToID(s string) int64 {
+	hash := sha256.Sum256([]byte(s))
+	return int64(binary.BigEndian.Uint64(hash[:8]) % uint64(int64(math.Pow(10, 15))))
+}
+
+func (t TemplateInputInterface) CEPermissionSql() string {
+	var (
+		parentID          int64
+		parentIcon        string
+		parentMenu        int
+		parentMethod      string
+		parentAlias       string
+		parentName        string
+		parentPath        string
+		parentDescription string
+		sqls              []string
+	)
+
+	//INSERT INTO spider_dev.sys_permission (id, parent_id, icon, menu, method, alias, name, path, description, created_at, updated_at, deleted_at) VALUES (878, 877, '', 1, 'GET', 'Redis实例', 'menu.cdb.redis', '/cdb/index', '', '2022-12-29 14:21:22', '2022-12-29 14:21:22', null);
+
+	parentMenu = 1
+	parentMethod = "GET"
+	parentAlias = t.Annotation()
+	parentName = strings.Join([]string{"menu", strings.Trim(t.BasePath(), "/"), t.Name}, ".")
+	parentPath = t.BasePath() + "/index"
+	parentDescription = t.Annotation()
+	parentID = t.hashToID(parentName)
+	parentSql := fmt.Sprintf(`INSERT INTO sys_permission (id, parent_id, icon, menu, method, alias, name, path, description,created_at, updated_at) VALUES (%v, %v, '%v', %v, '%v', '%v', '%v', '%v', '%v', '%v', '%v');`,
+		parentID, 0, parentIcon, parentMenu, parentMethod, strings.TrimSpace(parentAlias), parentName, parentPath, strings.TrimSpace(parentDescription), time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"))
+	sqls = append(sqls, parentSql)
+
+	for _, v := range t.Methods {
+		var (
+			id          int64
+			icon        string
+			menu        int
+			method      string
+			alias       string
+			name        string
+			mPath       string
+			description string
+		)
+
+		mPath = t.MethodPath(v.Name)
+		menu = 0
+		method = strings.ToUpper(v.RawKit.Conf.UrlMethod)
+		alias = v.Annotation()
+		name = strings.Join([]string{strings.Trim(t.BasePath(), "/"), v.Name, method}, ".")
+		description = v.Annotation()
+		id = t.hashToID(name)
+		sql := fmt.Sprintf(`INSERT INTO sys_permission (id, parent_id, icon, menu, method, alias, name, path, description,created_at, updated_at) VALUES (%v, %v, '%v', %v, '%v', '%v', '%v', '%v', '%v', '%v', '%v');`,
+			id, parentID, icon, menu, method, strings.TrimSpace(alias), name, mPath, strings.TrimSpace(description), time.Now().Format("2006-01-02 15:04:05"), time.Now().Format("2006-01-02 15:04:05"))
+
+		sqls = append(sqls, sql)
+	}
+
+	return strings.Join(sqls, "\n")
 }
 
 // Import generates an import statement using a list of imports from the source file
@@ -104,6 +166,19 @@ type TemplateInputInterface struct {
 	// Methods name keyed map of method information
 	Methods map[string]Method
 	Doc     *ast.CommentGroup
+}
+
+func (t TemplateInputInterface) Annotation() string {
+	if t.Doc == nil {
+		return ""
+	}
+	for _, c := range t.Doc.List {
+		docFormat := DocFormat(c.Text)
+		if strings.HasPrefix(docFormat, "// "+t.Name) {
+			return strings.TrimPrefix(docFormat, "// "+t.Name)
+		}
+	}
+	return strings.TrimPrefix(DocFormat(t.Doc.List[0].Text), "// ")
 }
 
 func (t TemplateInputInterface) Tags() string {

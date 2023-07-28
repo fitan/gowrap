@@ -14,6 +14,13 @@ type FilterRequest struct {
 type Match struct {
 }
 
+func (m Match) Where() (res map[string]interface{}) {
+	// TODO
+	return
+}
+
+
+
 func (m Match) DTO() (res *types.{{$.Vars.objName}})  {
 	// TODO
 	return

@@ -11,7 +11,7 @@ type Middleware func(Service) Service
 //go:generate gowrap gen -g -p ./ -i Service -bt "ce_log:logging.go ce_trace:tracing.go"
 type Service interface {
 	Create(ctx context.Context, v types.{{$.Vars.objName}}) (err error)
-	List(ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}}) (list []types.{{$.Vars.objName}}, total int64, err error)
+	List(ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}}, where map[string]interface{}) (list []types.{{$.Vars.objName}}, total int64, err error)
 	Delete(ctx context.Context, uuid string) (err error)
 	Update(ctx context.Context, uuid string, v types.{{$.Vars.objName}}) (err error)
 	Get(ctx context.Context, uuid string) (v types.{{$.Vars.objName}}, err error)
@@ -32,7 +32,7 @@ func (s *service) Create(ctx context.Context, v types.{{$.Vars.objName}}) (err e
 }
 
 func (s *service) List(
-	ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}},
+	ctx context.Context, page int, pageSize int, order string, filter *types.{{$.Vars.objName}}, where map[string]interface{},
 ) (list []types.{{$.Vars.objName}}, total int64, err error) {
 	tx := s.db.WithContext(ctx).Model(&types.{{$.Vars.objName}}{})
 
@@ -45,6 +45,10 @@ func (s *service) List(
 	if filter != nil {
 		tx.Where(filter)
 	}
+
+	for k, v := range where {
+    	tx.Where(k, v)
+    }
 
 	err = tx.Count(&total).Error
 	if err != nil {

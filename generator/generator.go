@@ -84,7 +84,7 @@ func (t TemplateInputInterface) CEPermissionSql() string {
 	parentMenu = 1
 	parentMethod = "GET"
 	parentAlias = t.Annotation()
-	parentName = strings.ToLower(strings.Join([]string{"menu", strings.Replace(t.BasePath(), "/", ".", -1), t.Name}, "."))
+	parentName = strings.ToLower(strings.Join([]string{"menu", strings.Trim(strings.Replace(t.BasePath(), "/", ".", -1), "."), t.Name}, "."))
 	parentPath = t.BasePath() + "/index"
 	parentDescription = t.Annotation()
 	parentID = t.hashToID(parentName)
@@ -108,7 +108,7 @@ func (t TemplateInputInterface) CEPermissionSql() string {
 		menu = 0
 		method = strings.ToUpper(v.RawKit.Conf.UrlMethod)
 		alias = v.Annotation()
-		name = strings.ToLower(strings.Join([]string{strings.Replace(t.BasePath(), "/", ".", -1), v.Name, method}, "."))
+		name = strings.Trim(strings.ToLower(strings.Join([]string{strings.Replace(t.BasePath(), "/", ".", -1), v.Name, method}, ".")), ".")
 		description = v.Annotation()
 		id = t.hashToID(name)
 		sql := fmt.Sprintf(`INSERT INTO sys_permission (id, parent_id, icon, menu, method, alias, name, path, description,created_at, updated_at) VALUES (%v, %v, '%v', %v, '%v', '%v', '%v', '%v', '%v', '%v', '%v');`,

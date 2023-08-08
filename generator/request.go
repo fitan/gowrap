@@ -299,15 +299,15 @@ func (k *KitRequest) Validate() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	list = append(
 		list,
-		jen.List(jen.Id("validRes"), jen.Id("err")).Op(":=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
+		jen.List(jen.Id("_"), jen.Id("err")).Op("=").Id("valid").Dot("ValidateStruct").Call(jen.Id("req")),
 		jen.If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("valid.ValidateStruct")),
 			jen.Return(),
 		),
-		jen.If(jen.Id("!validRes")).Block(
-			jen.Err().Op("=").Id("fmt.Errorf").Call(jen.Lit("valid false")),
-			jen.Return(),
-		),
+		//jen.If(jen.Id("!validRes")).Block(
+		//	jen.Err().Op("=").Id("fmt.Errorf").Call(jen.Lit("valid false")),
+		//	jen.Return(),
+		//),
 	)
 	return list
 }
@@ -420,7 +420,7 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 		varBind := jen.Id("r.URL.Query().Get").Call(jen.Lit(v.ParamName))
 
 		if !(v.ParamType == "basic" && v.BasicType == "string") {
-			castCode, err := CastMap(v.ParamNameAlias(), v.ParamType, v.ParamTypeName, varBind)
+			castCode, err := CastMap(v.XType, v.ParamNameAlias(), v.ParamType, v.ParamTypeName, varBind)
 			if err != nil {
 				panic(err)
 			}
@@ -473,9 +473,10 @@ func (k *KitRequest) BindPathParam() []jen.Code {
 func (k *KitRequest) BindFormParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	if len(k.Form) != 0 {
-		parse := jen.Id("r.").Id("ParseMultipartForm(32 << 20)").Line().
+		parse := jen.Id("err").Op("=").Id("r.").Id("ParseMultipartForm(32 << 20)").Line().
 			If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("r.ParseMultipartForm")),
+			jen.Return(),
 		)
 		list = append(list, parse)
 	}
@@ -489,7 +490,7 @@ func (k *KitRequest) BindFormParam() []jen.Code {
 
 		if tID == "interface{io.Reader; io.ReaderAt; io.Seeker; io.Closer}" {
 			code := jen.Id(v.ParamNameAlias() + ", _, err").Op("=").Id("r.FormFile").Call(jen.Lit(v.ParamName)).Line()
-			code = code.If(jen.Err().Op("!=").Nil()).Block(
+			code = code.If(jen.Err().Op("!=").Nil().Op("&&").Id("!errors.Is").Call(jen.Id("err"), jen.Qual("net/http", "ErrMissingFile"))).Block(
 				jen.Id("err").Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("FormFile")),
 				jen.Return(),
 			)
@@ -511,6 +512,13 @@ func (k *KitRequest) BindFormParam() []jen.Code {
 			if v.XType.BasicType.Kind() == types.String {
 				code := jen.Id(v.ParamNameAlias()).Op("=").Id("r.FormValue").Call(jen.Lit(v.ParamName)).Line()
 				list = append(list, code)
+				continue
+			} else {
+				code, err := CastMap(v.XType, v.ParamNameAlias(), v.ParamType, v.ParamTypeName, jen.Id("r.FormValue").Call(jen.Lit(v.ParamName)))
+				if err != nil {
+					panic("not support form param type " + v.ParamNameAlias() + "tID: " + tID)
+				}
+				list = append(list, code...)
 				continue
 			}
 		}
@@ -851,7 +859,7 @@ func UrlValues(paramName, t, paramTypeName string) (res []jen.Code, err error) {
 	return
 }
 
-func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
+func CastMap(p *xtype.Type, paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
 	if t == "slice" && paramTypeName == "string" {
 		res = append(res, jen.Id(paramName).Op("=").Id("strings.Split").Call(code, jen.Lit(",")))
 		return
@@ -883,11 +891,19 @@ func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code,
 		"basic.time.Duration": "cast.ToDurationE",
 	}
 	var ok bool
+	var hasType bool
 	mKey := t + "." + paramTypeName
 	fnStr, ok := m[mKey]
 	if !ok {
-		err = fmt.Errorf("CastMap not found %s %s", t, paramTypeName)
-		return
+		hasType = true
+		//err = fmt.Errorf("CastMap not found %s %s", t, paramTypeName)
+		//spew.Dump(p)
+		//return
+		fnStr, ok = m[t+"."+p.BasicType.String()]
+		if !ok {
+			err = fmt.Errorf("CastMap not found %s %s", t, paramTypeName)
+			return
+		}
 	}
 
 	paramStr := paramName + "Str"
@@ -904,15 +920,33 @@ func CastMap(paramName, t, paramTypeName string, code jen.Code) (res []jen.Code,
 		paramStrCode = jen.Id("cast.ToInt64").Call(paramStrCode)
 	}
 
-	ifParamStr := jen.If(jen.Id(paramStr).Op("!=").Lit("")).Block(
-		jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(paramStrCode),
-		// if err != nil {
-		// 	return err
-		// }
-		jen.If(jen.Err().Op("!=").Nil()).Block(
-			jen.Return(),
-		),
-	)
+	ifParamStr := jen.If(jen.Id(paramStr).Op("!=").Lit("")).BlockFunc(func(group *jen.Group) {
+		if hasType {
+			group.List(jen.Id(paramName+"Asser"), jen.Id(paramName+"Err")).Op(":=").Id(fnStr).Call(paramStrCode).Line()
+			group.If(jen.Id(paramName+"Err").Op("!=").Nil()).Block(
+				jen.Err().Op("=").Id(paramName+"Err"),
+				jen.Return(),
+			)
+			group.Id(paramName).Op("=").Id(paramTypeName).Call(jen.Id(paramName + "Asser"))
+		} else {
+			group.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(paramStrCode).Line()
+			group.If(jen.Err().Op("!=").Nil()).Block(
+				jen.Return(),
+			)
+		}
+	})
+	//(
+	//	jen.BlockFunc(func(group *jen.Group) {
+	//		group
+	//	}),
+	//	jen.List(jen.Id(paramName), jen.Err()).Op("=").Id(fnStr).Call(paramStrCode),
+	//	// if err != nil {
+	//	// 	return err
+	//	// }
+	//	jen.If(jen.Err().Op("!=").Nil()).Block(
+	//		jen.Return(),
+	//	),
+	//)
 
 	res = append(res, varParamStr, ifParamStr)
 

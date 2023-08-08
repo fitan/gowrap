@@ -7,6 +7,7 @@ import (
 	"go/types"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/packages"
+	"log"
 	"strings"
 )
 
@@ -42,6 +43,7 @@ func (g *GenFn) JenFile() *jen.File {
 func (g *GenFn) Run() {
 	for name, fn := range g.FuncList {
 		for _, plug := range g.Plugs {
+			log.Println("plug", plug.Name(), "lhs", fn.Lhs[0], "args", fn.Args[0])
 			err := plug.Gen(g.Pkg, name, fn)
 			if err != nil {
 				panic(err)
@@ -73,7 +75,9 @@ func (g *GenFn) Parse() {
 
 				if as, ok := c.Parent().(*ast.AssignStmt); ok {
 					if as.Tok.String() == "=" {
+						log.Println("lhs", as.Lhs)
 						for _, l := range as.Lhs {
+							log.Println("for", l)
 							fn.Lhs = append(fn.Lhs, g.Pkg.TypesInfo.TypeOf(l))
 						}
 					} else {

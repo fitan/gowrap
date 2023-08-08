@@ -6,6 +6,7 @@ import (
 	"github.com/fitan/jennifer/jen"
 	"go/ast"
 	"golang.org/x/tools/go/packages"
+	"strconv"
 	"strings"
 )
 
@@ -72,13 +73,19 @@ func (e *Enum) Init() (err error) {
 					arg = strings.TrimSuffix(arg, `"`)
 
 					argSplit := strings.Split(arg, ":")
-					if len(argSplit) < 2 {
-						err = fmt.Errorf("enum arg error: %s", arg)
-						return
+					var key, value string
+					if len(argSplit) == 1 {
+						key = argSplit[1]
+						value = ""
+					} else if len(argSplit) >= 2 {
+						key = argSplit[0]
+						value = argSplit[1]
+					} else {
+						return fmt.Errorf("enum arg error: %s", arg)
 					}
 					args = append(args, Arg{
-						Key:   argSplit[0],
-						Value: argSplit[1],
+						Key:   key,
+						Value: value,
 					})
 				}
 			}
@@ -99,8 +106,8 @@ func (e *Enum) Gen() (codes []jen.Code, err error) {
 	}
 	codes = append(codes, e.Const()...)
 	codes = append(codes, e.Value()...)
-	codes = append(codes, e.Json()...)
-	codes = append(codes, e.GormSerialize()...)
+	//codes = append(codes, e.Json()...)
+	//codes = append(codes, e.GormSerialize()...)
 	codes = append(codes, e.String()...)
 	return
 }
@@ -108,24 +115,30 @@ func (e *Enum) Gen() (codes []jen.Code, err error) {
 func (e *Enum) Const() (codes []jen.Code) {
 	codes = append(codes, jen.Id("_").Op("=").Id("iota"))
 	for _, arg := range e.Args {
-		codes = append(codes, jen.Id(strings.ToTitle(arg.Key)))
+		codes = append(codes, jen.Id(strings.ToTitle(e.TypeName+"_"+arg.Key)))
 	}
 
-	return []jen.Code{jen.Const().Defs(codes...).Line().Line()}
+	aliasCode := jen.Const().DefsFunc(func(g *jen.Group) {
+		for _, arg := range e.Args {
+			g.Id(strings.ToUpper(e.TypeName + "_" + arg.Key + "alias")).Op("=").Lit(arg.Key)
+		}
+	}).Line().Line()
+
+	return []jen.Code{jen.Const().Defs(codes...).Line().Line(), aliasCode}
 }
 
 func (e *Enum) Value() (codes []jen.Code) {
-	varCode := jen.Var().Id("_" + e.TypeName + "Value").Op("=").Map(jen.String()).Id(e.TypeName).Values(jen.DictFunc(func(d jen.Dict) {
-		for _, arg := range e.Args {
-			d[jen.Lit(arg.Value)] = jen.Id(strings.ToTitle(arg.Key))
+	varCode := jen.Var().Id("_" + e.TypeName + "Value").Op("=").Map(jen.Int()).Id(e.TypeName).Values(jen.DictFunc(func(d jen.Dict) {
+		for index, arg := range e.Args {
+			d[jen.Id(strconv.Itoa(index+1))] = jen.Id(strings.ToTitle(e.TypeName + "_" + arg.Key))
 		}
 	})).Line().Line()
 
-	parseCode := jen.Func().Id("Parse"+e.TypeName).Params(jen.Id("name").String()).Params(jen.Id(e.TypeName), jen.Error()).Block(
-		jen.If(jen.Id("x").Op(",").Id("ok").Op(":=").Id("_"+e.TypeName+"Value").Index(jen.Id("name")), jen.Id("ok")).Block(
+	parseCode := jen.Func().Id("Parse"+e.TypeName).Params(jen.Id("id").Int()).Params(jen.Id(e.TypeName), jen.Error()).Block(
+		jen.If(jen.Id("x").Op(",").Id("ok").Op(":=").Id("_"+e.TypeName+"Value").Index(jen.Id("id")), jen.Id("ok")).Block(
 			jen.Return(jen.Id("x"), jen.Nil()),
 		),
-		jen.Return(jen.Lit(0), jen.Qual("fmt", "Errorf").Call(jen.Lit("unknown enum value: %s"), jen.Id("name"))),
+		jen.Return(jen.Lit(0), jen.Qual("fmt", "Errorf").Call(jen.Lit("unknown enum value: %s"), jen.Id("id"))),
 	).Line().Line()
 
 	codes = append(codes, varCode, parseCode)
@@ -137,7 +150,7 @@ func (e *Enum) String() (code []jen.Code) {
 		jen.Switch(jen.Id("e")).BlockFunc(func(g *jen.Group) {
 			for argIndex, arg := range e.Args {
 				g.Case(jen.Lit(argIndex + 1)).Block(
-					jen.Return(jen.Lit(arg.Value)),
+					jen.Return(jen.Id(strings.ToUpper(e.TypeName + "_" + arg.Key + "alias"))),
 				)
 			}
 		}),
@@ -150,9 +163,9 @@ func (e *Enum) String() (code []jen.Code) {
 func (e *Enum) Json() (codes []jen.Code) {
 	marshalCode := jen.Func().Params(jen.Id("e").Id("*"+e.TypeName)).Id("MarshalJSON").Params().Params(jen.Id("[]byte"), jen.Id("error")).Block(
 		jen.Switch(jen.Id("*e")).BlockFunc(func(g *jen.Group) {
-			for _, arg := range e.Args {
-				g.Case(jen.Id(strings.ToTitle(arg.Key))).Block(
-					jen.Return(jen.Index().Byte().Call(jen.Id("`\""+arg.Value+"\"`")), jen.Nil()),
+			for index, arg := range e.Args {
+				g.Case(jen.Id(strings.ToTitle(e.TypeName + "_" + arg.Key))).Block(
+					jen.Return(jen.Index().Byte().Call(jen.Id("`"+strconv.Itoa(index+1)+"`")), jen.Nil()),
 				)
 			}
 		}),
@@ -160,19 +173,16 @@ func (e *Enum) Json() (codes []jen.Code) {
 	).Line().Line()
 
 	unmarshalCode := jen.Func().Params(jen.Id("e").Id("*"+e.TypeName)).Id("UnmarshalJSON").Params(jen.Id("data").Index().Byte()).Params(jen.Id("error")).Block(
-		jen.Id("s").Op(":=").Id("string").Call(jen.Id("data")),
-		jen.If(
-			jen.Qual("strings", "HasPrefix").Call(jen.Id("s"), jen.Id("`\"`")).
-				Op("&&").Qual("strings", "HasSuffix").Call(jen.Id("s"), jen.Id("`\"`")),
-		).Block(
-			jen.Id("v").Op(",").Id("err").Op(":=").Id("Parse"+e.TypeName).Call(jen.Qual("strings", "Trim").Call(jen.Id("s"), jen.Id("`\"`"))),
-			jen.If(jen.Id("err").Op("!=").Nil()).Block(
-				jen.Return(jen.Id("err")),
-			),
-			jen.Id("*e").Op("=").Id("v"),
-			jen.Return(jen.Nil()),
+		jen.List(jen.Id("dataInt"), jen.Id("err")).Op(":=").Id("strconv.Atoi").Call(jen.Id("string").Call(jen.Id("data"))),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Return(jen.Qual("github.com/pkg/errors", "Wrap").Call(jen.Id("err"), jen.Lit("strconv.Atoi"))),
 		),
-		jen.Return(jen.Qual("fmt", "Errorf").Call(jen.Lit("unknown enum value: %v"), jen.Id("s"))),
+		jen.List(jen.Id("v"), jen.Id("err")).Op(":=").Id("Parse"+e.TypeName).Call(jen.Id("dataInt")),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Return(jen.Id("err")),
+		),
+		jen.Id("*e").Op("=").Id("v"),
+		jen.Return(jen.Nil()),
 	).Line().Line()
 
 	codes = append(codes, marshalCode, unmarshalCode)

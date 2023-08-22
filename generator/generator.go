@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
-	"github.com/fitan/jennifer/jen"
 	"github.com/pkg/errors"
 	"go/ast"
 	"go/parser"
@@ -37,11 +36,11 @@ type Generator struct {
 	dstPackage     *packages.Package
 	genTemplates   []genTemplate
 	methods        methodsList
-	GenFn          *GenFn
-	Enum           *Enum
-	doc            *ast.CommentGroup
-	interfaceType  string
-	localPrefix    string
+	//GenFn          *GenFn
+	Enum          *Enum
+	doc           *ast.CommentGroup
+	interfaceType string
+	localPrefix   string
 }
 
 type genTemplate struct {
@@ -57,8 +56,8 @@ type TemplateInputs struct {
 	Vars    map[string]interface{}
 	Imports []string
 
-	GenFn *GenFn
-	Enum  *Enum
+	//GenFn *GenFn
+	Enum *Enum
 }
 
 func (t TemplateInputInterface) hashToID(s string) int64 {
@@ -342,104 +341,104 @@ func NewGeneratorInit(ops []Options) ([]*Generator, error) {
 	return gs, nil
 }
 
-func NewGeneratorFn(ops []Options) ([]*Generator, error) {
-	if len(ops) == 0 {
-		return nil, nil
-	}
-
-	globalOption = ops[0]
-
-	gs := make([]*Generator, 0, 0)
-	for _, options := range ops {
-		if options.Funcs == nil {
-			options.Funcs = make(template.FuncMap)
-		}
-
-		headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse(options.HeaderTemplate)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse header template")
-		}
-
-		bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse body template")
-		}
-
-		if options.Vars == nil {
-			options.Vars = make(map[string]interface{})
-		}
-
-		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
-
-		fs := token.NewFileSet()
-
-		//if srcPackage == nil {
-		//	srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
-		//	if err != nil {
-		//		return nil, errors.Wrap(err, "failed to load source package")
-		//	}
-		//}
-
-		dstPackagePath := filepath.Dir(options.OutputFile)
-		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
-			dstPackagePath = "./" + dstPackagePath
-		}
-
-		//if dstPackage == nil {
-		//	dstPackage, err = loadDestinationPackage(dstPackagePath)
-		//	if err != nil {
-		//		return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
-		//	}
-		//}
-
-		if srcPackageAST == nil {
-			srcPackageAST, err = pkg.AST(fs, options.SourceLoadPkg)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse source package")
-			}
-		}
-
-		interfaceType := options.SourceLoadPkg.Name + "." + options.InterfaceName
-		if options.SourceLoadPkg.PkgPath == options.SourceLoadPkg.PkgPath {
-			interfaceType = options.InterfaceName
-			srcPackageAST.Name = ""
-		} else {
-			if options.SourcePackageAlias != "" {
-				srcPackageAST.Name = options.SourcePackageAlias
-			}
-
-			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
-		}
-
-		for _, f := range srcPackageAST.Files {
-			importSpecs = append(importSpecs, f.Imports...)
-		}
-
-		options.Imports = append(options.Imports, makeImports(importSpecs)...)
-
-		jenF := jen.NewFile("genfn")
-
-		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnCopy())
-		genFn.Parse()
-		genFn.Run()
-
-		gs = append(gs, &Generator{
-			Options:        options,
-			headerTemplate: headerTemplate,
-			bodyTemplate:   bodyTemplate,
-			srcPackage:     options.SourceLoadPkg,
-			dstPackage:     options.SourceLoadPkg,
-			interfaceType:  interfaceType,
-			methods:        methods,
-			GenFn:          genFn,
-			doc:            doc,
-			localPrefix:    options.LocalPrefix,
-			genTemplates:   make([]genTemplate, 0, 0),
-		})
-
-	}
-	return gs, nil
-}
+//func NewGeneratorFn(ops []Options) ([]*Generator, error) {
+//	if len(ops) == 0 {
+//		return nil, nil
+//	}
+//
+//	globalOption = ops[0]
+//
+//	gs := make([]*Generator, 0, 0)
+//	for _, options := range ops {
+//		if options.Funcs == nil {
+//			options.Funcs = make(template.FuncMap)
+//		}
+//
+//		headerTemplate, err := template.New("header").Funcs(options.Funcs).Parse(options.HeaderTemplate)
+//		if err != nil {
+//			return nil, errors.Wrap(err, "failed to parse header template")
+//		}
+//
+//		bodyTemplate, err := template.New("body").Funcs(options.Funcs).Parse(options.BodyTemplate)
+//		if err != nil {
+//			return nil, errors.Wrap(err, "failed to parse body template")
+//		}
+//
+//		if options.Vars == nil {
+//			options.Vars = make(map[string]interface{})
+//		}
+//
+//		options.Vars["instance"] = makeInstance(globalOption.RunCmdDir)
+//
+//		fs := token.NewFileSet()
+//
+//		//if srcPackage == nil {
+//		//	srcPackage, err = pkg.Load(options.SourcePackage, options.PkgNeedSyntax)
+//		//	if err != nil {
+//		//		return nil, errors.Wrap(err, "failed to load source package")
+//		//	}
+//		//}
+//
+//		dstPackagePath := filepath.Dir(options.OutputFile)
+//		if !strings.HasPrefix(dstPackagePath, "/") && !strings.HasPrefix(dstPackagePath, "./") {
+//			dstPackagePath = "./" + dstPackagePath
+//		}
+//
+//		//if dstPackage == nil {
+//		//	dstPackage, err = loadDestinationPackage(dstPackagePath)
+//		//	if err != nil {
+//		//		return nil, errors.Wrapf(err, "failed to load destination package: %s", dstPackagePath)
+//		//	}
+//		//}
+//
+//		if srcPackageAST == nil {
+//			srcPackageAST, err = pkg.AST(fs, options.SourceLoadPkg)
+//			if err != nil {
+//				return nil, errors.Wrap(err, "failed to parse source package")
+//			}
+//		}
+//
+//		interfaceType := options.SourceLoadPkg.Name + "." + options.InterfaceName
+//		if options.SourceLoadPkg.PkgPath == options.SourceLoadPkg.PkgPath {
+//			interfaceType = options.InterfaceName
+//			srcPackageAST.Name = ""
+//		} else {
+//			if options.SourcePackageAlias != "" {
+//				srcPackageAST.Name = options.SourcePackageAlias
+//			}
+//
+//			options.Imports = append(options.Imports, `"`+options.SourceLoadPkg.PkgPath+`"`)
+//		}
+//
+//		for _, f := range srcPackageAST.Files {
+//			importSpecs = append(importSpecs, f.Imports...)
+//		}
+//
+//		options.Imports = append(options.Imports, makeImports(importSpecs)...)
+//
+//		jenF := jen.NewFile("genfn")
+//
+//		genFn := NewGenFn(options.SourceLoadPkg, jenF, NewGenFnCopy())
+//		genFn.Parse()
+//		genFn.Run()
+//
+//		gs = append(gs, &Generator{
+//			Options:        options,
+//			headerTemplate: headerTemplate,
+//			bodyTemplate:   bodyTemplate,
+//			srcPackage:     options.SourceLoadPkg,
+//			dstPackage:     options.SourceLoadPkg,
+//			interfaceType:  interfaceType,
+//			methods:        methods,
+//			GenFn:          genFn,
+//			doc:            doc,
+//			localPrefix:    options.LocalPrefix,
+//			genTemplates:   make([]genTemplate, 0, 0),
+//		})
+//
+//	}
+//	return gs, nil
+//}
 
 // NewGenerator returns Generator initialized with options
 func NewGenerator(ops []Options) ([]*Generator, error) {
@@ -702,8 +701,8 @@ func (g Generator) Generate(fix bool) error {
 		Imports: g.Options.Imports,
 		Vars:    g.Options.Vars,
 
-		GenFn: g.GenFn,
-		Enum:  g.Enum,
+		//GenFn: g.GenFn,
+		Enum: g.Enum,
 	})
 	if err != nil {
 		return err

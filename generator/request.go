@@ -9,6 +9,7 @@ import (
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"reflect"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -37,15 +38,31 @@ type KitRequest struct {
 	RequestIsNil  bool
 
 	NamedMap map[string]string
-	RawQuery map[string]RequestParam
-	Query    map[string]RequestParam
-	Path     map[string]RequestParam
-	Body     map[string]RequestParam
-	File     map[string]RequestParam
-	Header   map[string]RequestParam
-	Ctx      map[string]RequestParam
-	Form     map[string]RequestParam
-	Empty    map[string]RequestParam
+	RawQuery OrderRequestParamMap
+	Query    OrderRequestParamMap
+	Path     OrderRequestParamMap
+	Body     OrderRequestParamMap
+	File     OrderRequestParamMap
+	Header   OrderRequestParamMap
+	Ctx      OrderRequestParamMap
+	Form     OrderRequestParamMap
+	Empty    OrderRequestParamMap
+}
+
+type OrderRequestParamMap map[string]RequestParam
+
+func (o OrderRequestParamMap) OrderSlice() (res []RequestParam) {
+	keys := make([]string, 0, len(o))
+	for k := range o {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+	for _, k := range keys {
+		res = append(res, o[k])
+	}
+
+	return res
 }
 
 func NewKitRequest(pkg *packages.Package, serviceName, requestName string, requestIsBody bool) *KitRequest {
@@ -55,15 +72,15 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 		RequestName:   requestName,
 		RequestIsBody: requestIsBody,
 		NamedMap:      make(map[string]string),
-		RawQuery:      make(map[string]RequestParam),
-		Query:         make(map[string]RequestParam),
-		Path:          make(map[string]RequestParam),
-		Body:          make(map[string]RequestParam),
-		File:          make(map[string]RequestParam),
-		Header:        make(map[string]RequestParam),
-		Ctx:           make(map[string]RequestParam),
-		Form:          make(map[string]RequestParam),
-		Empty:         make(map[string]RequestParam),
+		RawQuery:      make(OrderRequestParamMap),
+		Query:         make(OrderRequestParamMap),
+		Path:          make(OrderRequestParamMap),
+		Body:          make(OrderRequestParamMap),
+		File:          make(OrderRequestParamMap),
+		Header:        make(OrderRequestParamMap),
+		Ctx:           make(OrderRequestParamMap),
+		Form:          make(OrderRequestParamMap),
+		Empty:         make(OrderRequestParamMap),
 	}
 }
 
@@ -272,24 +289,24 @@ func (k *KitRequest) DecodeRequest() (s string) {
 
 func (k *KitRequest) DefineVal() []jen.Code {
 	listCode := make([]jen.Code, 0, 0)
-	for _, v := range k.RawQuery {
+	for _, v := range k.RawQuery.OrderSlice() {
 		listCode = append(listCode, v.ToVal())
 	}
-	for _, v := range k.Query {
+	for _, v := range k.Query.OrderSlice() {
 		listCode = append(listCode, v.ToVal())
 	}
-	for _, v := range k.Path {
+	for _, v := range k.Path.OrderSlice() {
 		listCode = append(listCode, v.ToVal())
 	}
-	for _, v := range k.Header {
-		listCode = append(listCode, v.ToVal())
-	}
-
-	for _, v := range k.Form {
+	for _, v := range k.Header.OrderSlice() {
 		listCode = append(listCode, v.ToVal())
 	}
 
-	for _, v := range k.Ctx {
+	for _, v := range k.Form.OrderSlice() {
+		listCode = append(listCode, v.ToVal())
+	}
+
+	for _, v := range k.Ctx.OrderSlice() {
 		listCode = append(listCode, v.ToVal())
 	}
 	return listCode
@@ -337,7 +354,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 		panic("body param count error " + fmt.Sprint(len(k.Body)))
 	}
 
-	for _, v := range k.Body {
+	for _, v := range k.Body.OrderSlice() {
 		if v.ParamTypeName == "[]byte" {
 			decode := jen.List(jen.Id("req."+v.ParamPath), jen.Id("err")).Op("=").Qual("io/ioutil", "ReadAll").Call(jen.Id("r.Body"))
 			listCode = append(listCode, decode, returnCode)
@@ -352,7 +369,7 @@ func (k *KitRequest) BindBodyParam() []jen.Code {
 
 func (k *KitRequest) BindFileParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
-	for _, v := range k.File {
+	for _, v := range k.File.OrderSlice() {
 		list = append(list, jen.List(jen.Id("_"), jen.Id("req."+v.ParamPath), jen.Id("err")).Op("=").Id("r.FormFile").Call(jen.Lit(v.ParamName)).Line().
 			If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Id("errors.Wrap").Call(jen.Id("err"), jen.Lit("r.FormFile")),
@@ -364,7 +381,7 @@ func (k *KitRequest) BindFileParam() []jen.Code {
 func (k *KitRequest) BindHeaderParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 
-	for _, v := range k.Header {
+	for _, v := range k.Header.OrderSlice() {
 		//r.Header.Get("project")
 		varBind := jen.Id("r.Header.Get").Call(jen.Lit(v.ParamName))
 		if v.BasicType != "string" {
@@ -395,7 +412,7 @@ func (k *KitRequest) BindRawQueryPram() []jen.Code {
 	if len(k.RawQuery) == 0 {
 		return list
 	}
-	for _, v := range k.RawQuery {
+	for _, v := range k.RawQuery.OrderSlice() {
 		urlValues, err := UrlValues(v.ParamName, v.ParamType, v.ParamTypeName)
 		if err != nil {
 			panic(err)
@@ -415,7 +432,7 @@ func (k *KitRequest) BindQueryParam() []jen.Code {
 		return list
 	}
 
-	for _, v := range k.Query {
+	for _, v := range k.Query.OrderSlice() {
 		//r.URL.Query().Get("project")
 		varBind := jen.Id("r.URL.Query().Get").Call(jen.Lit(v.ParamName))
 
@@ -445,7 +462,7 @@ func (k *KitRequest) BindPathParam() []jen.Code {
 	// vars := mux.Vars(r)
 	vars := jen.Id("vars").Op(":=").Qual("github.com/gorilla/mux", "Vars").Call(jen.Id("r"))
 	list = append(list, vars)
-	for _, v := range k.Path {
+	for _, v := range k.Path.OrderSlice() {
 		// vars["id"]
 		varBind := jen.Id("vars").Index(jen.Lit(v.ParamName))
 		if v.BasicType != "string" {
@@ -480,7 +497,7 @@ func (k *KitRequest) BindFormParam() []jen.Code {
 		)
 		list = append(list, parse)
 	}
-	for _, v := range k.Form {
+	for _, v := range k.Form.OrderSlice() {
 		tID := v.XType.TypeAsJenComparePkgNameString(k.pkg)
 		if tID == "[]*multipart.FileHeader" {
 			code := jen.Id(v.ParamNameAlias()).Op("=").Id("r.MultipartForm.File").Index(jen.Lit(v.ParamName)).Line()
@@ -541,7 +558,7 @@ func (k *KitRequest) BindFormParam() []jen.Code {
 
 func (k *KitRequest) BindCtxParam() []jen.Code {
 	list := make([]jen.Code, 0, 0)
-	for _, v := range k.Ctx {
+	for _, v := range k.Ctx.OrderSlice() {
 		var ctxKey string
 
 		if v.ParamDoc == nil {
@@ -576,31 +593,31 @@ func (k *KitRequest) BindCtxParam() []jen.Code {
 
 func (k *KitRequest) BindRequest() []jen.Code {
 	list := make([]jen.Code, 0, 0)
-	for _, v := range k.Form {
+	for _, v := range k.Form.OrderSlice() {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
 		list = append(list, reqBindVal)
 	}
 
-	for _, v := range k.RawQuery {
+	for _, v := range k.RawQuery.OrderSlice() {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
 		list = append(list, reqBindVal)
 	}
-	for _, v := range k.Path {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
-		list = append(list, reqBindVal)
-	}
-
-	for _, v := range k.Query {
+	for _, v := range k.Path.OrderSlice() {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
 		list = append(list, reqBindVal)
 	}
 
-	for _, v := range k.Header {
+	for _, v := range k.Query.OrderSlice() {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
 		list = append(list, reqBindVal)
 	}
 
-	for _, v := range k.Ctx {
+	for _, v := range k.Header.OrderSlice() {
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		list = append(list, reqBindVal)
+	}
+
+	for _, v := range k.Ctx.OrderSlice() {
 		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
 		list = append(list, reqBindVal)
 	}

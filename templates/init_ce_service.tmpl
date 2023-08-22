@@ -12,6 +12,7 @@ import (
 
 type Middleware func(Service) Service
 
+// @Service  todo
 // @tags {{$.Vars.pkgName}}
 // @basePath /{{$.Vars.pkgName}}
 //
@@ -24,7 +25,7 @@ type Service interface {
 	// Update 更新
 	// @kit-http /{uuid} PUT
 	// @kit-http-request UpdateRequest
-	Update(ctx context.Context, uuid string, body CreateRequest) (res bool, err error)
+	Update(ctx context.Context, updateRequest UpdateRequest) (res bool, err error)
 	// Delete 删除
 	// @kit-http /{uuid} DELETE
 	// @kit-http-request DeleteRequest
@@ -95,8 +96,13 @@ func (s *service) Create(ctx context.Context, createRequest CreateRequest) (res 
 	return true, nil
 }
 
-func (s *service) Update(ctx context.Context, uuid string, createRequest CreateRequest) (res bool, err error) {
-	err = s.repository.{{$.Vars.objName}}().Update(ctx, uuid, createRequest.DTO())
+func (s *service) Update(ctx context.Context, updateRequest UpdateRequest) (res bool, err error) {
+    data, err := s.repository.{{$.Vars.objName}}().Get(ctx, updateRequest.UUID)
+    if err != nil {
+    	err = errors.Wrap(err, "{{$.Vars.objName}}.Get")
+    	return
+    }
+	err = s.repository.{{$.Vars.objName}}().Update(ctx, updateRequest.UUID, updateRequest.DTO(data))
 	if err != nil {
 		err = errors.Wrap(err, "{{$.Vars.objName}}.Update")
 		return

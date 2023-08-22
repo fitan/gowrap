@@ -4,6 +4,9 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"github.com/fitan/genx/gen"
+	"github.com/fitan/genx/plugs/enum"
+	"golang.org/x/tools/go/packages"
 	"io"
 	"io/ioutil"
 	"log"
@@ -144,30 +147,44 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		return nil
 	}
 
-	if gc.genFn != "" {
-		ops, err = gc.getFnOptions()
-		if err != nil {
-			return err
-		}
+	//if gc.genFn != "" {
+	//	ops, err = gc.getFnOptions()
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	gens, err := generator.NewGeneratorFn(ops)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	for _, gen := range gens {
+	//		err := gen.Generate(true)
+	//		if err != nil {
+	//			return err
+	//		}
+	//	}
+	//	return nil
+	//}
 
-		gens, err := generator.NewGeneratorFn(ops)
-		if err != nil {
-			return err
-		}
-
-		for _, gen := range gens {
-			err := gen.Generate(true)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+	sourcePackage, err := pkg.Load(gc.sourcePkg, gc.pkgNeedSyntax)
+	if err != nil {
+		panic("failed to load source package")
 	}
 
-	ops, err = gc.getOptions()
+	ops, err = gc.getOptions(sourcePackage)
 	if err != nil {
 		return err
 	}
+
+	x, err := gen.NewXByPkg(sourcePackage)
+	if err != nil {
+		panic(err)
+	}
+
+	x.RegTypeSpec(&enum.Plug{})
+
+	x.Gen()
 
 	t1 := time.Now()
 	gens, err := generator.NewGenerator(ops)
@@ -209,9 +226,9 @@ var (
 )
 
 func (gc *GenerateCommand) checkFlags() error {
-	if gc.batchTemplate == "" && gc.initType == "" {
-		return errNoTemplate
-	}
+	//if gc.batchTemplate == "" && gc.initType == "" {
+	//	return errNoTemplate
+	//}
 
 	if gc.initType != "" && gc.initName == "" {
 		return errInitMustName
@@ -402,17 +419,16 @@ func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]
 	return ops, err
 }
 
-func (gc *GenerateCommand) getOptions() ([]generator.Options, error) {
+func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package) ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
-
-	sourcePackage, err := pkg.Load(gc.sourcePkg, gc.pkgNeedSyntax)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load source package")
-	}
 
 	cmdDir, err := os.Getwd()
 	if err != nil {
 		return nil, errors.Wrap(err, "os.Getwd")
+	}
+
+	if gc.batchTemplate == "" {
+		return ops, nil
 	}
 
 	btl := strings.Split(gc.batchTemplate, " ")

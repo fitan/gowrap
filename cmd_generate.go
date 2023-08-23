@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/fitan/genx/gen"
 	"github.com/fitan/genx/plugs/enum"
+	"github.com/fitan/genx/plugs/mapstruct"
 	"golang.org/x/tools/go/packages"
 	"io"
 	"io/ioutil"
@@ -183,6 +184,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 	}
 
 	x.RegTypeSpec(&enum.Plug{})
+	x.RegFunc(&mapstruct.Plug{})
 
 	x.Gen()
 

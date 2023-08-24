@@ -184,7 +184,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 	}
 
 	x.RegTypeSpec(&enum.Plug{})
-	x.RegFunc(&mapstruct.Plug{})
+	x.RegCall(&mapstruct.Plug{})
 
 	x.Gen()
 

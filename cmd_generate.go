@@ -4,6 +4,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"github.com/fitan/genx/common"
 	"github.com/fitan/genx/gen"
 	"github.com/fitan/genx/plugs/enum"
 	"github.com/fitan/genx/plugs/mapstruct"
@@ -187,6 +188,9 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 	x.RegCall(&mapstruct.Plug{})
 
 	x.Gen()
+
+	record := make(map[string]*packages.Package, 0)
+	common.DepPkg(sourcePackage, record)
 
 	t1 := time.Now()
 	gens, err := generator.NewGenerator(ops)

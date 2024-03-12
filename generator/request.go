@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"golang.org/x/exp/slog"
 	"golang.org/x/tools/go/packages"
 	"reflect"
 	"sort"
@@ -204,6 +205,10 @@ func (k *KitRequest) ParamPath(paramName string) (res string) {
 	param, ok = k.Empty[paramName]
 	if ok {
 		return param.ParamPath
+	}
+
+	if paramName == "req" {
+		return ""
 	}
 
 	panic("param not found: " + paramName)
@@ -877,7 +882,8 @@ func UrlValues(paramName, t, paramTypeName string) (res []jen.Code, err error) {
 }
 
 func CastMap(p *xtype.Type, paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
-	if t == "slice" && paramTypeName == "string" {
+	slog.Info("t = %s , paramTypeName = %s", t, paramTypeName)
+	if t == "slice" && paramTypeName == "[]string" {
 		res = append(res, jen.Id(paramName).Op("=").Id("strings.Split").Call(code, jen.Lit(",")))
 		return
 	}
@@ -913,8 +919,6 @@ func CastMap(p *xtype.Type, paramName, t, paramTypeName string, code jen.Code) (
 	fnStr, ok := m[mKey]
 	if !ok {
 		hasType = true
-		//err = fmt.Errorf("CastMap not found %s %s", t, paramTypeName)
-		//spew.Dump(p)
 		//return
 		fnStr, ok = m[t+"."+p.BasicType.String()]
 		if !ok {

@@ -106,6 +106,9 @@ func (t TemplateInputInterface) CEPermissionSql() string {
 		mPath = t.MethodPath(v.Name)
 		menu = 0
 		method = strings.ToUpper(v.RawKit.Conf.UrlMethod)
+		if method == "" {
+			continue
+		}
 		alias = v.Annotation()
 		name = strings.Trim(strings.ToLower(strings.Join([]string{strings.Replace(t.BasePath(), "/", ".", -1), v.Name, method}, ".")), ".")
 		description = v.Annotation()
@@ -165,6 +168,17 @@ type TemplateInputInterface struct {
 	// Methods name keyed map of method information
 	Methods map[string]Method
 	Doc     *ast.CommentGroup
+}
+
+func (t TemplateInputInterface) KitServerOption() (res string) {
+	tagStr := "// @kit-server-option"
+	for _, v := range t.Doc.List {
+		docFormat := DocFormat(v.Text)
+		if strings.HasPrefix(docFormat, tagStr) {
+			return strings.Join(strings.Fields(strings.TrimPrefix(docFormat, tagStr)), ",")
+		}
+	}
+	return
 }
 
 func (t TemplateInputInterface) Annotation() string {

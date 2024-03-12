@@ -22,6 +22,10 @@ func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.Server
 		return ctx
 	}))
 
+	{{- if len $.Interface.KitServerOption}}
+	opts = append(opts, {{$.Interface.KitServerOption}})
+	{{- end}}
+
 	ems = append(ems, dmw...)
 
 	eps := NewEndpoint(s, map[string][]endpoint.Middleware{

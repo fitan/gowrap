@@ -7,6 +7,7 @@ import (
 	"github.com/fitan/genx/common"
 	"github.com/fitan/genx/gen"
 	"github.com/fitan/genx/plugs/enum"
+	"github.com/fitan/genx/plugs/gormq"
 	"github.com/fitan/genx/plugs/mapstruct"
 	"golang.org/x/tools/go/packages"
 	"io"
@@ -186,6 +187,7 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 
 	x.RegTypeSpec(&enum.Plug{})
 	x.RegCall(&mapstruct.Plug{})
+	x.RegStruct(&gormq.Plug{})
 
 	x.Gen()
 

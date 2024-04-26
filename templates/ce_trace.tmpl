@@ -13,6 +13,7 @@ type tracing struct {
 
 {{range $m := $.Interface.Methods}}
 func (s *tracing) {{$m.Declaration}} {
+	{{if $m.AcceptsContext}}
 	span, ctx := opentracing.StartSpanFromContextWithTracer(ctx, s.tracer, "{{$m.Name}}", opentracing.Tag{
 		Key:   string(ext.Component),
 		Value: "{{$.Vars.instance}}",
@@ -36,6 +37,7 @@ func (s *tracing) {{$m.Declaration}} {
 		{{end}}
 		span.Finish()
 	}()
+	{{end}}
 
 	{{if $m.HasResults}}
 	return s.next.{{$m.Call}}

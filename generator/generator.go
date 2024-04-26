@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/pkg"
 	"github.com/fitan/gowrap/printer"
 	"github.com/pkg/errors"
@@ -233,6 +234,16 @@ func (t TemplateInputInterface) EnableSwag(name string) bool {
 
 func (t TemplateInputInterface) HasMethodPath(name string) bool {
 	return t.Methods[name].RawKit.Conf.Url != ""
+}
+
+func (t TemplateInputInterface) ClientInterface() string {
+	return jen.Comment(t.Doc.Text()).Line().Type().Id("HttpClientI").InterfaceFunc(func(group *jen.Group) {
+		for _, v := range t.Methods {
+			if t.HasMethodPath(v.Name) {
+				group.Comment(strings.Join(v.Doc, "\n")).Line().Add(v.ClientInterfaceFunc())
+			}
+		}
+	}).GoString()
 }
 
 func (t TemplateInputInterface) MethodPath(name string) string {

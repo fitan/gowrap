@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/dave/jennifer/jen"
 	"go/ast"
+	"go/types"
 	"golang.org/x/tools/go/packages"
+	"regexp"
 	"strings"
 )
 
@@ -52,6 +54,214 @@ func (m Method) EnableSwag() bool {
 	}
 
 	return true
+}
+
+func (m Method) ClientStruct() (code []jen.Code, err error) {
+	code = make([]jen.Code, 0)
+	code = append(code,
+		jen.Type().Id(m.Name+"service").Struct(
+			jen.Id("prePath").String(),
+			jen.Id("opt").Index().Qual("github.com/go-kit/kit/transport/http", "ClientOption"),
+			jen.Id("decode").Id("func(i interface{}) func(ctx context.Context, res *http.Response) (response interface{}, err error)"),
+		),
+	)
+
+	return code, nil
+}
+
+func (m Method) ClientInterfaceFunc() jen.Code {
+
+	resultParams := make([]jen.Code, 0)
+	resultStruct := jen.Line()
+	if m.HasResultsExcludeErr() {
+		if len(m.ResultsExcludeErr()) == 1 {
+			resultParams = append(resultParams, jen.Id("res").Id(m.ResultsExcludeErr()[0].Type))
+		}
+
+		if len(m.ResultsExcludeErr()) > 1 {
+			resultParams = append(resultParams, jen.Id("res").Id(m.Name+"ClientResponse"))
+			resultStruct.Type().Id(m.Name + "ClientResponse").StructFunc(func(g *jen.Group) {
+				for _, v := range m.ResultsExcludeErr() {
+					g.Id(strings.ToUpper(string(v.Name[0])) + v.Name[1:]).Id(v.Type).Tag(map[string]string{"json": v.Name})
+				}
+			})
+
+		}
+	}
+	if m.ReturnsError {
+		resultParams = append(resultParams, jen.Id("err").Error())
+	}
+
+	return jen.Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.KitRequest.RequestName), jen.Id("opts").Id("[]kithttp.ClientOption")).Params(resultParams...)
+}
+
+func (m Method) ClientFunc(basePath string) string {
+	code := make([]jen.Code, 0)
+	code = append(code,
+		jen.Id(`opt := s.mergeOpt(option)`),
+	)
+	queryCode := make([]jen.Code, 0)
+
+	if len(m.KitRequest.Query) != 0 {
+		code = append(code,
+			jen.Id("q").Op(":=").Qual("net/url", "Values").Values(),
+		)
+
+		for k, v := range m.KitRequest.Query {
+			if !v.XType.Basic {
+				queryCode = append(queryCode,
+					jen.Id("q.Add").Call(jen.Lit(k), jen.Qual("github.com/spf13/cast", "ToString").Call(jen.Id("req."+v.ParamPath))),
+				)
+				continue
+			}
+
+			if v.XType.BasicType.Kind() != types.String {
+				queryCode = append(queryCode,
+					jen.Id("q.Add").Call(jen.Lit(k), jen.Qual("github.com/spf13/cast", "ToString").Call(jen.Id("req."+v.ParamPath))),
+				)
+				continue
+			}
+
+			queryCode = append(queryCode,
+				jen.Id("q.Add").Call(jen.Lit(k), jen.Id("req."+v.ParamPath)),
+			)
+		}
+		code = append(code, queryCode...)
+	}
+
+	re, _ := regexp.Compile(`\{(.*?)\}`)
+	matches := re.FindAllStringSubmatch(m.RawKit.Conf.Url, -1)
+	params := make([]string, 0)
+	for _, match := range matches {
+		if len(match) > 1 {
+			params = append(params, match[1])
+		}
+	}
+
+	fmtSprintParam := make([]jen.Code, 0)
+	fmtSprintParam = append(fmtSprintParam, jen.Lit(re.ReplaceAllString(m.RawKit.Conf.Url, "%s")))
+	for _, v := range params {
+		fmtSprintParam = append(fmtSprintParam, jen.Id("req"+m.KitRequest.ParamPath(v)))
+	}
+	if len(params) != 0 {
+		code = append(
+			code,
+			jen.List(jen.Id("urlStr"), jen.Err()).Op(":=").Qual("net/url", "JoinPath").Call(jen.Id("s.PrePath"), jen.Lit(basePath), jen.Id("fmt.Sprintf").Call(
+				fmtSprintParam...,
+			)),
+			jen.If(jen.Err().Op("!=").Nil()).Block(
+				jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("parse prePath %s bathPath %s error: %v"), jen.Id("s.PrePath"), jen.Lit(basePath), jen.Err()),
+				jen.Return(),
+			),
+		)
+	} else {
+		code = append(
+			code,
+			jen.List(jen.Id("urlStr"), jen.Err()).Op(":=").Qual("net/url", "JoinPath").Call(jen.Id("s.PrePath"), jen.Lit(basePath), jen.Lit(re.ReplaceAllString(m.RawKit.Conf.Url, "%s"))),
+			jen.If(jen.Err().Op("!=").Nil()).Block(
+				jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("parse prePath %s bathPath %s error: %v"), jen.Id("s.PrePath"), jen.Lit(basePath), jen.Err()),
+				jen.Return(),
+			),
+		)
+	}
+
+	code = append(code,
+		jen.List(jen.Id("u"), jen.Err()).Op(":=").Qual("net/url", "Parse").CallFunc(func(group *jen.Group) {
+			if len(queryCode) != 0 {
+				group.Id(`fmt.Sprintf("%s?%s", urlStr, q.Encode())`)
+			} else {
+				group.Id("urlStr")
+			}
+		}),
+	)
+
+	code = append(code,
+		jen.If(jen.Err().Op("!=").Nil()).Block(
+			jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("parse url %s error: %v"), jen.Id("urlStr"), jen.Err()),
+			jen.Return(),
+		),
+	)
+
+	var setHeaderCode []jen.Code
+	for k, v := range m.KitRequest.Header {
+		setHeaderCode = append(setHeaderCode,
+			jen.Id("req.Header.Set").Call(jen.Lit(k), jen.Id("req."+v.ParamPath)),
+		)
+	}
+
+	if len(setHeaderCode) != 0 {
+		code = append(code,
+			jen.Id(`headerOpt := kithttp.ClientBefore(func(ctx context.Context, r *http.Request) context.Context`).BlockFunc(func(g *jen.Group) {
+				g.Add(setHeaderCode...)
+				g.Return(jen.Id("ctx"))
+			}),
+			jen.Id("opt.ClientOpts").Op("=").Append(jen.Id("opt.ClientOpts"), jen.Id("headerOpt")),
+		)
+	}
+
+	code = append(code,
+		jen.Id("factory").Op(":=").Id(`func (instance string) (endpoint.Endpoint, io.Closer, error)`).BlockFunc(func(group *jen.Group) {
+			group.Return(jen.Id("kithttp.NewClient").Call(jen.Lit(m.RawKit.Conf.UrlMethod), jen.Id("u"), jen.Id("kithttp.EncodeJSONRequest"), func() jen.Code {
+				if m.HasResultsExcludeErr() {
+					return jen.Id("opt.Decode(res)")
+				}
+				return jen.Id("opt.Decode(nil)")
+			}(),
+				jen.Id("opt.ClientOpts..."),
+			).Dot("Endpoint").Call(), jen.Nil(), jen.Nil())
+		}),
+		jen.Id(`e := sd.NewEndpointer(s.Instancer, factory, s.Logger,s.EndpointOpts...)`),
+		jen.Id(`balancer := lb.NewRoundRobin(e)`),
+		jen.Id(`retry := lb.Retry(opt.RetryMax, opt.RetryTimeout, balancer)`),
+	)
+
+	code = append(code,
+		jen.List(jen.Id("_"), jen.Err()).Op("=").Id("retry").Call(jen.Id("ctx"), func() jen.Code {
+			if m.KitRequest.RequestIsBody {
+				return jen.Id("req")
+			}
+
+			if len(m.KitRequest.Body) != 0 {
+				return jen.Id("req." + m.KitRequest.Body.OrderSlice()[0].ParamPath)
+			}
+
+			return jen.Nil()
+		}()),
+		jen.If(jen.Err().Op("!=").Nil()).Block(
+			jen.Id("err").Op("=").Qual("fmt", "Errorf").Call(jen.Lit("endpoint error: %v"), jen.Err()),
+			jen.Return(),
+		),
+
+		jen.Return(),
+	)
+
+	resultParams := make([]jen.Code, 0)
+	resultStruct := jen.Line()
+	if m.HasResultsExcludeErr() {
+		if len(m.ResultsExcludeErr()) == 1 {
+			resultParams = append(resultParams, jen.Id("res").Id(m.ResultsExcludeErr()[0].Type))
+		}
+
+		if len(m.ResultsExcludeErr()) > 1 {
+			resultParams = append(resultParams, jen.Id("res").Id(m.Name+"ClientResponse"))
+			resultStruct.Type().Id(m.Name + "ClientResponse").StructFunc(func(g *jen.Group) {
+				for _, v := range m.ResultsExcludeErr() {
+					g.Id(strings.ToUpper(string(v.Name[0])) + v.Name[1:]).Id(v.Type).Tag(map[string]string{"json": v.Name})
+				}
+			})
+
+		}
+	}
+	if m.ReturnsError {
+		resultParams = append(resultParams, jen.Id("err").Error())
+	}
+
+	funcCode := jen.Func().Params(jen.Id("s").Id("HttpClientService")).Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.KitRequest.RequestName), jen.Id("option").Id("*Option")).Params(resultParams...).Block(
+		code...,
+	)
+
+	return resultStruct.Line().Add(funcCode).GoString()
+
 }
 
 func (m Method) KitHttpServiceEndpointName() string {
@@ -548,6 +758,10 @@ func (m Method) HasParams() bool {
 // HasResults returns true if method has results
 func (m Method) HasResults() bool {
 	return len(m.Results) > 0
+}
+
+func (m Method) HasResultsExcludeErr() bool {
+	return len(m.ResultsExcludeErr()) > 0
 }
 
 // ReturnStruct returns return statement with the return params

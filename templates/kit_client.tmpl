@@ -1,0 +1,74 @@
+{{/* gotype: github.com/fitan/gowrap/generator.TemplateInputs */}}
+{{$.Import
+`"encoding/json"`
+`"strings"`
+`valid "github.com/asaskevich/govalidator"`
+`endpoint "github.com/go-kit/kit/endpoint"`
+`kithttp "github.com/go-kit/kit/transport/http"`
+`"github.com/gorilla/mux"`
+`"github.com/pkg/errors"`
+`"github.com/spf13/cast"`
+`"io"`
+`"net/http"`
+`"net/url"`
+`"time"`
+`"fmt"`
+`"context"`
+`"github.com/go-kit/kit/sd"`
+`"github.com/go-kit/kit/sd/lb"`
+}}
+
+{{$.Interface.ClientInterface}}
+
+type HttpClientService struct {
+    PrePath string
+    Option
+}
+
+type Option struct {
+	Logger 	 log.Logger
+	Instancer sd.Instancer
+	RetryMax int
+    RetryTimeout time.Duration
+    EndpointOpts []sd.EndpointerOption
+    ClientOpts    []kithttp.ClientOption
+	Encode kithttp.EncodeRequestFunc
+	Decode  func(i interface{}) func(ctx context.Context, res *http.Response) (response interface{}, err error)
+}
+
+func (s HttpClientService) mergeOpt(option *Option) Option {
+	if option == nil {
+		return s.Option
+	}
+
+	if option.RetryMax == 0 {
+		option.RetryMax = s.RetryMax
+	}
+	if option.RetryTimeout == 0 {
+		option.RetryTimeout = s.RetryTimeout
+	}
+	if option.EndpointOpts != nil {
+		option.EndpointOpts = append(s.EndpointOpts, option.EndpointOpts...)
+	} else {
+		option.EndpointOpts = s.EndpointOpts
+	}
+	if option.ClientOpts != nil {
+		option.ClientOpts = append(s.ClientOpts, option.ClientOpts...)
+	} else {
+		option.ClientOpts = s.ClientOpts
+	}
+
+	if option.Encode == nil {
+		option.Encode = s.Encode
+	}
+
+	if option.Decode == nil {
+		option.Decode = s.Decode
+	}
+	return *option
+}
+
+{{range $m := $.Interface.Methods}}{{if $.Interface.HasMethodPath $m.Name}}
+{{$m.ClientFunc $.Interface.BasePath}}
+{{end}}{{end}}
+

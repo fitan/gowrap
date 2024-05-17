@@ -10,15 +10,15 @@ type Account struct {
 
 // User represents the data model for a user.
 type User struct {
-	UserID   int
-	Username string
-	UserData UserData // The fields of UserData operate at depth level 2.
+	UserID   int      `json:"user_id"`
+	Username string   `json:"username"`
+	UserData UserData `json:"user_data"`
 }
 
 // UserData represents data owned by the user.
 type UserData struct {
-	Options map[string]interface{}
-	Data    Data // The fields of Data operate at depth level 3.
+	Options map[string]interface{} `json:"options"`
+	Data    Data                   // The fields of Data operate at depth level 3.
 }
 
 // Data represents a piece of data.

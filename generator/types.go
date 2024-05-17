@@ -2,12 +2,14 @@ package generator
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
 	"go/ast"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"regexp"
 	"strings"
+
+	"github.com/dave/jennifer/jen"
+	"github.com/samber/lo"
+	"golang.org/x/tools/go/packages"
 )
 
 type typePrinter interface {
@@ -92,15 +94,149 @@ func (m Method) ClientInterfaceFunc() jen.Code {
 		resultParams = append(resultParams, jen.Id("err").Error())
 	}
 
-	return jen.Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.KitRequest.RequestName), jen.Id("opts").Id("[]kithttp.ClientOption")).Params(resultParams...)
+	return jen.Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.KitRequest.RequestName), jen.Id("option").Id("*Option")).Params(resultParams...)
 }
 
 func (m Method) ClientFunc(basePath string) string {
 	code := make([]jen.Code, 0)
 	code = append(code,
+		jen.Id(`_, err = valid.ValidateStruct(req)`),
+		jen.If().Err().Op("!=").Nil().Block(
+			jen.Err().Op("=").Id(`fmt.Errorf("validate request error: %v", err)`),
+			jen.Id("return"),
+		),
 		jen.Id(`opt := s.mergeOpt(option)`),
 	)
 	queryCode := make([]jen.Code, 0)
+	formCode := make([]jen.Code, 0)
+
+	var fileCode *jen.Statement
+
+	if len(m.KitRequest.Form) != 0 {
+		fileCode = jen.Type().Id(m.KitRequest.RequestName + "NewBody").StructFunc(
+			func(group *jen.Group) {
+				for _, v := range m.KitRequest.Path {
+					group.Comment(v.Comment()).Line().Id(v.FieldName).String().Tag(map[string]string{"json": v.ParamName})
+				}
+
+				for _, v := range m.KitRequest.Header {
+					group.Comment(v.Comment()).Line().Id(v.FieldName).String().Tag(map[string]string{"json": v.ParamName})
+				}
+
+				for _, v := range m.KitRequest.Query {
+					group.Comment(v.Comment()).Line().Id(v.FieldName).String().Tag(map[string]string{"json": v.ParamName})
+				}
+
+				for _, v := range m.KitRequest.Form {
+					if v.XTypeID == "[]*multipart.FileHeader" {
+						group.Comment(v.Comment()).Line().Id(v.FieldName).Struct(jen.Id("FileName").String().Tag(map[string]string{"json": "fileName"}), jen.Id("File").String().Tag(map[string]string{"json": "file"}))
+					} else {
+						group.Comment(v.Comment()).Line().Id(v.FieldName).Id(v.RawParamType).Tag(map[string]string{"json": v.ParamName})
+					}
+				}
+			},
+		)
+
+		for k, v := range m.KitRequest.Query {
+			q := m.KitRequest.Query[k]
+			q.ParamPath, _ = lo.Last(strings.Split(v.ParamPath, "."))
+			m.KitRequest.Query[k] = q
+		}
+
+		for k, v := range m.KitRequest.Header {
+			h := m.KitRequest.Header[k]
+			h.ParamPath, _ = lo.Last(strings.Split(v.ParamPath, "."))
+			m.KitRequest.Header[k] = h
+		}
+
+		for k, v := range m.KitRequest.Path {
+			p := m.KitRequest.Path[k]
+			p.ParamPath, _ = lo.Last(strings.Split(v.ParamPath, "."))
+			m.KitRequest.Path[k] = p
+		}
+
+		for k, v := range m.KitRequest.Form {
+			f := m.KitRequest.Form[k]
+			f.ParamPath, _ = lo.Last(strings.Split(v.ParamPath, "."))
+			m.KitRequest.Form[k] = f
+		}
+	}
+
+	if len(m.KitRequest.Form) != 0 {
+		code = append(code,
+			jen.Var().Id("formB").Qual("bytes", "Buffer"),
+			jen.Id("form").Op(":=").Qual("mime/multipart", "NewWriter").Call(jen.Id("&formB")),
+			jen.Var().Id("part").Qual("io", "Writer"),
+		)
+
+		for k, v := range m.KitRequest.Form {
+			if v.XTypeID == "[]*multipart.FileHeader" {
+				formCode = append(formCode,
+					jen.List(jen.Id("part"), jen.Err()).Op("=").Id("form.CreateFormFile").Call(jen.Lit(k), jen.Id("req."+v.ParamPath+".FileName")),
+					jen.If().Err().Op("!=").Nil().Block(
+						jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("create form field %s error: %v"), jen.Lit(k), jen.Err()),
+						jen.Return(),
+					),
+					jen.List(jen.Id("_"), jen.Err()).Op("=").Id("io.WriteString").Call(jen.Id("part"), jen.Id("req."+v.ParamPath+".File")),
+					jen.If().Err().Op("!=").Nil().Block(
+						jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("io.WriteString part %s error: %v"), jen.Lit(k), jen.Err()),
+						jen.Return(),
+					),
+				)
+				continue
+			}
+
+			if !v.XType.Basic {
+				formCode = append(formCode,
+					jen.List(jen.Id("part"), jen.Err()).Op("=").Id("form.CreateFormField").Call(jen.Lit(k)),
+					jen.If().Err().Op("!=").Nil().Block(
+						jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("create form field %s error: %v"), jen.Lit(k), jen.Err()),
+						jen.Return(),
+					),
+					jen.List(jen.Id("_"), jen.Err()).Op("=").Id("io.WriteString").Call(jen.Id("part"), jen.Qual("github.com/spf13/cast", "ToString").Call(jen.Id("req."+v.ParamPath))),
+					jen.If().Err().Op("!=").Nil().Block(
+						jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("io.WriteString part %s error: %v"), jen.Lit(k), jen.Err()),
+						jen.Return(),
+					),
+				)
+				continue
+			}
+
+			if v.XType.BasicType.Kind() != types.String {
+				formCode = append(formCode,
+					jen.List(jen.Id("part"), jen.Err()).Op("=").Id("form.CreateFormField").Call(jen.Lit(k)),
+					jen.If().Err().Op("!=").Nil().Block(
+						jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("create form field %s error: %v"), jen.Lit(k), jen.Err()),
+						jen.Return(),
+					),
+					jen.List(jen.Id("_"), jen.Err()).Op("=").Id("io.WriteString").Call(jen.Id("part"), jen.Qual("github.com/spf13/cast", "ToString").Call(jen.Id("req."+v.ParamPath))),
+					jen.If().Err().Op("!=").Nil().Block(
+						jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("io.WriteString part %s error: %v"), jen.Lit(k), jen.Err()),
+						jen.Return(),
+					),
+				)
+				continue
+			}
+
+			formCode = append(formCode,
+				jen.List(jen.Id("part"), jen.Err()).Op("=").Id("form.CreateFormField").Call(jen.Lit(k)),
+				jen.If().Err().Op("!=").Nil().Block(
+					jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("create form field %s error: %v"), jen.Lit(k), jen.Err()),
+					jen.Return(),
+				),
+				jen.List(jen.Id("_"), jen.Err()).Op("=").Id("io.WriteString").Call(jen.Id("part"), jen.Id("req."+v.ParamPath)),
+				jen.If().Err().Op("!=").Nil().Block(
+					jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("io.WriteString part %s error: %v"), jen.Lit(k), jen.Err()),
+					jen.Return(),
+				),
+			)
+		}
+		code = append(code, formCode...)
+		code = append(code, jen.If().Err().Op("=").Id("form.Close();").Id("err").Op("!=").Nil().Block(
+			jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("close form error: %v"), jen.Err()),
+			jen.Return(),
+		))
+	}
 
 	if len(m.KitRequest.Query) != 0 {
 		code = append(code,
@@ -168,7 +304,7 @@ func (m Method) ClientFunc(basePath string) string {
 	code = append(code,
 		jen.List(jen.Id("u"), jen.Err()).Op(":=").Qual("net/url", "Parse").CallFunc(func(group *jen.Group) {
 			if len(queryCode) != 0 {
-				group.Id(`fmt.Sprintf("%s?%s", urlStr, q.Encode())`)
+				group.Id(`fmt.Sprintf("%s?%s", strings.TrimRight(urlStr, "/"), q.Encode())`)
 			} else {
 				group.Id("urlStr")
 			}
@@ -199,9 +335,15 @@ func (m Method) ClientFunc(basePath string) string {
 		)
 	}
 
+	encode := "kithttp.EncodeJSONRequest"
+
+	if len(formCode) != 0 {
+		encode = "EncodeFormRequest(form.FormDataContentType())"
+	}
+
 	code = append(code,
 		jen.Id("factory").Op(":=").Id(`func (instance string) (endpoint.Endpoint, io.Closer, error)`).BlockFunc(func(group *jen.Group) {
-			group.Return(jen.Id("kithttp.NewClient").Call(jen.Lit(m.RawKit.Conf.UrlMethod), jen.Id("u"), jen.Id("kithttp.EncodeJSONRequest"), func() jen.Code {
+			group.Return(jen.Id("kithttp.NewClient").Call(jen.Lit(m.RawKit.Conf.UrlMethod), jen.Id("u"), jen.Id(encode), func() jen.Code {
 				if m.HasResultsExcludeErr() {
 					return jen.Id("opt.Decode(res)")
 				}
@@ -223,6 +365,10 @@ func (m Method) ClientFunc(basePath string) string {
 
 			if len(m.KitRequest.Body) != 0 {
 				return jen.Id("req." + m.KitRequest.Body.OrderSlice()[0].ParamPath)
+			}
+
+			if len(m.KitRequest.Form) != 0 {
+				return jen.Id("&formB")
 			}
 
 			return jen.Nil()
@@ -256,7 +402,12 @@ func (m Method) ClientFunc(basePath string) string {
 		resultParams = append(resultParams, jen.Id("err").Error())
 	}
 
-	funcCode := jen.Func().Params(jen.Id("s").Id("HttpClientService")).Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.KitRequest.RequestName), jen.Id("option").Id("*Option")).Params(resultParams...).Block(
+	reqName := m.KitRequest.RequestName
+	if fileCode != nil {
+		reqName = m.KitRequest.RequestName + "NewBody"
+	}
+
+	funcCode := jen.Add(fileCode).Line().Func().Params(jen.Id("s").Id("HttpClientService")).Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(reqName), jen.Id("option").Id("*Option")).Params(resultParams...).Block(
 		code...,
 	)
 
@@ -357,6 +508,8 @@ type Param struct {
 	Type         string
 	Variadic     bool
 	HasSerialize bool
+
+	XType *types.Type
 }
 
 // ParamsSlice slice of parameters

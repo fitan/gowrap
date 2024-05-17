@@ -2,12 +2,15 @@ package test_data
 
 import (
 	"context"
-	"gorm.io/gorm/schema"
 	"reflect"
+	"time"
+
+	"gorm.io/gorm/schema"
 
 	// @extra "gitlab.creditease.corp/paas/paas-assets/src/middleware"
 	// @extra "github.com/fitan/gowrap/generator/test_data/encode"
 	"fmt"
+
 	"github.com/fitan/gowrap/generator/test_data/nest"
 )
 
@@ -204,9 +207,9 @@ func (r RedisService) Hello(
 func (r RedisService) SayHello(
 	ctx context.Context, uuid string, ip string, port int, headerName string,
 ) (res HelloRequest, err error) {
-	src := HelloRequest{}
+	// src := HelloRequest{}
 	// @fn dto
-	apiDTO(src, &res)
+	// apiDTO(src, &res)
 	panic("implement me")
 }
 
@@ -214,4 +217,22 @@ func (r RedisService) HelloBody(ctx context.Context, helloRequest HelloRequest) 
 	list HelloRequest, total int64, err error,
 ) {
 	panic("implement me")
+}
+
+type GenStruct struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+
+	Map    map[string]int `json:"map"`
+	Slice  []string       `json:"slice"`
+	Struct struct {
+		Name  string         `json:"name"`
+		Age   int            `json:"age"`
+		Map   map[string]int `json:"map"`
+		Slice []string       `json:"slice"`
+	} `json:"struct"`
+	An   *int      `json:"an"`
+	Next nest.User `json:"next"`
+
+	Time time.Time `json:"time"`
 }

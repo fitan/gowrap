@@ -2,11 +2,12 @@ package generator
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
-	"github.com/fitan/gowrap/xtype"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"testing"
+
+	"github.com/fitan/gowrap/xtype"
+	"github.com/fitan/jennifer/jen"
+	"golang.org/x/tools/go/packages"
 )
 
 func TestDTO_Parse(t *testing.T) {
@@ -57,10 +58,10 @@ func TestDTO_Parse(t *testing.T) {
 					Recorder:       NewRecorder(),
 					SrcParentPath:  tt.args.prefix,
 					SrcPath:        tt.args.prefix,
-					Src:            NewDataFieldMap(pkg.pkg,tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
+					Src:            NewDataFieldMap(pkg.pkg, tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
 					DestParentPath: tt.args.prefix,
 					DestPath:       tt.args.prefix,
-					Dest:           NewDataFieldMap(pkg.pkg,tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
+					Dest:           NewDataFieldMap(pkg.pkg, tt.args.prefix, tt.name, xtype.TypeOf(obj.Type()), obj.Type()),
 					DefaultFn: jen.Func().Params(jen.Id("d").Id("*" + "HelloRequestDTO")).
 						Id("DTO").Params(jen.Id("src").Id(tt.name)).Params(jen.Id("dest").Id(tt.name)),
 				}

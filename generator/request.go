@@ -2,17 +2,18 @@ package generator
 
 import (
 	"fmt"
-	"github.com/dave/jennifer/jen"
-	"github.com/fitan/gowrap/xtype"
 	"go/ast"
 	"go/token"
 	"go/types"
-	"golang.org/x/exp/slog"
-	"golang.org/x/tools/go/packages"
 	"reflect"
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/dave/jennifer/jen"
+	"github.com/fitan/gowrap/xtype"
+	"golang.org/x/exp/slog"
+	"golang.org/x/tools/go/packages"
 )
 
 const (
@@ -122,6 +123,17 @@ func (r RequestParam) FormDataSwagType() string {
 
 func (r RequestParam) ParamNameAlias() string {
 	return "_" + r.ParamName
+}
+
+func (r RequestParam) Comment() string {
+	var item []string
+	if r.ParamDoc == nil {
+		return ""
+	}
+	for _, v := range r.ParamDoc.List {
+		item = append(item, v.Text)
+	}
+	return strings.Join(item, "\n")
 }
 
 func (r RequestParam) Annotations() string {
@@ -253,6 +265,18 @@ func (k *KitRequest) ParseParamTag(fieldName, tag string) (paramSource string, p
 
 	return "", ""
 
+}
+
+func (k *KitRequest) DeepCopyRequest() *jen.Statement {
+	if k.RequestIsBody {
+		return jen.Type().Id(k.RequestName + "HttpBody").Id(xtype.TypeOf(k.RequestTypeOf).TypeAsJen().GoString())
+	}
+
+	if len(k.Body) > 0 {
+		return jen.Type().Id(k.RequestName + "HttpBody").Id(k.Body.OrderSlice()[0].XType.TypeAsJen().GoString())
+	}
+
+	return jen.Null()
 }
 
 func (k *KitRequest) DecodeRequest() (s string) {

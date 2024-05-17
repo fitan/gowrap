@@ -2,9 +2,14 @@ package generator
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"golang.org/x/tools/go/packages"
+	"go/ast"
+	"go/types"
 	"testing"
+
+	"github.com/fitan/gowrap/xtype"
+	"github.com/fitan/jennifer/jen"
+	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/packages"
 )
 
 const mode packages.LoadMode = packages.NeedName |
@@ -23,8 +28,6 @@ type Pkgs struct {
 	pkg *packages.Package
 }
 
-
-
 func LoadPkgs() *Pkgs {
 	cfg := &packages.Config{Mode: mode}
 	pkgs, err := packages.Load(cfg, "./test_data")
@@ -35,7 +38,41 @@ func LoadPkgs() *Pkgs {
 }
 
 func TestKitRequest_RequestType(t *testing.T) {
-	pkg := LoadPkgs()
+	pkgs := LoadPkgs()
+	for _, v := range pkgs.pkg.Syntax {
+		astutil.Apply(v, func(c *astutil.Cursor) bool {
+			switch t := c.Node().(type) {
+			case *ast.GenDecl:
+				for _, typeSpec := range t.Specs {
+					switch typeSpec := typeSpec.(type) {
+					case *ast.TypeSpec:
+						switch typeSpec.Type.(type) {
+						case *ast.StructType:
+							fmt.Println("struct: ", typeSpec.Name.String())
+							if typeSpec.Name.String() == "GenStruct" {
+								defStruct := pkgs.pkg.TypesInfo.Defs[typeSpec.Name].Type().(*types.Named).Underlying().(*types.Struct)
+
+								// fmt.Println(defT.Underlying().String())
+								// fmt.Println("defT: ", defT.String())
+
+								k := &KitResponse{Pkg: pkgs.pkg}
+								file := jen.NewFile("test").Line()
+								out := k.Parse(file, xtype.TypeOf(defStruct), "GenStruct")
+								fmt.Println(out)
+								break
+
+							}
+
+						}
+					}
+				}
+			}
+			return true
+		}, func(c *astutil.Cursor) bool {
+			return true
+		})
+
+	}
 	//for _, v := range pkg.pkg.Syntax {
 	//	fmt.Println("syntax file: ", v.Name)
 	//	fmt.Println("syntax file: ", v.Name.Name)
@@ -47,29 +84,4 @@ func TestKitRequest_RequestType(t *testing.T) {
 	//
 	//}
 
-	type args struct {
-		pkg *packages.Package
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{name: "HelloRequest", args: args{
-			pkg: pkg.pkg,
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(
-			tt.name, func(t *testing.T) {
-				k := NewKitRequest(tt.args.pkg, "Hello", "HelloRequest", false)
-				k.ParseRequest()
-				spew.Dump(k)
-				//fmt.Println(k.BindPathParam())
-				//fmt.Println(k.BindQueryParam())
-				//fmt.Println(k.BindHeaderParam())
-				//fmt.Println(k.BindBodyParam())
-				fmt.Println(k.DecodeRequest())
-			},
-		)
-	}
 }

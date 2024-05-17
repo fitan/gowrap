@@ -291,8 +291,6 @@ func (d *Copy) GenExtraCopyMethod(bind *jen.Statement, destV, srcV Field) (has b
 
 func (d *Copy) GenBasic() jen.Statement {
 	bind := make(jen.Statement, 0)
-	log.Printf("map: ", d.Src.BasicMap)
-	log.Printf("dest: ", d.Dest.BasicMap)
 	for _, v := range d.Dest.BasicMap {
 		srcV, ok := d.Src.BasicMap[v.Name]
 		if !ok {

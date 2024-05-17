@@ -72,3 +72,16 @@ func (s HttpClientService) mergeOpt(option *Option) Option {
 {{$m.ClientFunc $.Interface.BasePath}}
 {{end}}{{end}}
 
+
+func EncodeFormRequest(contentType string) func (ctx context.Context, r *http.Request, request interface{}) error {
+	return func(ctx context.Context, r *http.Request, request interface{}) error {
+		r.Header.Set("Content-Type",contentType)
+		b, ok := request.(io.Reader)
+		if !ok {
+			return fmt.Errorf("request type error: %T", request)
+		}
+
+		r.Body = io.NopCloser(b)
+		return nil
+	}
+}

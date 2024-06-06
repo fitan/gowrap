@@ -12,6 +12,7 @@ import (
 
 	"github.com/dave/jennifer/jen"
 	"github.com/fitan/gowrap/xtype"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slog"
 	"golang.org/x/tools/go/packages"
 )
@@ -107,6 +108,8 @@ type RequestParam struct {
 
 	HasPtr bool
 
+	HasNamed bool
+
 	XType *xtype.Type
 
 	XTypeID string
@@ -122,7 +125,7 @@ func (r RequestParam) FormDataSwagType() string {
 }
 
 func (r RequestParam) ParamNameAlias() string {
-	return "_" + r.ParamName
+	return "_" + strings.ReplaceAll(r.ParamName, "-", "_")
 }
 
 func (r RequestParam) Comment() string {
@@ -150,7 +153,8 @@ func (r RequestParam) Annotations() string {
 }
 
 func (r RequestParam) ToVal() jen.Code {
-	return jen.Var().Id(r.ParamNameAlias()).Id(r.ParamTypeName)
+	return jen.Var().Id(r.ParamNameAlias()).Id(r.BasicType)
+	// return jen.Var().Id(r.ParamNameAlias()).Id(r.ParamTypeName)
 	//switch r.ParamType {
 	//case "basic":
 	//	return jen.Var().Id(r.ParamName).Id(r.BasicType)
@@ -623,33 +627,70 @@ func (k *KitRequest) BindCtxParam() []jen.Code {
 func (k *KitRequest) BindRequest() []jen.Code {
 	list := make([]jen.Code, 0, 0)
 	for _, v := range k.Form.OrderSlice() {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
 		list = append(list, reqBindVal)
 	}
 
 	for _, v := range k.RawQuery.OrderSlice() {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
 		list = append(list, reqBindVal)
 	}
 	for _, v := range k.Path.OrderSlice() {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
 		list = append(list, reqBindVal)
 	}
 
 	for _, v := range k.Query.OrderSlice() {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
+
+		if v.HasPtr {
+			reqBindVal = jen.If(jen.Id(v.ParamNameAlias() + "Str" + `!= ""`)).Block(reqBindVal)
+		}
 		list = append(list, reqBindVal)
 	}
 
 	for _, v := range k.Header.OrderSlice() {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
 		list = append(list, reqBindVal)
 	}
 
 	for _, v := range k.Ctx.OrderSlice() {
-		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Id(v.ParamNameAlias())
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
 		list = append(list, reqBindVal)
 	}
+
+	// var c string
+	// for k, v := range k.NamedMap {
+	// 	c = c + fmt.Sprintf("k: %s, v: %s", k, v)
+	// }
+
+	// list = append(list, jen.Comment(c))
+
 	return list
 }
 
@@ -667,7 +708,7 @@ func (k *KitRequest) ParseRequest() {
 							k.Doc(doc)
 							t := k.pkg.TypesInfo.TypeOf(specT.Type).(*types.Struct)
 							k.RequestTypeOf = t
-							k.RequestType([]string{}, k.RequestName, t, "", doc)
+							k.RequestType([]string{}, k.RequestName, t, "", doc, false)
 							k.CheckRequestIsNil()
 
 							return false
@@ -729,10 +770,12 @@ func (k *KitRequest) CheckRequestIsNil() {
 	}
 }
 
-func (k *KitRequest) RequestType(prefix []string, requestName string, requestType types.Type, requestParamTagTypeTag string, doc *ast.CommentGroup) {
+func (k *KitRequest) RequestType(prefix []string, requestName string, requestType types.Type, requestParamTagTypeTag string, doc *ast.CommentGroup, ptr bool) {
 	xt := xtype.TypeOf(requestType)
 	rawParamType := requestType.String()
 	paramSource, paramName := k.ParseParamTag(requestName, requestParamTagTypeTag)
+	// fmt.Println("requestName:", requestName, "rawParamType: ", rawParamType)
+	// fmt.Println(xt.Basic, xt.Named, xt.Pointer)
 
 	switch rt := requestType.(type) {
 	case *types.Named:
@@ -759,8 +802,14 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 		//	BasicType:    rt.Underlying().String(),
 		//	HasPtr:       false,
 		//})
-		k.RequestType(prefix, requestName, rt.Underlying(), requestParamTagTypeTag, doc)
+		k.RequestType(prefix, requestName, rt.Underlying(), requestParamTagTypeTag, doc, ptr)
 	case *types.Struct:
+		var paramTypeName string
+		var hasNamed bool
+
+		if paramTypeName, hasNamed = k.NamedMap[paramName]; !hasNamed {
+			paramTypeName = xtype.TypeOf(rt).TypeAsJenComparePkgNameString(k.pkg)
+		}
 		k.SetParam(RequestParam{
 			FieldName:     requestName,
 			ParamDoc:      doc,
@@ -768,10 +817,11 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamName:     paramName,
 			ParamSource:   paramSource,
 			ParamType:     "struct",
-			ParamTypeName: k.NamedMap[paramName],
+			ParamTypeName: paramTypeName,
 			RawParamType:  rawParamType,
 			BasicType:     k.NamedMap[paramName],
-			HasPtr:        false,
+			HasPtr:        ptr,
+			HasNamed:      hasNamed,
 			XType:         xt,
 			XTypeID:       xt.TypeAsJenComparePkgNameString(k.pkg),
 		})
@@ -779,16 +829,18 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			field := rt.Field(i)
 			fieldName := field.Name()
 			fieldType := field.Type()
+			// fmt.Println("fieldName:", fieldName, "fieldType:", fieldType)
 			tag, _ := reflect.StructTag(rt.Tag(i)).Lookup(RequestParamTagName)
-			k.RequestType(append(prefix, fieldName), fieldName, fieldType, tag, k.ParseFieldComment(field.Pos()))
+			k.RequestType(append(prefix, fieldName), fieldName, fieldType, tag, k.ParseFieldComment(field.Pos()), false)
 		}
 	case *types.Pointer:
-		k.RequestType(prefix, requestName, rt.Elem().Underlying(), requestParamTagTypeTag, doc)
+		// fmt.Println("fieldName: ", requestName, rt.Elem().String(), rt.Elem().Underlying().String())
+		k.RequestType(prefix, requestName, rt.Elem(), requestParamTagTypeTag, doc, true)
 	case *types.Interface:
 		var paramTypeName string
-		var ok bool
+		var hasNamed bool
 
-		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
+		if paramTypeName, hasNamed = k.NamedMap[paramName]; !hasNamed {
 			paramTypeName = xtype.TypeOf(rt).TypeAsJenComparePkgNameString(k.pkg)
 		}
 		k.SetParam(RequestParam{
@@ -801,14 +853,15 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamTypeName: paramTypeName,
 			RawParamType:  rawParamType,
 			BasicType:     rt.String(),
-			HasPtr:        false,
+			HasPtr:        ptr,
+			HasNamed:      hasNamed,
 			XType:         xt,
 			XTypeID:       xt.TypeAsJenComparePkgNameString(k.pkg),
 		})
 	case *types.Slice:
 		var paramTypeName string
-		var ok bool
-		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
+		var hasNamed bool
+		if paramTypeName, hasNamed = k.NamedMap[paramName]; !hasNamed {
 			//split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."), "/")
 			//paramTypeName = "[]" + split[len(split)-1]
 			paramTypeName = xtype.TypeOf(rt).TypeAsJenComparePkgNameString(k.pkg)
@@ -823,14 +876,15 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamTypeName: paramTypeName,
 			RawParamType:  rawParamType,
 			BasicType:     rt.Elem().Underlying().String(),
-			HasPtr:        false,
+			HasPtr:        ptr,
+			HasNamed:      hasNamed,
 			XType:         xt,
 			XTypeID:       xt.TypeAsJenComparePkgNameString(k.pkg),
 		})
 	case *types.Map:
 		var paramTypeName string
-		var ok bool
-		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
+		var hasNamed bool
+		if paramTypeName, hasNamed = k.NamedMap[paramName]; !hasNamed {
 			split := strings.Split(strings.TrimPrefix(rt.Elem().String(), k.pkg.PkgPath+"."), "/")
 			paramTypeName = split[len(split)-1]
 		}
@@ -844,14 +898,15 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamTypeName: paramTypeName,
 			RawParamType:  rawParamType,
 			BasicType:     rt.Elem().Underlying().String(),
-			HasPtr:        false,
+			HasPtr:        ptr,
+			HasNamed:      hasNamed,
 			XType:         xt,
 			XTypeID:       xt.TypeAsJenComparePkgNameString(k.pkg),
 		})
 	case *types.Basic:
 		var paramTypeName string
-		var ok bool
-		if paramTypeName, ok = k.NamedMap[paramName]; !ok {
+		var hasNamed bool
+		if paramTypeName, hasNamed = k.NamedMap[paramName]; !hasNamed {
 			paramTypeName = rt.Name()
 		}
 		k.SetParam(RequestParam{
@@ -864,7 +919,8 @@ func (k *KitRequest) RequestType(prefix []string, requestName string, requestTyp
 			ParamTypeName: paramTypeName,
 			RawParamType:  rawParamType,
 			BasicType:     rt.Name(),
-			HasPtr:        false,
+			HasPtr:        ptr,
+			HasNamed:      hasNamed,
 			XType:         xt,
 			XTypeID:       xt.TypeAsJenComparePkgNameString(k.pkg),
 		})

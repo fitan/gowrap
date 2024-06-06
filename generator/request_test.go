@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/fitan/gowrap/xtype"
-	"github.com/fitan/jennifer/jen"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/packages"
 )
@@ -55,9 +54,9 @@ func TestKitRequest_RequestType(t *testing.T) {
 								// fmt.Println(defT.Underlying().String())
 								// fmt.Println("defT: ", defT.String())
 
-								k := &KitResponse{Pkg: pkgs.pkg}
-								file := jen.NewFile("test").Line()
-								out := k.Parse(file, xtype.TypeOf(defStruct), "GenStruct")
+								k := &type2ast{}
+								// file := jen.NewFile("test").Line()
+								out := k.Parse(xtype.TypeOf(defStruct), "GenStruct")
 								fmt.Println(out)
 								break
 

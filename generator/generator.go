@@ -5,15 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	"github.com/dave/jennifer/jen"
-	"github.com/fitan/gowrap/pkg"
-	"github.com/fitan/gowrap/printer"
-	"github.com/pkg/errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/imports"
 	"io/ioutil"
 	"log"
 	"math"
@@ -25,6 +19,14 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/dave/jennifer/jen"
+	"github.com/fitan/gowrap/pkg"
+	"github.com/fitan/gowrap/printer"
+	"github.com/fitan/gowrap/xtype"
+	"github.com/pkg/errors"
+	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/imports"
 )
 
 // Generator generates decorators for the interface types
@@ -42,6 +44,8 @@ type Generator struct {
 	doc           *ast.CommentGroup
 	interfaceType string
 	localPrefix   string
+
+	type2ast *type2ast
 }
 
 type genTemplate struct {
@@ -169,6 +173,8 @@ type TemplateInputInterface struct {
 	// Methods name keyed map of method information
 	Methods map[string]Method
 	Doc     *ast.CommentGroup
+
+	Type2Ast *type2ast
 }
 
 func (t TemplateInputInterface) KitServerOption() (res string) {
@@ -236,6 +242,17 @@ func (t TemplateInputInterface) HasMethodPath(name string) bool {
 	return t.Methods[name].RawKit.Conf.Url != ""
 }
 
+func (t TemplateInputInterface) ClientTypes() string {
+	code := jen.Null()
+	for _, v := range t.Methods {
+		if t.HasMethodPath(v.Name) {
+			fmt.Println(v.KitRequest.pkg.PkgPath)
+			code.Line().Id(t.Type2Ast.Parse(xtype.TypeOf(v.KitRequest.RequestTypeOf), v.Name+"ClientReq"))
+		}
+	}
+	return code.GoString()
+}
+
 func (t TemplateInputInterface) ClientInterface() string {
 	return jen.Comment(t.Doc.Text()).Line().Type().Id("HttpClientI").InterfaceFunc(func(group *jen.Group) {
 		for _, v := range t.Methods {
@@ -296,6 +313,8 @@ type Options struct {
 
 	RunCmdDir string
 	InitType  string
+
+	Type2ast *type2ast
 }
 
 type BatchTemplate struct {
@@ -540,7 +559,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			if methods == nil && importSpecs == nil {
 
 				t1 := time.Now()
-				methods, importSpecs, doc, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName)
+				methods, importSpecs, doc, err = findInterface(fs, options.SourceLoadPkg, srcPackageAST, options.InterfaceName, options.Type2ast)
 				log.Printf("findInterface time: %v", time.Now().Sub(t1).String())
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to parse interface declaration")
@@ -578,6 +597,7 @@ func NewGenerator(ops []Options) ([]*Generator, error) {
 			doc:            doc,
 			localPrefix:    options.LocalPrefix,
 			genTemplates:   make([]genTemplate, 0, 0),
+			type2ast:       options.Type2ast,
 		})
 
 	}
@@ -722,6 +742,8 @@ func (g Generator) Generate(fix bool) error {
 			Type:    g.interfaceType,
 			Methods: g.methods,
 			Doc:     g.doc,
+
+			Type2Ast: g.type2ast,
 		},
 		Imports: g.Options.Imports,
 		Vars:    g.Options.Vars,
@@ -774,7 +796,7 @@ var errInterfaceNotFound = errors.New("interface type declaration not found")
 // findInterface looks for the interface declaration in the given directory
 // and returns a list of the interface's methods and a list of imports from the file
 // where interface type declaration was found
-func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.Package, interfaceName string) (methods methodsList, imports []*ast.ImportSpec, doc *ast.CommentGroup, err error) {
+func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.Package, interfaceName string, type2ast *type2ast) (methods methodsList, imports []*ast.ImportSpec, doc *ast.CommentGroup, err error) {
 	var found bool
 	var types []*ast.TypeSpec
 	var it *ast.InterfaceType
@@ -804,7 +826,7 @@ func findInterface(fs *token.FileSet, currentPackage *packages.Package, p *ast.P
 		return nil, nil, doc, errors.Wrap(errInterfaceNotFound, interfaceName)
 	}
 
-	methods, err = processInterface(interfaceName, fs, currentPackage, currentFile, it, types, p.Name, imports)
+	methods, err = processInterface(interfaceName, fs, currentPackage, currentFile, it, types, p.Name, imports, type2ast)
 	if err != nil {
 		return nil, nil, doc, err
 	}
@@ -830,7 +852,7 @@ func typeSpecs(f *ast.File) ([]*ast.TypeSpec, []*ast.CommentGroup) {
 	return result, gdDoc
 }
 
-func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, typeSpecs []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methods methodsList, err error) {
+func processInterface(interfaceName string, fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, it *ast.InterfaceType, typeSpecs []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec, type2ast *type2ast) (methods methodsList, err error) {
 	if it.Methods == nil {
 		return nil, nil
 	}
@@ -855,7 +877,7 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 			}
 
 			var method *Method
-			method, err = NewMethod(currentPackage, currentFile, field.Names[0].Name, field, printer.New(fs, typeSpecs, typesPrefix))
+			method, err = NewMethod(currentPackage, currentFile, field.Names[0].Name, field, printer.New(fs, typeSpecs, typesPrefix), type2ast)
 
 			if err == nil {
 
@@ -893,9 +915,9 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 				methods[field.Names[0].Name] = *method
 			}
 		case *ast.SelectorExpr:
-			embeddedMethods, err = processSelector(fs, currentPackage, v, imports)
+			embeddedMethods, err = processSelector(fs, currentPackage, v, imports, type2ast)
 		case *ast.Ident:
-			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, typeSpecs, typesPrefix, imports)
+			embeddedMethods, err = processIdent(fs, currentPackage, currentFile, v, typeSpecs, typesPrefix, imports, type2ast)
 		}
 
 		if err != nil {
@@ -911,7 +933,7 @@ func processInterface(interfaceName string, fs *token.FileSet, currentPackage *p
 	return methods, nil
 }
 
-func processSelector(fs *token.FileSet, currentPackage *packages.Package, se *ast.SelectorExpr, imports []*ast.ImportSpec) (methodsList, error) {
+func processSelector(fs *token.FileSet, currentPackage *packages.Package, se *ast.SelectorExpr, imports []*ast.ImportSpec, type2ast *type2ast) (methodsList, error) {
 	interfaceName := se.Sel.Name
 	packageSelector := se.X.(*ast.Ident).Name
 
@@ -930,7 +952,7 @@ func processSelector(fs *token.FileSet, currentPackage *packages.Package, se *as
 		return nil, errors.Wrap(err, "failed to import package")
 	}
 
-	methods, _, _, err = findInterface(fs, p, astPkg, interfaceName)
+	methods, _, _, err = findInterface(fs, p, astPkg, interfaceName, type2ast)
 
 	return methods, err
 }
@@ -963,7 +985,7 @@ func mergeMethods(ml1, ml2 methodsList) (methodsList, error) {
 var errEmbeddedInterfaceNotFound = errors.New("embedded interface not found")
 var errNotAnInterface = errors.New("embedded type is not an interface")
 
-func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, i *ast.Ident, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec) (methodsList, error) {
+func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFile *ast.File, i *ast.Ident, types []*ast.TypeSpec, typesPrefix string, imports []*ast.ImportSpec, type2ast *type2ast) (methodsList, error) {
 	var embeddedInterface *ast.InterfaceType
 	var interfaceName string
 	for _, t := range types {
@@ -982,7 +1004,7 @@ func processIdent(fs *token.FileSet, currentPackage *packages.Package, currentFi
 		return nil, errors.Wrap(errEmbeddedInterfaceNotFound, i.Name)
 	}
 
-	return processInterface(interfaceName, fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports)
+	return processInterface(interfaceName, fs, currentPackage, currentFile, embeddedInterface, types, typesPrefix, imports, type2ast)
 }
 
 var errUnknownSelector = errors.New("unknown selector")

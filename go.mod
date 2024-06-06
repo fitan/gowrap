@@ -16,6 +16,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
+	github.com/samber/lo v1.38.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cast v1.3.1
 	github.com/stretchr/testify v1.8.1
@@ -23,8 +24,8 @@ require (
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/otel v1.0.1
 	go.opentelemetry.io/otel/trace v1.0.1
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/tools v0.10.0
+	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
+	golang.org/x/tools v0.21.0
 	google.golang.org/grpc v1.53.0
 	gorm.io/gorm v1.25.5
 )
@@ -127,7 +128,7 @@ require (
 	github.com/golangci/misspell v0.3.5 // indirect
 	github.com/golangci/revgrep v0.0.0-20210208091834-cd28932614b5 // indirect
 	github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-github/v35 v35.2.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/rpmpack v0.0.0-20210410105602-e20c988a6f5a // indirect
@@ -150,6 +151,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexdigest/gowrap v1.1.8 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/iancoleman/strcase v0.3.0
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -201,11 +203,10 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/quasilyte/go-ruleguard v0.3.4 // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryancurrah/gomodguard v1.2.2 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.3.0 // indirect
-	github.com/samber/lo v1.38.1 // indirect
 	github.com/sanposhiho/wastedassign/v2 v2.0.6 // indirect
 	github.com/sassoftware/go-rpmutils v0.0.0-20190420191620-a8f1baeba37b // indirect
 	github.com/securego/gosec/v2 v2.8.0 // indirect
@@ -234,13 +235,13 @@ require (
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	github.com/yeya24/promlinter v0.1.0 // indirect
 	gocloud.dev v0.23.0 // indirect
-	golang.org/x/crypto v0.10.0 // indirect
-	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/net v0.11.0 // indirect
+	golang.org/x/crypto v0.23.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.110.0 // indirect
@@ -260,4 +261,6 @@ require (
 
 replace github.com/fitan/genx => ../genx
 
-go 1.20
+go 1.21
+
+toolchain go1.21.6

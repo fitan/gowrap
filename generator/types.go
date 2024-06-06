@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dave/jennifer/jen"
+	"github.com/fitan/gowrap/xtype"
 	"github.com/samber/lo"
 	"golang.org/x/tools/go/packages"
 )
@@ -37,6 +38,8 @@ type Method struct {
 
 	KitRequest       *KitRequest
 	KitRequestDecode string
+
+	Type2Ast *type2ast
 }
 
 func DocFormat(doc string) string {
@@ -74,19 +77,19 @@ func (m Method) ClientStruct() (code []jen.Code, err error) {
 func (m Method) ClientInterfaceFunc() jen.Code {
 
 	resultParams := make([]jen.Code, 0)
-	resultStruct := jen.Line()
+	// resultStruct := jen.Line()
 	if m.HasResultsExcludeErr() {
-		if len(m.ResultsExcludeErr()) == 1 {
-			resultParams = append(resultParams, jen.Id("res").Id(m.ResultsExcludeErr()[0].Type))
-		}
+		// if len(m.ResultsExcludeErr()) > 0 {
+		// 	resultParams = append(resultParams, jen.Id("res").Id(m.ResultsExcludeErr()[0].Type))
+		// }
 
-		if len(m.ResultsExcludeErr()) > 1 {
-			resultParams = append(resultParams, jen.Id("res").Id(m.Name+"ClientResponse"))
-			resultStruct.Type().Id(m.Name + "ClientResponse").StructFunc(func(g *jen.Group) {
-				for _, v := range m.ResultsExcludeErr() {
-					g.Id(strings.ToUpper(string(v.Name[0])) + v.Name[1:]).Id(v.Type).Tag(map[string]string{"json": v.Name})
-				}
-			})
+		if len(m.ResultsExcludeErr()) > 0 {
+			resultParams = append(resultParams, jen.Id("res").Id(m.Name+"ClientRes"))
+			// resultStruct.Type().Id(m.Name + "ClientResponse").StructFunc(func(g *jen.Group) {
+			// 	for _, v := range m.ResultsExcludeErr() {
+			// 		g.Id(strings.ToUpper(string(v.Name[0])) + v.Name[1:]).Id(v.Type).Tag(map[string]string{"json": v.Name})
+			// 	}
+			// })
 
 		}
 	}
@@ -94,8 +97,12 @@ func (m Method) ClientInterfaceFunc() jen.Code {
 		resultParams = append(resultParams, jen.Id("err").Error())
 	}
 
-	return jen.Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.KitRequest.RequestName), jen.Id("option").Id("*Option")).Params(resultParams...)
+	return jen.Id(m.Name).Params(jen.Id("ctx").Id("context.Context"), jen.Id("req").Id(m.Name+"ClientReq"), jen.Id("option").Id("*Option")).Params(resultParams...)
 }
+
+// func (m Method) ClientReq() string {
+// 	return m.Type2Ast.Parse(xtype.TypeOf(m.KitRequest.RequestTypeOf), m.KitRequest.RequestName+"NewReq")
+// }
 
 func (m Method) ClientFunc(basePath string) string {
 	code := make([]jen.Code, 0)
@@ -383,18 +390,34 @@ func (m Method) ClientFunc(basePath string) string {
 
 	resultParams := make([]jen.Code, 0)
 	resultStruct := jen.Line()
+
 	if m.HasResultsExcludeErr() {
-		if len(m.ResultsExcludeErr()) == 1 {
-			resultParams = append(resultParams, jen.Id("res").Id(m.ResultsExcludeErr()[0].Type))
+
+		fields := make([]*types.Var, 0)
+		tags := make([]string, 0)
+		for _, v := range m.ResultsExcludeErr() {
+
+			fields = append(fields, types.NewVar(0, m.KitRequest.pkg.Types, upFirst(v.Name), v.XType.T))
+			tags = append(tags, fmt.Sprintf(`json:"%s"`, v.Name))
 		}
 
-		if len(m.ResultsExcludeErr()) > 1 {
-			resultParams = append(resultParams, jen.Id("res").Id(m.Name+"ClientResponse"))
-			resultStruct.Type().Id(m.Name + "ClientResponse").StructFunc(func(g *jen.Group) {
-				for _, v := range m.ResultsExcludeErr() {
-					g.Id(strings.ToUpper(string(v.Name[0])) + v.Name[1:]).Id(v.Type).Tag(map[string]string{"json": v.Name})
-				}
-			})
+		newStruct := types.NewStruct(fields, tags)
+
+		resStr := m.Type2Ast.Parse(xtype.TypeOf(newStruct), m.Name+"ClientRes")
+
+		resultStruct.Id(resStr).Line()
+
+		// if len(m.ResultsExcludeErr()) == 1 {
+		// 	resultParams = append(resultParams, jen.Id("res").Id(m.ResultsExcludeErr()[0].Type))
+		// }
+
+		if len(m.ResultsExcludeErr()) > 0 {
+			resultParams = append(resultParams, jen.Id("res").Id(m.Name+"ClientRes"))
+			// resultStruct.Type().Id(m.Name + "ClientResponse").StructFunc(func(g *jen.Group) {
+			// 	for _, v := range m.ResultsExcludeErr() {
+			// 		g.Id(strings.ToUpper(string(v.Name[0])) + v.Name[1:]).Id(v.Type).Tag(map[string]string{"json": v.Name})
+			// 	}
+			// })
 
 		}
 	}
@@ -402,7 +425,7 @@ func (m Method) ClientFunc(basePath string) string {
 		resultParams = append(resultParams, jen.Id("err").Error())
 	}
 
-	reqName := m.KitRequest.RequestName
+	reqName := m.Name + "ClientReq"
 	if fileCode != nil {
 		reqName = m.KitRequest.RequestName + "NewBody"
 	}
@@ -509,7 +532,7 @@ type Param struct {
 	Variadic     bool
 	HasSerialize bool
 
-	XType *types.Type
+	XType *xtype.Type
 }
 
 // ParamsSlice slice of parameters
@@ -547,13 +570,13 @@ func (p Param) Pass() string {
 }
 
 // NewMethod returns pointer to Signature struct or error
-func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter) (*Method, error) {
+func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter, type2ast *type2ast) (*Method, error) {
 	f, ok := fi.Type.(*ast.FuncType)
 	if !ok {
 		return nil, fmt.Errorf("%q is not a method", name)
 	}
 
-	m := Method{Name: name}
+	m := Method{Name: name, Type2Ast: type2ast}
 	if fi.Doc != nil && len(fi.Doc.List) > 0 {
 		m.Doc = make([]string, 0, len(fi.Doc.List))
 		for _, comment := range fi.Doc.List {
@@ -641,6 +664,8 @@ func NewParam(pkg *packages.Package, file *ast.File, name string, fi *ast.Field,
 		Variadic:     variadic,
 		Type:         typeStr,
 		HasSerialize: !JudgeBuiltInType(Node2String(pkg.Fset, fi.Type)),
+
+		XType: xtype.TypeOf(pkg.TypesInfo.TypeOf(fi.Type)),
 	}
 	if fi.Doc != nil && len(fi.Doc.List) > 0 {
 		p.Doc = make([]string, 0, len(fi.Doc.List))

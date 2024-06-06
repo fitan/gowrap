@@ -474,6 +474,7 @@ func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package) ([]genera
 		}
 
 		options.SourceLoadPkg = sourcePackage
+		options.Type2ast = generator.NewType2Ast(sourcePackage)
 
 		options.SourcePackage = sourcePackage.PkgPath
 		//options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)

@@ -26,9 +26,11 @@ const (
 	BodyTag             string = "body"
 	FileTag             string = "file"
 	CtxTag              string = "ctx"
+	EndpointCtxTag      string = "endpointCtx"
 	FormTag             string = "form"
 
-	DocKitHttpParamMark string = "@kit-http-param"
+	DocKitHttpParamMark     string = "@kit-http-param"
+	DocKitEndpointParamMark string = "@kit-endpoint-param"
 )
 
 type KitRequest struct {
@@ -40,16 +42,19 @@ type KitRequest struct {
 	RequestIsBody bool
 	RequestIsNil  bool
 
-	NamedMap map[string]string
-	RawQuery OrderRequestParamMap
-	Query    OrderRequestParamMap
-	Path     OrderRequestParamMap
-	Body     OrderRequestParamMap
-	File     OrderRequestParamMap
-	Header   OrderRequestParamMap
-	Ctx      OrderRequestParamMap
-	Form     OrderRequestParamMap
-	Empty    OrderRequestParamMap
+	Options Options
+
+	NamedMap    map[string]string
+	RawQuery    OrderRequestParamMap
+	Query       OrderRequestParamMap
+	Path        OrderRequestParamMap
+	Body        OrderRequestParamMap
+	File        OrderRequestParamMap
+	Header      OrderRequestParamMap
+	Ctx         OrderRequestParamMap
+	EndpointCtx OrderRequestParamMap
+	Form        OrderRequestParamMap
+	Empty       OrderRequestParamMap
 }
 
 type OrderRequestParamMap map[string]RequestParam
@@ -68,12 +73,13 @@ func (o OrderRequestParamMap) OrderSlice() (res []RequestParam) {
 	return res
 }
 
-func NewKitRequest(pkg *packages.Package, serviceName, requestName string, requestIsBody bool) *KitRequest {
+func NewKitRequest(pkg *packages.Package, serviceName, requestName string, requestIsBody bool, o Options) *KitRequest {
 	return &KitRequest{
 		pkg:           pkg,
 		ServiceName:   serviceName,
 		RequestName:   requestName,
 		RequestIsBody: requestIsBody,
+		Options:       o,
 		NamedMap:      make(map[string]string),
 		RawQuery:      make(OrderRequestParamMap),
 		Query:         make(OrderRequestParamMap),
@@ -82,6 +88,7 @@ func NewKitRequest(pkg *packages.Package, serviceName, requestName string, reque
 		File:          make(OrderRequestParamMap),
 		Header:        make(OrderRequestParamMap),
 		Ctx:           make(OrderRequestParamMap),
+		EndpointCtx:   make(OrderRequestParamMap),
 		Form:          make(OrderRequestParamMap),
 		Empty:         make(OrderRequestParamMap),
 	}
@@ -213,6 +220,11 @@ func (k *KitRequest) ParamPath(paramName string) (res string) {
 		return param.ParamPath
 	}
 
+	param, ok = k.EndpointCtx[paramName]
+	if ok {
+		return param.ParamPath
+	}
+
 	param, ok = k.Form[paramName]
 	if ok {
 		return param.ParamPath
@@ -244,6 +256,8 @@ func (k *KitRequest) SetParam(param RequestParam) {
 		k.Body[param.ParamName] = param
 	case CtxTag:
 		k.Ctx[param.ParamName] = param
+	case EndpointCtxTag:
+		k.EndpointCtx[param.ParamName] = param
 	case FormTag:
 		k.Form[param.ParamName] = param
 	case FileTag:
@@ -298,7 +312,12 @@ func (k *KitRequest) DecodeRequest() (s string) {
 		listCode = append(listCode, k.BindFormParam()...)
 		listCode = append(listCode, k.BindCtxParam()...)
 		listCode = append(listCode, k.BindRequest()...)
-		listCode = append(listCode, k.Validate()...)
+		parseDoc := (*ParseDoc)(k.Options.InterfaceDoc)
+		if parseDoc.ValidVersion() == "v10" {
+			listCode = append(listCode, k.V10()...)
+		} else {
+			listCode = append(listCode, k.Validate()...)
+		}
 		listCode = append(listCode, jen.Return(jen.Id("req"), jen.Id("err")))
 	} else {
 		listCode = append(listCode, jen.Return(jen.Id("nil"), jen.Id("nil")))
@@ -358,6 +377,19 @@ func (k *KitRequest) Validate() []jen.Code {
 		//	jen.Err().Op("=").Id("fmt.Errorf").Call(jen.Lit("valid false")),
 		//	jen.Return(),
 		//),
+	)
+	return list
+}
+
+func (k *KitRequest) V10() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	list = append(
+		list,
+		jen.List(jen.Id("err")).Op("=").Id("validate").Dot("Struct").Call(jen.Id("req")),
+		jen.If(jen.Err().Op("!=").Nil()).Block(
+			jen.Err().Op("=").Id("encode.InvalidParams.Wrap").Call(jen.Id("err")),
+			jen.Return(),
+		),
 	)
 	return list
 }
@@ -621,6 +653,70 @@ func (k *KitRequest) BindCtxParam() []jen.Code {
 		)
 		list = append(list, ctxVal, varBind, ifBind)
 	}
+	return list
+}
+
+func (k *KitRequest) BindEndpointCtxParam() string {
+	list := make([]jen.Code, 0, 0)
+	list = append(list, k.EndpointCtxDefineVal()...)
+	for _, v := range k.EndpointCtx.OrderSlice() {
+		var ctxKey string
+
+		if v.ParamDoc == nil {
+			panic("ctx param doc is nil")
+		}
+		for _, d := range v.ParamDoc.List {
+			fields := strings.Fields(d.Text)
+			if fields[1] == DocKitEndpointParamMark {
+				if len(fields) < 3 {
+					panic("ctx param doc error: " + d.Text)
+				}
+
+				if fields[2] == "ctx" {
+					ctxKey = fields[3]
+				}
+
+			}
+		}
+		if ctxKey == "" {
+			panic("not find ctx param doc error: " + v.ParamDoc.Text())
+		}
+		ctxVal := jen.Var().Id(v.ParamName + "OK").Bool()
+		varBind := jen.List(jen.Id(v.ParamNameAlias()), jen.Id(v.ParamName+"OK")).Op("=").Id("ctx.Value").Call(jen.Id(ctxKey)).Assert(jen.Id(v.RawParamType))
+		ifBind := jen.If(jen.Id(v.ParamName+"OK")).Op("==").False().Block(
+			jen.Err().Op("=").Id("errors.New").Call(jen.Lit("ctx param "+v.ParamName+" is not found")),
+			jen.Return(),
+		)
+		list = append(list, ctxVal, varBind, ifBind)
+	}
+	list = append(list, k.BindEndpointCtxRequest()...)
+	j := jen.Null()
+	for _, v := range list {
+		j.Add(v, jen.Line())
+	}
+	return j.GoString()
+}
+
+func (k *KitRequest) EndpointCtxDefineVal() []jen.Code {
+	listCode := make([]jen.Code, 0, 0)
+
+	for _, v := range k.EndpointCtx.OrderSlice() {
+		listCode = append(listCode, v.ToVal())
+	}
+	return listCode
+}
+
+func (k *KitRequest) BindEndpointCtxRequest() []jen.Code {
+	list := make([]jen.Code, 0, 0)
+	for _, v := range k.EndpointCtx.OrderSlice() {
+		code := lo.Ternary(v.HasNamed,
+			jen.Call(lo.Ternary(v.HasPtr, jen.Id("*"+v.ParamTypeName), jen.Id(v.ParamTypeName))).Call(jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias())),
+			jen.Id(lo.Ternary(v.HasPtr, "&", "")+v.ParamNameAlias()),
+		)
+		reqBindVal := jen.Id("req").Dot(v.ParamPath).Op("=").Add(code)
+		list = append(list, reqBindVal)
+	}
+
 	return list
 }
 

@@ -84,6 +84,11 @@ func (t *type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype
 						continue
 					}
 
+					if t, ok := CheckTagSwaggertype(tagMap); ok {
+						g.Id(field.Name()).Add(jen.Id(t).Tag(tagMap))
+						continue
+					}
+
 					g.Id(field.Name()).Add(t.xtypeParse(codes, newNames, xtField)).Tag(tagMap)
 				}
 			}))
@@ -122,6 +127,33 @@ func CheckTag(tags map[string]string) bool {
 	return true
 }
 
+func CheckTagSwaggertype(tags map[string]string) (string, bool) {
+	t, ok := tags["swaggertype"]
+	tItem := strings.Split(t, ",")
+	if ok {
+		switch len(tItem) {
+		case 1:
+			switch t {
+			case "string":
+				return "string", true
+			case "integer":
+				return "int", true
+			}
+		case 2:
+			switch tItem[0] {
+			case "array":
+				switch tItem[1] {
+				case "string":
+					return "[]string", true
+				case "integer":
+					return "[]int", true
+				}
+			}
+		}
+	}
+	return t, ok
+}
+
 func (t *type2ast) Parse(xt *xtype.Type, name string) string {
 	fmt.Println(xt.T.String())
 	if _, ok := t.current[name]; ok {
@@ -141,6 +173,12 @@ func (t *type2ast) Parse(xt *xtype.Type, name string) string {
 				if !CheckTag(tagMap) {
 					continue
 				}
+
+				if t, ok := CheckTagSwaggertype(tagMap); ok {
+					g.Id(field.Name()).Add(jen.Id(t).Tag(tagMap))
+					continue
+				}
+
 				names := []string{name, field.Name()}
 				g.Id(field.Name()).Add(t.xtypeParse(&codes, names, xtField)).Tag(tagMap)
 			}

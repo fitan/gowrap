@@ -570,7 +570,7 @@ func (p Param) Pass() string {
 }
 
 // NewMethod returns pointer to Signature struct or error
-func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter, type2ast *type2ast) (*Method, error) {
+func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter, type2ast *type2ast, o Options) (*Method, error) {
 	f, ok := fi.Type.(*ast.FuncType)
 	if !ok {
 		return nil, fmt.Errorf("%q is not a method", name)

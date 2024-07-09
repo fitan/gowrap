@@ -2,19 +2,21 @@ package generator
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"go/ast"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"strings"
+
+	"github.com/pkg/errors"
+	"golang.org/x/tools/go/packages"
 )
 
 const (
-	KitHttp         = "@kit-http"
-	KitService      = "@kit-http-service"
-	kitParam        = "@kit-http-param"
-	KitHttpRequest  = "@kit-http-request"
-	KitHttpResponse = "@kit-http-response"
+	KitHttp          = "@kit-http"
+	KitService       = "@kit-http-service"
+	kitParam         = "@kit-http-param"
+	KitHttpRequest   = "@kit-http-request"
+	KitHttpResponse  = "@kit-http-response"
+	kitEndpointParam = "@kit-endpoint-param"
 )
 
 type KitCommentConf struct {
@@ -60,6 +62,8 @@ func KitComment(comments []*ast.Comment) (kitConf KitCommentConf, err error) {
 				err = errors.Wrap(err, comment.Text)
 				return
 			}
+		case kitEndpointParam:
+			err = (&kitConf).ParamKitParam(fields)
 
 		case KitService:
 			err = (&kitConf).ParamKitService(fields)

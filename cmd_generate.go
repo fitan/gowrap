@@ -4,12 +4,8 @@ import (
 	"embed"
 	"flag"
 	"fmt"
-	"github.com/fitan/genx/common"
-	"github.com/fitan/genx/gen"
-	"github.com/fitan/genx/plugs/enum"
-	"github.com/fitan/genx/plugs/gormq"
-	"github.com/fitan/genx/plugs/mapstruct"
-	"golang.org/x/tools/go/packages"
+	"go/ast"
+	"go/token"
 	"io"
 	"io/ioutil"
 	"log"
@@ -22,6 +18,13 @@ import (
 	"text/template"
 	"time"
 	"unicode"
+
+	"github.com/fitan/genx/common"
+	"github.com/fitan/genx/gen"
+	"github.com/fitan/genx/plugs/enum"
+	"github.com/fitan/genx/plugs/gormq"
+	"github.com/fitan/genx/plugs/mapstruct"
+	"golang.org/x/tools/go/packages"
 
 	"github.com/fitan/gowrap/generator"
 	"github.com/fitan/gowrap/pkg"
@@ -171,11 +174,19 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 	//}
 
 	sourcePackage, err := pkg.Load(gc.sourcePkg, gc.pkgNeedSyntax)
+
 	if err != nil {
 		panic("failed to load source package")
 	}
 
-	ops, err = gc.getOptions(sourcePackage)
+	fs := token.NewFileSet()
+
+	astPkg, err := pkg.AST(fs, sourcePackage)
+	if err != nil {
+		panic(err)
+	}
+
+	ops, err = gc.getOptions(sourcePackage, fs, astPkg)
 	if err != nil {
 		return err
 	}
@@ -427,7 +438,7 @@ func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]
 	return ops, err
 }
 
-func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package) ([]generator.Options, error) {
+func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package, tokenFileSet *token.FileSet, astPkg *ast.Package) ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
 
 	cmdDir, err := os.Getwd()
@@ -473,17 +484,20 @@ func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package) ([]genera
 			gc.sourcePkg = "./"
 		}
 
+		options.AstPackage = astPkg
+		options.TokenFileSet = tokenFileSet
+
 		options.SourceLoadPkg = sourcePackage
 		options.Type2ast = generator.NewType2Ast(sourcePackage)
 
 		options.SourcePackage = sourcePackage.PkgPath
+
 		//options.BodyTemplate, options.HeaderVars["Template"], err = gc.loadTemplate(bodyTemplate, outputFileDir)
 		options.BodyTemplate, options.HeaderVars["Template"], err = gc.embedLoadTemplate(bodyTemplate, outputFileDir)
 		if err != nil {
 			return nil, err
 		}
 		ops = append(ops, options)
-
 	}
 
 	return ops, err

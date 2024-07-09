@@ -38,6 +38,8 @@ func make{{$m.Name}}Endpoint(s Service) endpoint.Endpoint {
 		req := request.({{$m.KitRequest.RequestName}})
 		{{end}}
 
+		{{$m.KitRequest.BindEndpointCtxParam}}
+
 		{{range $v := $m.ResultsExcludeErr}}
 		var {{$v.Name}} {{$v.Type}}
 		{{end}}

@@ -9,11 +9,16 @@
 `"github.com/gorilla/mux"`
 `"github.com/pkg/errors"`
 `"github.com/spf13/cast"`
+`"github.com/go-playground/validator/v10"`
 }}
 
 /*
 {{$.Interface.CEPermissionSql}}
 */
+
+{{if eq $.Interface.ValidVersion "v10"}}
+var validate = validator.New()
+{{end}}
 
 func MakeHTTPHandler(s Service, dmw []endpoint.Middleware, opts []kithttp.ServerOption) http.Handler {
 	var ems []endpoint.Middleware

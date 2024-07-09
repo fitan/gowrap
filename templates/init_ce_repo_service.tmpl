@@ -99,15 +99,9 @@ func (s *service) UpdateWithAssociations(ctx context.Context, uuid string, v typ
 			return err
 		}
 		for key, value := range associations {
-			err = tx.Model(&v).Association(key).Clear()
+			err = tx.Model(&v).Association(key).Replace(value)
 			if err != nil {
-				err = errors.Wrap(err, "clear association failed")
-				return err
-			}
-
-			err = tx.Model(&v).Association(key).Append(value)
-			if err != nil {
-				err = errors.Wrap(err, "append association failed")
+				err = errors.Wrap(err, "replace association failed")
 				return err
 			}
 		}
@@ -148,7 +142,7 @@ func (s *service) CreateWithAssociations(ctx context.Context, v types.{{$.Vars.o
 		for key, value := range associations {
 			err = tx.Model(&v).Association(key).Append(value)
 			if err != nil {
-				err = errors.Wrap(err, "append association failed")
+				err = errors.Wrapf(err, "%s append association failed", key)
 				return err
 			}
 		}

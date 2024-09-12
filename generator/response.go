@@ -11,19 +11,19 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-func NewType2Ast(pkg *packages.Package) *type2ast {
-	return &type2ast{
+func NewType2Ast(pkg *packages.Package) *Type2ast {
+	return &Type2ast{
 		current: make(map[string]struct{}),
 		pkg:     pkg,
 	}
 }
 
-type type2ast struct {
+type Type2ast struct {
 	pkg     *packages.Package
 	current map[string]struct{}
 }
 
-func (t *type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype.Type) *jen.Statement {
+func (t *Type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype.Type) *jen.Statement {
 	if xt.Basic {
 		return jen.Id(xt.BasicType.String())
 	}
@@ -47,6 +47,7 @@ func (t *type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype
 	var typeName string
 
 	if xt.Named {
+		// 说明是go的基本类型
 		if !strings.Contains(xt.T.String(), "/") {
 			return jen.Id(xt.T.String())
 		} else {
@@ -56,7 +57,8 @@ func (t *type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype
 			// typeName = strings.ReplaceAll(lastName, ".", "")
 			// typeName = strings.ReplaceAll(typeName, "_", "")
 			// typeName = strings.ReplaceAll(strings.TrimPrefix(xt.T.String(), t.pkg.PkgPath), ",", "")
-			fmt.Println(xt.T.String())
+			fmt.Println("named:", xt.T.String())
+			fmt.Println("typeName:", typeName)
 			// if !strings.Contains(xt.T.String(), "/") {
 			// 	// spew.Dump(xt.NamedType.Obj())
 			// 	return jen.Id(xt.NamedType.Obj().Pkg().Name()).Dot(xt.NamedType.Obj().Name())
@@ -67,6 +69,7 @@ func (t *type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype
 	if xt.Struct {
 		// structNewName := strings.Join(names, "")
 		if _, ok := t.current[typeName]; !ok {
+			t.current[typeName] = struct{}{}
 			*codes = append(*codes, jen.Type().Id(typeName).StructFunc(func(g *jen.Group) {
 				for i := 0; i < xt.StructType.NumFields(); i++ {
 					var newNames []string
@@ -92,7 +95,6 @@ func (t *type2ast) xtypeParse(codes *[]*jen.Statement, names []string, xt *xtype
 					g.Id(field.Name()).Add(t.xtypeParse(codes, newNames, xtField)).Tag(tagMap)
 				}
 			}))
-			t.current[typeName] = struct{}{}
 		}
 
 		return jen.Id(typeName)
@@ -154,8 +156,7 @@ func CheckTagSwaggertype(tags map[string]string) (string, bool) {
 	return t, ok
 }
 
-func (t *type2ast) Parse(xt *xtype.Type, name string) string {
-	fmt.Println(xt.T.String())
+func (t *Type2ast) Parse(xt *xtype.Type, name string) string {
 	if _, ok := t.current[name]; ok {
 		return ""
 	}

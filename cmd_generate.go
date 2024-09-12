@@ -21,9 +21,15 @@ import (
 
 	"github.com/fitan/genx/common"
 	"github.com/fitan/genx/gen"
+	genxcache "github.com/fitan/genx/plugs/cache"
+	genxcopy "github.com/fitan/genx/plugs/copy"
 	"github.com/fitan/genx/plugs/enum"
 	"github.com/fitan/genx/plugs/gormq"
-	"github.com/fitan/genx/plugs/mapstruct"
+	genxkithttpclient "github.com/fitan/genx/plugs/kithttpclient"
+	genxlog "github.com/fitan/genx/plugs/log"
+	genxotel "github.com/fitan/genx/plugs/otel"
+	"github.com/fitan/genx/plugs/temporal"
+	genxtrace "github.com/fitan/genx/plugs/trace"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/fitan/gowrap/generator"
@@ -186,7 +192,8 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 		panic(err)
 	}
 
-	ops, err = gc.getOptions(sourcePackage, fs, astPkg)
+	type2ast := generator.NewType2Ast(sourcePackage)
+	ops, err = gc.getOptions(sourcePackage, fs, astPkg, type2ast)
 	if err != nil {
 		return err
 	}
@@ -197,8 +204,14 @@ func (gc *GenerateCommand) Run(args []string, stdout io.Writer) error {
 	}
 
 	x.RegTypeSpec(&enum.Plug{})
-	x.RegCall(&mapstruct.Plug{})
+	x.RegCall(&genxcopy.Plug{})
 	x.RegStruct(&gormq.Plug{})
+	x.RegImpl(&temporal.Plug{})
+	x.RegImpl(&genxlog.Plug{})
+	x.RegImpl(&genxtrace.Plug{})
+	x.RegImpl(&genxotel.Plug{})
+	x.RegImpl(&genxkithttpclient.Plug{})
+	x.RegImpl(&genxcache.Plug{})
 
 	x.Gen()
 
@@ -438,7 +451,7 @@ func (gc *GenerateCommand) getComboOptions(initType string, initName string) ([]
 	return ops, err
 }
 
-func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package, tokenFileSet *token.FileSet, astPkg *ast.Package) ([]generator.Options, error) {
+func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package, tokenFileSet *token.FileSet, astPkg *ast.Package, type2ast *generator.Type2ast) ([]generator.Options, error) {
 	ops := make([]generator.Options, 0, 0)
 
 	cmdDir, err := os.Getwd()
@@ -488,7 +501,7 @@ func (gc *GenerateCommand) getOptions(sourcePackage *packages.Package, tokenFile
 		options.TokenFileSet = tokenFileSet
 
 		options.SourceLoadPkg = sourcePackage
-		options.Type2ast = generator.NewType2Ast(sourcePackage)
+		options.Type2ast = type2ast
 
 		options.SourcePackage = sourcePackage.PkgPath
 

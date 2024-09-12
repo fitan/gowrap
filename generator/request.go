@@ -160,7 +160,7 @@ func (r RequestParam) Annotations() string {
 }
 
 func (r RequestParam) ToVal() jen.Code {
-	return jen.Var().Id(r.ParamNameAlias()).Id(r.BasicType)
+	return jen.Var().Id(r.ParamNameAlias()).Id(r.ParamTypeName)
 	// return jen.Var().Id(r.ParamNameAlias()).Id(r.ParamTypeName)
 	//switch r.ParamType {
 	//case "basic":
@@ -1060,7 +1060,10 @@ func UrlValues(paramName, t, paramTypeName string) (res []jen.Code, err error) {
 func CastMap(p *xtype.Type, paramName, t, paramTypeName string, code jen.Code) (res []jen.Code, err error) {
 	slog.Info("t = %s , paramTypeName = %s", t, paramTypeName)
 	if t == "slice" && paramTypeName == "[]string" {
-		res = append(res, jen.Id(paramName).Op("=").Id("strings.Split").Call(code, jen.Lit(",")))
+		res = append(res, jen.Id(paramName+"Str").Op(":=").Add(code))
+		res = append(res, jen.If(jen.Id(paramName+`Str != ""`)).Block(
+			jen.Id(paramName).Op("=").Id("strings.Split").Call(jen.Id(paramName+"Str"), jen.Lit(",")),
+		))
 		return
 	}
 	var m = map[string]string{

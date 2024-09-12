@@ -54,7 +54,7 @@ func TestKitRequest_RequestType(t *testing.T) {
 								// fmt.Println(defT.Underlying().String())
 								// fmt.Println("defT: ", defT.String())
 
-								k := &type2ast{}
+								k := &Type2ast{}
 								// file := jen.NewFile("test").Line()
 								out := k.Parse(xtype.TypeOf(defStruct), "GenStruct")
 								fmt.Println(out)

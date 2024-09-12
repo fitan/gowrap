@@ -22,11 +22,11 @@
 {{$.Interface.ClientInterface}}
 
 type HttpClientService struct {
-    PrePath string
     Option
 }
 
 type Option struct {
+    PrePath string
 	Logger 	 log.Logger
 	Instancer sd.Instancer
 	RetryMax int

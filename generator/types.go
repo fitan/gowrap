@@ -39,7 +39,7 @@ type Method struct {
 	KitRequest       *KitRequest
 	KitRequestDecode string
 
-	Type2Ast *type2ast
+	Type2Ast *Type2ast
 }
 
 func DocFormat(doc string) string {
@@ -281,14 +281,15 @@ func (m Method) ClientFunc(basePath string) string {
 		}
 	}
 
+	urlCode := make([]jen.Code, 0)
 	fmtSprintParam := make([]jen.Code, 0)
 	fmtSprintParam = append(fmtSprintParam, jen.Lit(re.ReplaceAllString(m.RawKit.Conf.Url, "%s")))
 	for _, v := range params {
 		fmtSprintParam = append(fmtSprintParam, jen.Id("req"+m.KitRequest.ParamPath(v)))
 	}
 	if len(params) != 0 {
-		code = append(
-			code,
+		urlCode = append(
+			urlCode,
 			jen.List(jen.Id("urlStr"), jen.Err()).Op(":=").Qual("net/url", "JoinPath").Call(jen.Id("s.PrePath"), jen.Lit(basePath), jen.Id("fmt.Sprintf").Call(
 				fmtSprintParam...,
 			)),
@@ -298,8 +299,8 @@ func (m Method) ClientFunc(basePath string) string {
 			),
 		)
 	} else {
-		code = append(
-			code,
+		urlCode = append(
+			urlCode,
 			jen.List(jen.Id("urlStr"), jen.Err()).Op(":=").Qual("net/url", "JoinPath").Call(jen.Id("s.PrePath"), jen.Lit(basePath), jen.Lit(re.ReplaceAllString(m.RawKit.Conf.Url, "%s"))),
 			jen.If(jen.Err().Op("!=").Nil()).Block(
 				jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("parse prePath %s bathPath %s error: %v"), jen.Id("s.PrePath"), jen.Lit(basePath), jen.Err()),
@@ -308,17 +309,17 @@ func (m Method) ClientFunc(basePath string) string {
 		)
 	}
 
-	code = append(code,
+	urlCode = append(urlCode,
 		jen.List(jen.Id("u"), jen.Err()).Op(":=").Qual("net/url", "Parse").CallFunc(func(group *jen.Group) {
 			if len(queryCode) != 0 {
-				group.Id(`fmt.Sprintf("%s?%s", strings.TrimRight(urlStr, "/"), q.Encode())`)
+				group.Id(`fmt.Sprintf("http://%s/%s?%s", instance,strings.TrimRight(urlStr, "/"), q.Encode())`)
 			} else {
-				group.Id("urlStr")
+				group.Id(`fmt.Sprintf("http://%s/%s", instance,strings.TrimRight(urlStr, "/"))`)
 			}
 		}),
 	)
 
-	code = append(code,
+	urlCode = append(urlCode,
 		jen.If(jen.Err().Op("!=").Nil()).Block(
 			jen.Err().Op("=").Qual("fmt", "Errorf").Call(jen.Lit("parse url %s error: %v"), jen.Id("urlStr"), jen.Err()),
 			jen.Return(),
@@ -349,10 +350,13 @@ func (m Method) ClientFunc(basePath string) string {
 	}
 
 	code = append(code,
-		jen.Id("factory").Op(":=").Id(`func (instance string) (endpoint.Endpoint, io.Closer, error)`).BlockFunc(func(group *jen.Group) {
+		jen.Id("factory").Op(":=").Id(`func (instance string) (ee endpoint.Endpoint,ic io.Closer,err error)`).BlockFunc(func(group *jen.Group) {
+			for _, v := range urlCode {
+				group.Add(v)
+			}
 			group.Return(jen.Id("kithttp.NewClient").Call(jen.Lit(m.RawKit.Conf.UrlMethod), jen.Id("u"), jen.Id(encode), func() jen.Code {
 				if m.HasResultsExcludeErr() {
-					return jen.Id("opt.Decode(res)")
+					return jen.Id("opt.Decode(&res)")
 				}
 				return jen.Id("opt.Decode(nil)")
 			}(),
@@ -570,13 +574,13 @@ func (p Param) Pass() string {
 }
 
 // NewMethod returns pointer to Signature struct or error
-func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter, type2ast *type2ast, o Options) (*Method, error) {
+func NewMethod(pkg *packages.Package, file *ast.File, name string, fi *ast.Field, printer typePrinter, o Options) (*Method, error) {
 	f, ok := fi.Type.(*ast.FuncType)
 	if !ok {
 		return nil, fmt.Errorf("%q is not a method", name)
 	}
 
-	m := Method{Name: name, Type2Ast: type2ast}
+	m := Method{Name: name, Type2Ast: o.Type2ast}
 	if fi.Doc != nil && len(fi.Doc.List) > 0 {
 		m.Doc = make([]string, 0, len(fi.Doc.List))
 		for _, comment := range fi.Doc.List {
